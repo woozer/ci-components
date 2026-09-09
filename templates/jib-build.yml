@@ -1,0 +1,187 @@
+# Build and publish an immutable application image using Jib
+spec:
+  inputs:
+    job-name:
+      description: 'Unique job name within the consuming pipeline'
+      type: 'string'
+      default: 'jib-build'
+    stage:
+      description: 'Stage declared by the consuming pipeline'
+      type: 'string'
+      default: 'package'
+    image:
+      description: 'Approved tool image, pinned by digest'
+      type: 'string'
+    job-timeout:
+      description: 'Maximum GitLab job duration; subject to runner limits'
+      type: 'string'
+      default: '30m'
+    artifact-expire-in:
+      description: 'Retention for this job output variables and artifacts'
+      type: 'string'
+      default: '7 days'
+    working-directory:
+      description: 'Repository-relative working directory'
+      type: 'string'
+      default: '.'
+    output-prefix:
+      description: 'Unique namespace for dotenv outputs'
+      type: 'string'
+      default: 'JIB_BUILD'
+      regex: '^[A-Z][A-Z0-9_]*$'
+    pre-hook:
+      description: 'Optional repository-relative POSIX shell script before operation'
+      type: 'string'
+      default: ''
+    post-hook:
+      description: 'Optional script after success; failure fails the job'
+      type: 'string'
+      default: ''
+    cleanup-hook:
+      description: 'Optional best-effort after_script hook'
+      type: 'string'
+      default: ''
+    hook-parameters-json:
+      description: 'Non-secret JSON configuration provided as CI_MODULE_PARAMETERS_FILE'
+      type: 'string'
+      default: '{}'
+    maven-executable:
+      description: 'Maven executable in the image or wrapper in the working directory'
+      type: string
+      default: ./mvnw
+    project-selector:
+      description: 'Maven project containing the Jib plugin configuration'
+      type: string
+    settings-file:
+      description: 'Maven settings path containing registry server credentials'
+      type: string
+    image-repository:
+      description: 'Destination registry image repository without a tag'
+      type: string
+    image-tag:
+      description: 'Candidate image tag'
+      type: string
+      default: $CI_COMMIT_SHA
+    base-image:
+      description: 'Approved Jib base image pinned by digest'
+      type: string
+    digest-file:
+      description: 'Jib digest output path relative to the working directory'
+      type: string
+      default: target/jib-image.digest
+    allow-insecure-registry:
+      description: 'Allow HTTP registry credentials only for an explicit local lab'
+      type: boolean
+      default: false
+---
+'$[[ inputs.job-name ]]':
+  stage: '$[[ inputs.stage ]]'
+  image:
+    name: '$[[ inputs.image ]]'
+    entrypoint:
+      - ''
+  allow_failure: false
+  timeout: '$[[ inputs.job-timeout ]]'
+  variables:
+    MODULE_WORKDIR: '$[[ inputs.working-directory ]]'
+    MODULE_OUTPUT_PREFIX: '$[[ inputs.output-prefix ]]'
+    MODULE_PRE_HOOK: '$[[ inputs.pre-hook ]]'
+    MODULE_POST_HOOK: '$[[ inputs.post-hook ]]'
+    MODULE_CLEANUP_HOOK: '$[[ inputs.cleanup-hook ]]'
+    MODULE_HOOK_PARAMETERS_JSON: '$[[ inputs.hook-parameters-json ]]'
+    MAVEN_EXECUTABLE: '$[[ inputs.maven-executable ]]'
+    MAVEN_PROJECT_SELECTOR: '$[[ inputs.project-selector ]]'
+    MAVEN_SETTINGS: '$[[ inputs.settings-file ]]'
+    JIB_IMAGE_REPOSITORY: '$[[ inputs.image-repository ]]'
+    JIB_IMAGE_TAG: '$[[ inputs.image-tag ]]'
+    JIB_BASE_IMAGE: '$[[ inputs.base-image ]]'
+    JIB_DIGEST_FILE: '$[[ inputs.digest-file ]]'
+  before_script:
+    - |
+      set -eu
+      cd "$CI_PROJECT_DIR/$MODULE_WORKDIR"
+      export CI_MODULE_OUTPUT_DIR="$CI_PROJECT_DIR/.ci-output/$CI_JOB_NAME"
+      mkdir -p "$CI_MODULE_OUTPUT_DIR"
+      rm -f "$CI_MODULE_OUTPUT_DIR/outputs.env"
+      export CI_MODULE_EXTRA_OUTPUTS="$CI_MODULE_OUTPUT_DIR/custom.env"
+      export CI_MODULE_PARAMETERS_FILE="$CI_MODULE_OUTPUT_DIR/hook-parameters.json"
+      printf '%s\n' "$MODULE_HOOK_PARAMETERS_JSON" > "$CI_MODULE_PARAMETERS_FILE"
+      : > "$CI_MODULE_EXTRA_OUTPUTS"
+      : > "$CI_MODULE_OUTPUT_DIR/pending.env"
+      emit() {
+        emit_newline='
+      '
+        emit_cr=$(printf '\r')
+        case "$2" in
+          ''|*"$emit_newline"*|*"$emit_cr"*|*'${'*)
+            echo "Invalid output value for $1" >&2; return 1 ;;
+        esac
+        printf '%s_%s=%s\n' "$MODULE_OUTPUT_PREFIX" "$1" "$2" >> "$CI_MODULE_OUTPUT_DIR/pending.env"
+      }
+      runtime_input() {
+        printenv "$1" || { echo "Missing upstream output variable $1; add its producer to needs" >&2; return 1; }
+      }
+      image_input() {
+        runtime_ref=$(runtime_input "$1")
+        printf '%s\n' "$runtime_ref" | LC_ALL=C grep -Eq '^.+@sha256:[a-f0-9]{64}$' || {
+          echo "Expected an immutable image digest from $1" >&2; return 1;
+        }
+        printf '%s\n' "$runtime_ref"
+      }
+      if [ -n "$MODULE_PRE_HOOK" ]; then
+        sh "$CI_PROJECT_DIR/$MODULE_PRE_HOOK"
+      fi
+  script:
+    - |
+      printf '%s\n' "$JIB_BASE_IMAGE" | LC_ALL=C grep -Eq '^.+@sha256:[a-f0-9]{64}$'
+      set --
+      if [ '$[[ inputs.allow-insecure-registry ]]' = 'true' ]; then
+        set -- -Djib.allowInsecureRegistries=true -DsendCredentialsOverHttp=true
+      fi
+      "$MAVEN_EXECUTABLE" --batch-mode --no-transfer-progress --settings "$MAVEN_SETTINGS" \
+        -pl "$MAVEN_PROJECT_SELECTOR" compile jib:build "$@" \
+        "-Dcontainer.image=$JIB_IMAGE_REPOSITORY:$JIB_IMAGE_TAG" "-Dcontainer.base-image=$JIB_BASE_IMAGE"
+      digest=$(cat "$JIB_DIGEST_FILE")
+      printf '%s\n' "$digest" | LC_ALL=C grep -Eq '^sha256:[a-f0-9]{64}$'
+      emit IMAGE_REF "$JIB_IMAGE_REPOSITORY@$digest"
+      emit IMAGE_REPOSITORY "$JIB_IMAGE_REPOSITORY"
+      emit IMAGE_DIGEST "$digest"
+    - |
+      if [ -n "$MODULE_POST_HOOK" ]; then
+        sh "$CI_PROJECT_DIR/$MODULE_POST_HOOK"
+      fi
+      emit STATUS passed
+      emit COMMIT_SHA "$CI_COMMIT_SHA"
+      emit PIPELINE_ID "$CI_PIPELINE_ID"
+      # Hook outputs are namespaced and cannot replace built-in output fields.
+      awk -F= -v prefix="${MODULE_OUTPUT_PREFIX}_CUSTOM_" '
+        index($1, prefix) != 1 { exit 1 }
+      ' "$CI_MODULE_EXTRA_OUTPUTS"
+      cat "$CI_MODULE_EXTRA_OUTPUTS" >> "$CI_MODULE_OUTPUT_DIR/pending.env"
+      awk '
+        {
+          p = index($0, "="); key = substr($0, 1, p - 1); value = substr($0, p + 1)
+          if (p < 2 || key !~ /^[A-Z][A-Z0-9_]*$/ || seen[key]++ || value == "" ||
+              value ~ /^[[:space:]]/ || value ~ /[[:space:]]$/ || value ~ /\r/ ||
+              index(value, "${")) exit 1
+        }
+      ' "$CI_MODULE_OUTPUT_DIR/pending.env"
+      test "$(wc -c < "$CI_MODULE_OUTPUT_DIR/pending.env")" -le 5120
+      mv "$CI_MODULE_OUTPUT_DIR/pending.env" "$CI_MODULE_OUTPUT_DIR/outputs.env"
+  after_script:
+    - |
+      set -eu
+      cd "$CI_PROJECT_DIR/$MODULE_WORKDIR"
+      export CI_MODULE_OUTPUT_DIR="$CI_PROJECT_DIR/.ci-output/$CI_JOB_NAME"
+      export CI_MODULE_EXTRA_OUTPUTS="$CI_MODULE_OUTPUT_DIR/custom.env"
+      export CI_MODULE_PARAMETERS_FILE="$CI_MODULE_OUTPUT_DIR/hook-parameters.json"
+      if [ -n "$MODULE_CLEANUP_HOOK" ]; then
+        sh "$CI_PROJECT_DIR/$MODULE_CLEANUP_HOOK"
+      fi
+  artifacts:
+    when: 'always'
+    expire_in: '$[[ inputs.artifact-expire-in ]]'
+    paths:
+      - '.ci-output/$CI_JOB_NAME/'
+    reports:
+      dotenv: '.ci-output/$CI_JOB_NAME/outputs.env'

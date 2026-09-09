@@ -1,0 +1,107 @@
+# Copy to the application's .gitlab-ci.yml and configure docs/setup.md.
+# This full delivery example runs on the protected default branch.
+# Add an MR pipeline for builds/tests/scans using appropriately scoped credentials.
+workflow:
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_REF_PROTECTED == "true"'
+    - when: never
+
+stages: [build, test, analyze, gate, package, supply-chain, sign, verify, deploy-test, integration, deploy-production]
+
+include:
+  - project: platform/ci-components
+    ref: REPLACE_WITH_COMMIT_SHA
+    file: /profiles/organization.yml
+    inputs:
+      maven-directory: backend
+      npm-directory: frontend
+      production-namespace: application-production
+      test-url: https://$CI_PROJECT_ID-$CI_PIPELINE_ID.test.example.com
+      production-url: https://application.example.com
+      # Optional profile overrides, for example:
+      # maven-build-image: registry.example.com/ci/maven@sha256:REPLACE_WITH_DIGEST
+      # artifact-expire-in: 30 days
+
+# The application pipeline owns orchestration. Every needs edge below is required.
+maven-test:
+  needs:
+    - job: maven-build
+      artifacts: true
+npm-test:
+  needs:
+    - job: npm-build
+      artifacts: false
+sonar-scan:
+  needs:
+    - job: maven-build
+      artifacts: true
+    - job: maven-test
+      artifacts: true
+    - job: npm-test
+      artifacts: true
+sonar-gate:
+  needs:
+    - job: sonar-scan
+      artifacts: true
+fortify-gate:
+  needs:
+    - job: fortify-scan
+      artifacts: true
+image-build:
+  needs:
+    - job: maven-build
+      artifacts: true
+    - job: npm-build
+      artifacts: true
+    - job: sonar-gate
+      artifacts: false
+    - job: fortify-gate
+      artifacts: false
+    - job: dependency-check
+      artifacts: false
+    - job: npm-audit
+      artifacts: false
+image-scan:
+  needs:
+    - job: image-build
+      artifacts: true
+sbom:
+  needs:
+    - job: image-build
+      artifacts: true
+image-sign:
+  needs:
+    - job: image-build
+      artifacts: true
+    - job: image-scan
+      artifacts: false
+    - job: sbom
+      artifacts: true
+image-verify:
+  needs:
+    - job: image-sign
+      artifacts: true
+deploy-test:
+  needs:
+    - job: image-verify
+      artifacts: true
+cucumber-test:
+  needs:
+    - job: deploy-test
+      artifacts: true
+zap-baseline:
+  needs:
+    - job: deploy-test
+      artifacts: true
+deploy-production:
+  when: manual
+  allow_failure: false
+  needs:
+    - job: deploy-test
+      artifacts: true
+    - job: cucumber-test
+      artifacts: false
+    - job: zap-baseline
+      artifacts: false
+  # Configure authorized deployers and approvals on this protected environment.
+  # Admission policy must verify image signatures at deployment time.

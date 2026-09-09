@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.ci-output/
+.ci-tmp/
+.tools/
+# Separate application repository and private local infrastructure configuration.
+/java/
+/infra/

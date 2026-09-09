@@ -1,0 +1,11 @@
+# Configure CI_VALIDATION_IMAGE to a digest-pinned image with Python 3 and Ruby.
+stages: [test]
+
+validate-components:
+  stage: test
+  tags: [local-docker]
+  image:
+    name: $CI_VALIDATION_IMAGE
+    entrypoint: [""]
+  script:
+    - python3 tests/test_contracts.py

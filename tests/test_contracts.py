@@ -1,0 +1,416 @@
+#!/usr/bin/env python3
+"""Validate YAML and exercise the contract without network or real scanners."""
+import copy
+import io
+import json
+import os
+from pathlib import Path
+import re
+import subprocess
+import tempfile
+import unittest
+from unittest import mock
+from urllib.parse import parse_qs, urlsplit
+
+ROOT = Path(__file__).resolve().parents[1]
+RUBY_YAML = 'require "yaml"; require "json"; puts JSON.generate(ARGV.to_h { |p| [p, YAML.load_stream(File.read(p))] })'
+FILES = sorted(ROOT.glob("templates/*.yml")) + sorted(ROOT.glob("profiles/*.yml")) + [ROOT / "examples/application.gitlab-ci.yml", ROOT / ".gitlab-ci.yml"]
+PARSED = json.loads(subprocess.check_output(["ruby", "-e", RUBY_YAML, *map(str, FILES)], text=True))
+COMPONENTS = {path.stem: PARSED[str(path)] for path in FILES if path.parent.name == "templates"}
+
+
+def interpolate(documents, overrides=None):
+    """Small fixture expander; GitLab CI Lint remains the authoritative validator."""
+    header, body = copy.deepcopy(documents)
+    inputs = {key: spec.get("default", "test-value") for key, spec in header["spec"]["inputs"].items()}
+    assert not (set(overrides or {}) - inputs.keys()), "Unknown input"
+    inputs.update(overrides or {})
+    def substitute(value):
+        if isinstance(value, dict):
+            return {substitute(key): substitute(item) for key, item in value.items()}
+        if isinstance(value, list):
+            return [substitute(item) for item in value]
+        if isinstance(value, str):
+            whole = re.fullmatch(r"\$\[\[ inputs\.([a-z-]+) \]\]", value)
+            if whole:
+                return inputs[whole[1]]
+            return re.sub(r"\$\[\[ inputs\.([a-z-]+) \]\]",
+                          lambda match: str(inputs[match[1]]).lower() if isinstance(inputs[match[1]], bool)
+                          else str(inputs[match[1]]), value)
+        return value
+    return substitute(body)
+
+
+def render(name, overrides=None):
+    return next(iter(interpolate(COMPONENTS[name], overrides).items()))
+
+
+def profile_includes(overrides=None):
+    return interpolate(PARSED[str(ROOT / "profiles/organization.yml")], overrides)["include"]
+
+
+class Harness:
+    def __init__(self, root, name="maven-build", inputs=None, env=None):
+        self.root = root
+        self.name, self.job = render(name, inputs)
+        self.env = {**os.environ, **{k: str(v) for k, v in self.job["variables"].items()},
+                    "CI_PROJECT_DIR": str(root), "CI_JOB_NAME": self.name,
+                    "CI_JOB_ID": "42", "CI_COMMIT_SHA": "a" * 40,
+                    "CI_COMMIT_SHORT_SHA": "a" * 8, "CI_PIPELINE_ID": "99"}
+        self.env.update(env or {})
+        self.env["PATH"] = str(root / "bin") + os.pathsep + self.env["PATH"]
+        (root / "bin").mkdir(exist_ok=True)
+        self.write("mvnw", '#!/bin/sh\nprintf "core\\n" >> "$CI_PROJECT_DIR/events"\nexit "${FAKE_MAVEN_EXIT:-0}"\n')
+
+    def write(self, path, content):
+        target = self.root / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content)
+        target.chmod(0o755)
+        return target
+
+    def hook(self, kind, content):
+        path = "hooks/" + kind + ".sh"
+        self.write(path, "#!/bin/sh\nset -eu\n" + content + "\n")
+        self.env["MODULE_" + kind.upper() + "_HOOK"] = path
+
+    def run(self):
+        main = "\n".join(self.job["before_script"] + self.job["script"])
+        result = subprocess.run(["sh", "-c", main], cwd=self.root, env=self.env, capture_output=True, text=True)
+        cleanup_env = {**self.env, "CI_JOB_STATUS": "success" if result.returncode == 0 else "failed"}
+        self.cleanup = subprocess.run(["sh", "-c", "\n".join(self.job["after_script"])], cwd=self.root,
+                                      env=cleanup_env, capture_output=True, text=True)
+        return result
+
+    @property
+    def output_file(self):
+        return self.root / ".ci-output" / self.name / "outputs.env"
+
+    def outputs(self):
+        return dict(line.split("=", 1) for line in self.output_file.read_text().splitlines())
+
+    def events(self):
+        path = self.root / "events"
+        return path.read_text().splitlines() if path.exists() else []
+
+
+class ComponentContractTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+
+    def test_every_component_is_one_job_with_an_explicit_image_and_output_contract(self):
+        self.assertEqual(22, len(COMPONENTS))
+        for name, (header, body) in COMPONENTS.items():
+            with self.subTest(name=name):
+                self.assertEqual(1, len(body))
+                self.assertNotIn("default", header["spec"]["inputs"]["image"])
+                _, job = render(name)
+                self.assertFalse(job["allow_failure"])
+                self.assertIn("dotenv", job["artifacts"]["reports"])
+                for phase in ("before_script", "script", "after_script"):
+                    result = subprocess.run(["sh", "-n"], input="\n".join(job[phase]), capture_output=True, text=True)
+                    self.assertEqual(0, result.returncode, result.stderr)
+                for script in job["script"]:
+                    for code in re.findall(r"python3 - <<'PY'\n(.*?)\nPY", script, re.S):
+                        compile(code, name, "exec")
+
+    def test_hooks_order_and_custom_output_handoff(self):
+        h = Harness(self.root, inputs={"output-prefix": "SERVICE_A"})
+        h.hook("pre", 'printf "pre\\n" >> "$CI_PROJECT_DIR/events"')
+        h.hook("post", 'printf "post\\n" >> "$CI_PROJECT_DIR/events"\nprintf "SERVICE_A_CUSTOM_VERSION=1.2.3\\n" >> "$CI_MODULE_EXTRA_OUTPUTS"')
+        h.hook("cleanup", 'printf "cleanup\\n" >> "$CI_PROJECT_DIR/events"')
+        result = h.run()
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertEqual(["pre", "core", "post", "cleanup"], h.events())
+        values = h.outputs()
+        self.assertEqual("1.2.3", values["SERVICE_A_CUSTOM_VERSION"])
+        self.assertEqual("passed", values["SERVICE_A_STATUS"])
+        downstream = subprocess.check_output(["sh", "-c", 'printf "%s" "$SERVICE_A_CUSTOM_VERSION"'],
+                                             env={**os.environ, **values}, text=True)
+        self.assertEqual("1.2.3", downstream)
+
+    def test_build_can_use_maven_installed_in_the_image(self):
+        h = Harness(self.root, inputs={"maven-executable": "mvn"})
+        h.write("bin/mvn", '#!/bin/sh\nprintf "installed-maven\\n" >> "$CI_PROJECT_DIR/events"\n')
+        self.assertEqual(0, h.run().returncode)
+        self.assertEqual(["installed-maven"], h.events())
+
+    def test_cucumber_can_start_its_own_application_without_an_upstream_url(self):
+        h = Harness(self.root, "cucumber-test", inputs={"profile": "", "target-url-variable": ""})
+        h.write("mvnw", '#!/bin/sh\nprintf "%s\\n" "$@" > "$CI_PROJECT_DIR/maven-args"\n')
+        result = h.run()
+        self.assertEqual(0, result.returncode, result.stderr)
+        args = (self.root / "maven-args").read_text().splitlines()
+        self.assertIn("verify", args)
+        self.assertFalse(any(arg.startswith("-P") or arg.startswith("-Dcucumber.base-url=") for arg in args))
+        self.assertNotIn("CUCUMBER_TEST_TARGET_URL", h.outputs())
+
+    def test_jib_publishes_only_a_valid_immutable_image_reference(self):
+        h = Harness(self.root, "jib-build", inputs={"image-repository": "registry.example/app",
+                    "base-image": "registry.example/java@sha256:" + "a" * 64,
+                    "allow-insecure-registry": True})
+        h.write("mvnw", '#!/bin/sh\nprintf "%s\\n" "$@" > "$CI_PROJECT_DIR/maven-args"\n')
+        h.write("target/jib-image.digest", "sha256:" + "c" * 64 + "\n")
+        self.assertEqual(0, h.run().returncode)
+        self.assertEqual("registry.example/app@sha256:" + "c" * 64, h.outputs()["JIB_BUILD_IMAGE_REF"])
+        self.assertIn("-DsendCredentialsOverHttp=true", (self.root / "maven-args").read_text())
+        h.write("target/jib-image.digest", "latest\n")
+        self.assertNotEqual(0, h.run().returncode)
+        self.assertFalse(h.output_file.exists())
+
+    def test_failed_chart_publication_emits_no_success_outputs(self):
+        h = Harness(self.root, "helm-publish")
+        h.write("bin/helm", '#!/bin/sh\nif [ "$1" = push ]; then exit 12; fi\n')
+        self.assertEqual(12, h.run().returncode)
+        self.assertFalse(h.output_file.exists())
+
+    def test_maven_publication_preserves_repository_arguments_and_outputs(self):
+        h = Harness(self.root, "maven-publish", inputs={"project-selector": "hello-app",
+                    "settings-file": "settings file.xml", "repository-id": "gitlab-maven",
+                    "repository-url": "https://gitlab.example/packages/maven"})
+        h.write("mvnw", '#!/bin/sh\nprintf "%s\\n" "$@" > "$CI_PROJECT_DIR/maven-args"\n')
+        result = h.run()
+        self.assertEqual(0, result.returncode, result.stderr)
+        args = (self.root / "maven-args").read_text().splitlines()
+        self.assertIn("settings file.xml", args)
+        self.assertIn("-DaltDeploymentRepository=gitlab-maven::https://gitlab.example/packages/maven", args)
+        self.assertEqual("https://gitlab.example/packages/maven", h.outputs()["MAVEN_PUBLISH_REPOSITORY_URL"])
+
+    def test_oci_deployment_uses_published_version_and_scoped_kubeconfig(self):
+        h = Harness(self.root, "helm-deploy", inputs={"chart-variable": "CHART_REF",
+                    "chart-version-variable": "CHART_VERSION", "kubeconfig-variable": "LOCAL_KUBECONFIG",
+                    "create-namespace": False, "plain-http": True},
+                    env={"IMAGE_VERIFY_IMAGE_REF": "registry.example/app@sha256:" + "d" * 64,
+                         "CHART_REF": "oci://registry.example/charts/app", "CHART_VERSION": "1.2.3",
+                         "LOCAL_KUBECONFIG": str(self.root / "kubeconfig")})
+        h.write("kubeconfig", "test configuration")
+        h.write("bin/helm", '#!/bin/sh\nprintf "%s\\n" "$@" > "$CI_PROJECT_DIR/helm-args"\n')
+        result = h.run()
+        self.assertEqual(0, result.returncode, result.stderr)
+        args = (self.root / "helm-args").read_text().splitlines()
+        self.assertEqual("upgrade", args[0])
+        self.assertIn("1.2.3", args)
+        self.assertIn("--plain-http", args)
+        self.assertIn(str(self.root / "kubeconfig"), args)
+        self.assertNotIn("--create-namespace", args)
+
+    def test_pre_failure_prevents_operation_and_outputs(self):
+        h = Harness(self.root)
+        h.hook("pre", "exit 4")
+        h.hook("cleanup", 'printf "cleanup\\n" >> "$CI_PROJECT_DIR/events"')
+        self.assertNotEqual(0, h.run().returncode)
+        self.assertEqual(["cleanup"], h.events())
+        self.assertFalse(h.output_file.exists())
+
+    def test_operation_failure_skips_post_but_runs_cleanup(self):
+        h = Harness(self.root, env={"FAKE_MAVEN_EXIT": "7"})
+        h.hook("post", 'printf "post\\n" >> "$CI_PROJECT_DIR/events"')
+        h.hook("cleanup", 'printf "cleanup\\n" >> "$CI_PROJECT_DIR/events"')
+        self.assertEqual(7, h.run().returncode)
+        self.assertEqual(["core", "cleanup"], h.events())
+        self.assertFalse(h.output_file.exists())
+
+    def test_post_failure_prevents_success_outputs(self):
+        h = Harness(self.root)
+        h.hook("post", "exit 8")
+        self.assertEqual(8, h.run().returncode)
+        self.assertFalse(h.output_file.exists())
+
+    def test_cleanup_failure_does_not_change_operation_exit_status(self):
+        h = Harness(self.root)
+        h.hook("cleanup", "exit 9")
+        self.assertEqual(0, h.run().returncode)
+        self.assertEqual(9, h.cleanup.returncode)
+        self.assertEqual("passed", h.outputs()["MAVEN_BUILD_STATUS"])
+
+    def test_duplicate_custom_outputs_are_rejected(self):
+        h = Harness(self.root)
+        h.hook("post", 'printf "MAVEN_BUILD_CUSTOM_A=one\\nMAVEN_BUILD_CUSTOM_A=two\\n" > "$CI_MODULE_EXTRA_OUTPUTS"')
+        self.assertNotEqual(0, h.run().returncode)
+        self.assertFalse(h.output_file.exists())
+
+    def test_custom_hook_cannot_replace_builtin_output(self):
+        h = Harness(self.root)
+        h.hook("post", 'printf "MAVEN_BUILD_STATUS=passed\\n" > "$CI_MODULE_EXTRA_OUTPUTS"')
+        self.assertNotEqual(0, h.run().returncode)
+        self.assertFalse(h.output_file.exists())
+
+    def test_missing_output_and_mutable_image_tag_are_rejected(self):
+        for value in (None, "registry.example.com/app:latest"):
+            with self.subTest(value=value):
+                env = {"COSIGN_PUBLIC_KEY": "approved.pub"}
+                if value:
+                    env["IMAGE_SIGN_IMAGE_REF"] = value
+                h = Harness(self.root, "image-verify", env=env)
+                h.write("bin/cosign", "#!/bin/sh\nexit 0\n")
+                self.assertNotEqual(0, h.run().returncode)
+                self.assertFalse(h.output_file.exists())
+
+    def test_deployment_passes_same_digest_and_url_to_next_stage(self):
+        image_ref = "registry.example.com/app@sha256:" + "b" * 64
+        h = Harness(self.root, "helm-deploy", inputs={"chart": "helm/app", "values-file": "helm/test.yaml",
+                    "namespace": "pipeline-99", "release": "app", "environment": "test/99",
+                    "target-url": "https://99.test.example.com", "output-prefix": "TEST_DEPLOY"},
+                    env={"IMAGE_VERIFY_IMAGE_REF": image_ref, "KUBE_CONTEXT": "test-agent"})
+        h.write("bin/kubectl", '#!/bin/sh\nprintf "%s\\n" "$@" >> "$CI_PROJECT_DIR/kube-args"\n')
+        h.write("bin/helm", '#!/bin/sh\nprintf "%s\\n" "$@" >> "$CI_PROJECT_DIR/helm-args"\n')
+        result = h.run()
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertEqual(image_ref, h.outputs()["TEST_DEPLOY_IMAGE_REF"])
+        self.assertEqual("https://99.test.example.com", h.outputs()["TEST_DEPLOY_URL"])
+        self.assertIn("--rollback-on-failure", (self.root / "helm-args").read_text())
+        self.assertIn("image.digest=sha256:" + "b" * 64, (self.root / "helm-args").read_text())
+
+    def test_wrong_fortify_scan_receipt_is_rejected_before_policy_adapter(self):
+        (self.root / "scan.json").write_text(json.dumps({"commit_sha": "wrong", "pipeline_id": "99",
+                                                       "status": "completed", "scan_id": "scan-1"}))
+        h = Harness(self.root, "fortify-gate", inputs={"adapter": "gate.sh"}, env={"FORTIFY_SCAN_RECEIPT": "scan.json"})
+        h.write("gate.sh", '#!/bin/sh\nprintf "gate\\n" >> "$CI_PROJECT_DIR/events"\n')
+        self.assertNotEqual(0, h.run().returncode)
+        self.assertEqual([], h.events())
+        self.assertFalse(h.output_file.exists())
+
+    def test_handoff_passes_parameters_and_replacement_work(self):
+        h = Harness(self.root, "handoff", inputs={"hook": "handoff.sh", "work-variable": "UPSTREAM_VALUE",
+                    "hook-parameters-json": '{"label":"release"}'}, env={"UPSTREAM_VALUE": "original"})
+        h.write("handoff.sh", '#!/bin/sh\nset -eu\ncp "$CI_MODULE_PARAMETERS_FILE" "$CI_PROJECT_DIR/received.json"\n"$CI_HOOK_NEXT" "replacement"\n')
+        result = h.run()
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertEqual({"label": "release"}, json.loads((self.root / "received.json").read_text()))
+        self.assertEqual("replacement", h.outputs()["HANDOFF_WORK_VALUE"])
+        self.assertEqual("true", h.outputs()["HANDOFF_NEXT_CALLED"])
+
+    def test_handoff_without_next_blocks(self):
+        h = Harness(self.root, "handoff", inputs={"hook": "handoff.sh", "work-variable": "UPSTREAM_VALUE"},
+                    env={"UPSTREAM_VALUE": "original"})
+        h.write("handoff.sh", "#!/bin/sh\nexit 0\n")
+        self.assertNotEqual(0, h.run().returncode)
+        self.assertFalse(h.output_file.exists())
+
+    def test_handoff_failure_after_next_still_blocks(self):
+        h = Harness(self.root, "handoff", inputs={"hook": "handoff.sh", "work-variable": "UPSTREAM_VALUE"},
+                    env={"UPSTREAM_VALUE": "original"})
+        h.write("handoff.sh", '#!/bin/sh\nset -eu\n"$CI_HOOK_NEXT"\nexit 3\n')
+        self.assertEqual(3, h.run().returncode)
+        self.assertFalse(h.output_file.exists())
+
+    def test_handoff_duplicate_next_blocks(self):
+        h = Harness(self.root, "handoff", inputs={"hook": "handoff.sh", "work-variable": "UPSTREAM_VALUE"},
+                    env={"UPSTREAM_VALUE": "original"})
+        h.write("handoff.sh", '#!/bin/sh\nset -eu\n"$CI_HOOK_NEXT"\n"$CI_HOOK_NEXT"\n')
+        self.assertNotEqual(0, h.run().returncode)
+        self.assertFalse(h.output_file.exists())
+
+    def test_example_production_depends_on_all_required_checks(self):
+        example = PARSED[str(ROOT / "examples/application.gitlab-ci.yml")][0]
+        profile = example["include"][0]
+        self.assertEqual("/profiles/organization.yml", profile["file"])
+        required = {key for key, spec in PARSED[str(ROOT / "profiles/organization.yml")][0]["spec"]["inputs"].items()
+                    if "default" not in spec}
+        self.assertTrue(required <= profile["inputs"].keys())
+        includes = {}
+        prefixes = set()
+        for item in profile_includes(profile["inputs"]):
+            component = Path(item["local"]).stem
+            name, job = render(component, item["inputs"])
+            self.assertNotIn(name, includes)
+            includes[name] = job
+            prefix = job["variables"]["MODULE_OUTPUT_PREFIX"]
+            self.assertNotIn(prefix, prefixes)
+            prefixes.add(prefix)
+            self.assertIn(job["stage"], example["stages"])
+            required = {key for key, spec in COMPONENTS[component][0]["spec"]["inputs"].items() if "default" not in spec}
+            self.assertTrue(required <= item["inputs"].keys())
+        def ancestors(name, visiting=None):
+            visiting = set(visiting or ())
+            self.assertNotIn(name, visiting, "Dependency cycle")
+            visiting.add(name)
+            result = set()
+            for edge in example.get(name, {}).get("needs", []):
+                self.assertFalse(edge.get("optional", False))
+                self.assertIn(edge["job"], includes)
+                result.add(edge["job"])
+                result |= ancestors(edge["job"], visiting)
+            return result
+        self.assertEqual(set(includes) - {"deploy-production"}, ancestors("deploy-production"))
+        self.assertFalse(example["deploy-production"]["allow_failure"])
+        self.assertEqual("manual", example["deploy-production"]["when"])
+
+    def test_modules_keep_standalone_defaults_and_accept_explicit_overrides(self):
+        for component in COMPONENTS:
+            with self.subTest(component=component):
+                _, default = render(component)
+                self.assertEqual({"dependency-check": "1h", "fortify-scan": "2h"}.get(component, "30m"), default["timeout"])
+                self.assertEqual("7 days", default["artifacts"]["expire_in"])
+                _, changed = render(component, {"job-timeout": "45m", "artifact-expire-in": "30 days"})
+                self.assertEqual("45m", changed["timeout"])
+                self.assertEqual("30 days", changed["artifacts"]["expire_in"])
+
+    def test_profile_passes_overrides_without_affecting_other_images_or_owning_order(self):
+        image_ref = "registry.example.com/maven@sha256:" + "a" * 64
+        jobs = dict(render(Path(item["local"]).stem, item["inputs"]) for item in profile_includes({
+            "maven-build-image": image_ref, "maven-directory": "service", "npm-directory": "web",
+            "job-timeout": "45m", "artifact-expire-in": "30 days", "dependency-check-fail-cvss": 9,
+        }))
+        self.assertEqual(19, len(jobs))
+        self.assertEqual(image_ref, jobs["maven-build"]["image"]["name"])
+        self.assertEqual("$MAVEN_TEST_IMAGE", jobs["maven-test"]["image"]["name"])
+        self.assertEqual("$NPM_BUILD_IMAGE", jobs["npm-build"]["image"]["name"])
+        self.assertEqual("service", jobs["maven-test"]["variables"]["MODULE_WORKDIR"])
+        self.assertEqual("web", jobs["npm-test"]["variables"]["MODULE_WORKDIR"])
+        self.assertEqual("45m", jobs["maven-build"]["timeout"])
+        self.assertEqual("1h", jobs["dependency-check"]["timeout"])
+        self.assertEqual("2h", jobs["fortify-scan"]["timeout"])
+        self.assertEqual(9, next(item["inputs"]["fail-cvss"] for item in profile_includes({"dependency-check-fail-cvss": 9})
+                                 if item["local"] == "/templates/dependency-check.yml"))
+        self.assertEqual({"include"}, set(PARSED[str(ROOT / "profiles/organization.yml")][1]))
+        for job in jobs.values():
+            self.assertNotIn("needs", job)
+            self.assertEqual("30 days", job["artifacts"]["expire_in"])
+
+
+class SonarGateTests(unittest.TestCase):
+    def run_gate(self, responses):
+        _, job = render("sonar-gate")
+        code = re.search(r"python3 - <<'PY'\n(.*?)\nPY", job["script"][0], re.S)[1]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "task.txt").write_text("ceTaskId=task-for-this-pipeline\n")
+            env = {"CI_PROJECT_DIR": directory, "CI_MODULE_OUTPUT_DIR": directory,
+                   "SONAR_TASK_FILE": "task.txt", "SONAR_HOST_URL": "https://sonar.example.com",
+                   "SONAR_TOKEN": "test-only-token", "SONAR_GATE_TIMEOUT": "60"}
+            requests = []
+            queued = iter(responses)
+            class Opener:
+                def open(self, request, timeout):
+                    requests.append(request.full_url)
+                    return io.BytesIO(json.dumps(next(queued)).encode())
+            with mock.patch.dict(os.environ, env), mock.patch("urllib.request.build_opener", return_value=Opener()), mock.patch("time.sleep"):
+                exec(compile(code, "sonar-gate", "exec"), {})
+            return requests
+
+    def test_polls_submitted_task_and_checks_its_analysis_id(self):
+        urls = self.run_gate([{"task": {"status": "PENDING"}},
+                              {"task": {"status": "SUCCESS", "analysisId": "exact-analysis"}},
+                              {"projectStatus": {"status": "OK"}}])
+        self.assertEqual({"id": ["task-for-this-pipeline"]}, parse_qs(urlsplit(urls[0]).query))
+        self.assertEqual({"analysisId": ["exact-analysis"]}, parse_qs(urlsplit(urls[-1]).query))
+
+    def test_red_quality_gate_fails(self):
+        with self.assertRaises(SystemExit):
+            self.run_gate([{"task": {"status": "SUCCESS", "analysisId": "exact-analysis"}},
+                           {"projectStatus": {"status": "ERROR"}}])
+
+    def test_failed_analysis_fails(self):
+        with self.assertRaises(SystemExit):
+            self.run_gate([{"task": {"status": "FAILED"}}])
+
+    def test_missing_gate_result_fails(self):
+        with self.assertRaises(KeyError):
+            self.run_gate([{"task": {"status": "SUCCESS", "analysisId": "exact-analysis"}}, {}])
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)

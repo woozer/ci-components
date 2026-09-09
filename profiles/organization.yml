@@ -1,0 +1,272 @@
+# Optional organization defaults for the Maven + npm + Kubernetes baseline.
+# This is ordinary GitLab CI configuration. Applications own stages and needs.
+# Image defaults refer to organization CI variables; replace them with approved
+# digest-pinned image references here when maintaining a fixed image catalogue.
+spec:
+  inputs:
+    maven-directory:
+      type: string
+      default: backend
+    npm-directory:
+      type: string
+      default: frontend
+    chart:
+      type: string
+      default: helm/application
+    test-values-file:
+      type: string
+      default: helm/application/values-test.yaml
+    production-values-file:
+      type: string
+      default: helm/application/values-production.yaml
+    release:
+      type: string
+      default: application
+    test-namespace:
+      type: string
+      default: ci-$CI_PROJECT_ID-$CI_PIPELINE_ID
+    production-namespace:
+      type: string
+      description: Namespace authorized for production deployment
+    test-url:
+      type: string
+      description: URL matching the test chart's ingress configuration
+    production-url:
+      type: string
+      description: URL matching the production chart's ingress configuration
+    job-timeout:
+      type: string
+      default: 30m
+    dependency-check-job-timeout:
+      type: string
+      default: 1h
+    fortify-scan-job-timeout:
+      type: string
+      default: 2h
+    artifact-expire-in:
+      type: string
+      default: 7 days
+    dependency-check-fail-cvss:
+      type: number
+      default: 7
+    npm-audit-level:
+      type: string
+      default: high
+      options: [low, moderate, high, critical]
+    helm-major:
+      type: number
+      default: 4
+      options: [3, 4]
+    maven-build-image:
+      type: string
+      default: $MAVEN_BUILD_IMAGE
+    maven-test-image:
+      type: string
+      default: $MAVEN_TEST_IMAGE
+    npm-build-image:
+      type: string
+      default: $NPM_BUILD_IMAGE
+    npm-test-image:
+      type: string
+      default: $NPM_TEST_IMAGE
+    sonar-scanner-image:
+      type: string
+      default: $SONAR_SCANNER_IMAGE
+    sonar-gate-image:
+      type: string
+      default: $SONAR_GATE_IMAGE
+    dependency-check-image:
+      type: string
+      default: $DEPENDENCY_CHECK_IMAGE
+    npm-audit-image:
+      type: string
+      default: $NPM_AUDIT_IMAGE
+    fortify-scan-image:
+      type: string
+      default: $FORTIFY_SCAN_IMAGE
+    fortify-gate-image:
+      type: string
+      default: $FORTIFY_GATE_IMAGE
+    image-build-image:
+      type: string
+      default: $IMAGE_BUILD_IMAGE
+    image-scan-image:
+      type: string
+      default: $IMAGE_SCAN_IMAGE
+    sbom-image:
+      type: string
+      default: $SBOM_IMAGE
+    image-sign-image:
+      type: string
+      default: $IMAGE_SIGN_IMAGE
+    image-verify-image:
+      type: string
+      default: $IMAGE_VERIFY_IMAGE
+    helm-test-image:
+      type: string
+      default: $HELM_TEST_IMAGE
+    helm-production-image:
+      type: string
+      default: $HELM_PRODUCTION_IMAGE
+    cucumber-image:
+      type: string
+      default: $CUCUMBER_IMAGE
+    zap-image:
+      type: string
+      default: $ZAP_IMAGE
+    sonar-maven-plugin-version:
+      type: string
+      default: $SONAR_MAVEN_PLUGIN_VERSION
+    dependency-check-plugin-version:
+      type: string
+      default: $DEPENDENCY_CHECK_PLUGIN_VERSION
+    fortify-scan-adapter:
+      type: string
+      default: ci/fortify/scan.sh
+    fortify-gate-adapter:
+      type: string
+      default: ci/fortify/gate.sh
+    zap-rules-file:
+      type: string
+      default: ci/zap/rules.tsv
+---
+include:
+  - local: /templates/maven-build.yml
+    inputs:
+      image: $[[ inputs.maven-build-image ]]
+      working-directory: $[[ inputs.maven-directory ]]
+      job-timeout: $[[ inputs.job-timeout ]]
+      artifact-expire-in: $[[ inputs.artifact-expire-in ]]
+  - local: /templates/maven-test.yml
+    inputs:
+      image: $[[ inputs.maven-test-image ]]
+      working-directory: $[[ inputs.maven-directory ]]
+      job-timeout: $[[ inputs.job-timeout ]]
+      artifact-expire-in: $[[ inputs.artifact-expire-in ]]
+  - local: /templates/npm-build.yml
+    inputs:
+      image: $[[ inputs.npm-build-image ]]
+      working-directory: $[[ inputs.npm-directory ]]
+      job-timeout: $[[ inputs.job-timeout ]]
+      artifact-expire-in: $[[ inputs.artifact-expire-in ]]
+  - local: /templates/npm-test.yml
+    inputs:
+      image: $[[ inputs.npm-test-image ]]
+      working-directory: $[[ inputs.npm-directory ]]
+      job-timeout: $[[ inputs.job-timeout ]]
+      artifact-expire-in: $[[ inputs.artifact-expire-in ]]
+  - local: /templates/sonar-scan.yml
+    inputs:
+      image: $[[ inputs.sonar-scanner-image ]]
+      working-directory: $[[ inputs.maven-directory ]]
+      scanner-version: $[[ inputs.sonar-maven-plugin-version ]]
+      job-timeout: $[[ inputs.job-timeout ]]
+      artifact-expire-in: $[[ inputs.artifact-expire-in ]]
+  - local: /templates/sonar-gate.yml
+    inputs:
+      image: $[[ inputs.sonar-gate-image ]]
+      task-file-variable: SONAR_SCAN_TASK_FILE
+      job-timeout: $[[ inputs.job-timeout ]]
+      artifact-expire-in: $[[ inputs.artifact-expire-in ]]
+  - local: /templates/dependency-check.yml
+    inputs:
+      image: $[[ inputs.dependency-check-image ]]
+      working-directory: $[[ inputs.maven-directory ]]
+      plugin-version: $[[ inputs.dependency-check-plugin-version ]]
+      fail-cvss: $[[ inputs.dependency-check-fail-cvss ]]
+      job-timeout: $[[ inputs.dependency-check-job-timeout ]]
+      artifact-expire-in: $[[ inputs.artifact-expire-in ]]
+  - local: /templates/npm-audit.yml
+    inputs:
+      image: $[[ inputs.npm-audit-image ]]
+      working-directory: $[[ inputs.npm-directory ]]
+      audit-level: $[[ inputs.npm-audit-level ]]
+      job-timeout: $[[ inputs.job-timeout ]]
+      artifact-expire-in: $[[ inputs.artifact-expire-in ]]
+  - local: /templates/fortify-scan.yml
+    inputs:
+      image: $[[ inputs.fortify-scan-image ]]
+      adapter: $[[ inputs.fortify-scan-adapter ]]
+      job-timeout: $[[ inputs.fortify-scan-job-timeout ]]
+      artifact-expire-in: $[[ inputs.artifact-expire-in ]]
+  - local: /templates/fortify-gate.yml
+    inputs:
+      image: $[[ inputs.fortify-gate-image ]]
+      adapter: $[[ inputs.fortify-gate-adapter ]]
+      receipt-variable: FORTIFY_SCAN_RECEIPT
+      job-timeout: $[[ inputs.job-timeout ]]
+      artifact-expire-in: $[[ inputs.artifact-expire-in ]]
+  - local: /templates/image-build.yml
+    inputs:
+      image: $[[ inputs.image-build-image ]]
+      job-timeout: $[[ inputs.job-timeout ]]
+      artifact-expire-in: $[[ inputs.artifact-expire-in ]]
+  - local: /templates/image-scan.yml
+    inputs:
+      image: $[[ inputs.image-scan-image ]]
+      image-ref-variable: IMAGE_BUILD_IMAGE_REF
+      job-timeout: $[[ inputs.job-timeout ]]
+      artifact-expire-in: $[[ inputs.artifact-expire-in ]]
+  - local: /templates/sbom.yml
+    inputs:
+      image: $[[ inputs.sbom-image ]]
+      image-ref-variable: IMAGE_BUILD_IMAGE_REF
+      job-timeout: $[[ inputs.job-timeout ]]
+      artifact-expire-in: $[[ inputs.artifact-expire-in ]]
+  - local: /templates/image-sign.yml
+    inputs:
+      image: $[[ inputs.image-sign-image ]]
+      image-ref-variable: IMAGE_BUILD_IMAGE_REF
+      job-timeout: $[[ inputs.job-timeout ]]
+      artifact-expire-in: $[[ inputs.artifact-expire-in ]]
+  - local: /templates/image-verify.yml
+    inputs:
+      image: $[[ inputs.image-verify-image ]]
+      image-ref-variable: IMAGE_SIGN_IMAGE_REF
+      job-timeout: $[[ inputs.job-timeout ]]
+      artifact-expire-in: $[[ inputs.artifact-expire-in ]]
+  - local: /templates/helm-deploy.yml
+    inputs:
+      job-name: deploy-test
+      output-prefix: TEST_DEPLOY
+      image: $[[ inputs.helm-test-image ]]
+      image-ref-variable: IMAGE_VERIFY_IMAGE_REF
+      chart: $[[ inputs.chart ]]
+      values-file: $[[ inputs.test-values-file ]]
+      release: $[[ inputs.release ]]
+      namespace: $[[ inputs.test-namespace ]]
+      environment: test/$CI_PIPELINE_ID
+      target-url: $[[ inputs.test-url ]]
+      helm-major: $[[ inputs.helm-major ]]
+      job-timeout: $[[ inputs.job-timeout ]]
+      artifact-expire-in: $[[ inputs.artifact-expire-in ]]
+  - local: /templates/cucumber-test.yml
+    inputs:
+      image: $[[ inputs.cucumber-image ]]
+      working-directory: $[[ inputs.maven-directory ]]
+      target-url-variable: TEST_DEPLOY_URL
+      job-timeout: $[[ inputs.job-timeout ]]
+      artifact-expire-in: $[[ inputs.artifact-expire-in ]]
+  - local: /templates/zap-baseline.yml
+    inputs:
+      image: $[[ inputs.zap-image ]]
+      target-url-variable: TEST_DEPLOY_URL
+      rules-file: $[[ inputs.zap-rules-file ]]
+      job-timeout: $[[ inputs.job-timeout ]]
+      artifact-expire-in: $[[ inputs.artifact-expire-in ]]
+  - local: /templates/helm-deploy.yml
+    inputs:
+      job-name: deploy-production
+      output-prefix: PRODUCTION_DEPLOY
+      stage: deploy-production
+      image: $[[ inputs.helm-production-image ]]
+      image-ref-variable: TEST_DEPLOY_IMAGE_REF
+      chart: $[[ inputs.chart ]]
+      values-file: $[[ inputs.production-values-file ]]
+      release: $[[ inputs.release ]]
+      namespace: $[[ inputs.production-namespace ]]
+      environment: production
+      target-url: $[[ inputs.production-url ]]
+      helm-major: $[[ inputs.helm-major ]]
+      job-timeout: $[[ inputs.job-timeout ]]
+      artifact-expire-in: $[[ inputs.artifact-expire-in ]]
