@@ -41,7 +41,10 @@
   # GitLab inserts the command list below into that component's script.
   # .ci-module is this hidden YAML definition; script selects this section.
   # It runs in the calling job's image and shell, without starting another job.
-  # These commands run the post-hook, validate outputs, then publish outputs.
+  # These commands run the post-hook, then validate and publish output variables:
+  # valid/unique names, custom prefixes, nonempty single-line values, <= 5 KB.
+  # Publishing means writing outputs.env, not uploading packages or images.
+  # The component's artifacts:reports:dotenv exposes these variables via needs.
   # Keep this in script: a failed post-hook must fail the job and block outputs.
   # after_script below is separate, best-effort cleanup in a fresh shell.
   script:
