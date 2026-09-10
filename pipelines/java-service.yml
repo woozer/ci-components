@@ -82,8 +82,6 @@ include:
       job-name: release
       image: $MAVEN_BUILD_IMAGE
       artifact-expire-in: never
-      image-path: '$RELEASE_OCI_REPOSITORY/$[[ inputs.application ]]'
-      chart-path: '$RELEASE_OCI_REPOSITORY/charts/$[[ inputs.application ]]'
       pipeline-config: |
         include:
           - project: '$[[ inputs.library-project ]]'

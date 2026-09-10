@@ -34,6 +34,8 @@ Maven uses `${revision}` and the standard Flatten Maven Plugin. CI supplies the 
 
 The reservation job creates the Git tag atomically on the exact commit of the selected main pipeline, even if main has since advanced. The tag permanently reserves the number. If release creation fails, the tag stays and the number is not recycled. An existing image blocks another release build; deploying the already published digest again remains possible.
 
+`release-reserve` only needs Git access: it selects the version and reserves the tag. `release-check` checks Artifactory once, before the release build starts. An unavailable registry or an existing image/chart stops that child pipeline; the tag remains reserved. Registry credentials and artifact paths are therefore inputs to `release-check` only.
+
 ## Where the behavior lives
 
 | File | Responsibility |
@@ -41,7 +43,7 @@ The reservation job creates the Git tag atomically on the exact commit of the se
 | [config/java-service.yml](../config/java-service.yml) | Organization defaults and the app-facing required inputs |
 | [java-service.yml](../pipelines/java-service.yml) | Automatic builds, manual release decision and serialized delivery |
 | [java-service-delivery.yml](../pipelines/java-service-delivery.yml) | Tool jobs, dev deployment and HTTP validation |
-| [release-reserve.yml](../templates/release-reserve.yml) | Check and reserve a release tag; publish version/commit inputs |
+| [release-reserve.yml](../templates/release-reserve.yml) | Select the version and reserve its Git tag; publish version/commit inputs |
 | [release-check.yml](../templates/release-check.yml) | Check tag, commit and existing artifacts before the release build |
 | [gitlab-release.yml](../templates/gitlab-release.yml) | Record the tested artifacts as a GitLab release |
 | [shared/release.yml](../shared/release.yml) | Shared validation functions used by those components |
