@@ -1,6 +1,6 @@
 # Shared release strategy
 
-Applications include the [organization profile](../config/java-service.yml) and supply only its required inputs: `library-ref` and `maven-project`. The profile applies organization settings and conventions, then includes [pipelines/java-service.yml](../pipelines/java-service.yml). The library owns the jobs, scripts, release button, checks and dev deployment. Applications do not copy or maintain a release pipeline.
+Applications import the [pipeline form](../config/pipeline-inputs.yml) and [organization profile](../config/java-service.yml). They supply the required app settings (`library-ref` and `maven-project`) and forward the selected cluster, user configuration and pipeline mode. The profile applies organization conventions, then starts [pipelines/java-service.yml](../pipelines/java-service.yml). The library owns the jobs, scripts, release button, checks and dev deployment. Applications do not copy or maintain a release pipeline.
 
 The application name and namespace default to the GitLab project name; the chart defaults to `helm/<project-name>`. Helm values come from `environment/cluster/<cluster>.yaml`, followed by `environment/user/<user-config>.yaml`. The local profile selects the cluster credentials, dev URLs and HTTP registry access. Generic components retain secure protocol defaults. Change local infrastructure settings centrally in the profile. Optional inputs belong in app configuration only when a project deliberately departs from those conventions; the demo sets none.
 
@@ -13,7 +13,7 @@ The Java strategy composes independent Maven, Jib, Helm and release components. 
 1. Push a feature branch and open a merge request. The central `configure` job starts with defaults after 10 seconds. Follow **run-pipeline** to the build and Cucumber jobs. To select a different mode or Helm user profile, unschedule `configure` before its timer expires, then run it with the desired job inputs. See [pipeline choices](pipeline-options.md).
 2. Merge to the protected default branch after review and successful checks. In this demo that branch is `main`.
 3. The main pipeline automatically publishes development artifacts, deploys to dev and runs Cucumber against the deployed application.
-4. To create an official release, open that successful **run-pipeline** child pipeline and select the **release** job name. Enter a new version such as `1.2.3`, then select **Run job**. The release button is available only after the full `deploy` mode; reduced modes do not qualify for a release.
+4. To create an official release, open that successful **run-pipeline** child pipeline and run **release**. Its default `version: auto` selects `0.1.0` for the first release and increments the highest reserved release's patch number thereafter. To choose a minor or major version, open the job and override `version`, for example with `1.0.0`. The release button is available only after the full `deploy` mode; reduced modes do not qualify for a release.
 5. Follow **release-delivery** to see validation, Maven publication, Jib image publication, Helm publication, dev deployment and the final Cucumber test. A successful run creates the GitLab release with its commit, image digest and chart version.
 
 There is no separate tag approval. Clicking **release** is the release decision; code review happens before the merge. The local demo has one user, so that user also merges the merge request. In the real organization, require another person's review before merging into protected branches. A manual button alone does not enforce two-person approval.
@@ -26,9 +26,9 @@ A release creates immutable artifacts. Those artifacts may be deployed to dev. F
 |---|---|
 | Standalone `./mvnw verify` | `1.0.0-SNAPSHOT` by default |
 | Development pipeline | `0.0.0-dev.<pipeline-number>.g<commit>` |
-| Official release | User-selected SemVer, for example `1.2.3`; Git tag `v1.2.3` |
+| Official release | `auto`: first `0.1.0`, then next patch; explicit SemVer override supported; Git tag `v<version>` |
 
-Maven, the image tag and the Helm chart use the same resolved version. A new development pipeline gets a new number. A release number is never reused for another commit or image. Select patch/minor/major according to [Semantic Versioning](https://semver.org/).
+Maven, the image tag and the Helm chart use the same resolved version. A new development pipeline gets a new number. A release number is never reused for another commit or image. Automatic selection reads version-sorted remote `vX.Y.Z` tags while holding the reservation lock. Tags from failed releases still count. A tag lookup failure blocks publication rather than guessing a version. Override the default patch bump when [Semantic Versioning](https://semver.org/) calls for a minor or major release.
 
 Maven uses `${revision}` and the standard Flatten Maven Plugin. CI supplies the version through `MAVEN_ARGS`; no release commit or release branch is needed. Outside CI, `./mvnw -Drevision=1.2.3 verify` builds and tests that version without publishing anything. [Maven CI Friendly Versions](https://maven.apache.org/guides/mini/guide-maven-ci-friendly.html)
 

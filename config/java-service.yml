@@ -24,6 +24,21 @@ spec:
       description: 'Directory containing cluster/ and user/ Helm values'
       type: string
       default: environment
+    cluster:
+      description: 'Initial cluster selection; local is the only provisioned cluster in this lab'
+      type: string
+      default: local
+      options: [local]
+    user-config:
+      description: 'Initial Helm user profile selection'
+      type: string
+      default: default
+      options: [default, two-replicas]
+    pipeline-mode:
+      description: 'Initial selection for how far the pipeline runs'
+      type: string
+      default: deploy
+      options: [validate, publish, deploy]
 ---
 include:
   - local: /config/organization.yml
@@ -34,6 +49,9 @@ include:
       # This lab has one real cluster. Add other mappings here when provisioned.
       clusters: [local]
       user-configs: [default, two-replicas]
+      default-cluster: '$[[ inputs.cluster ]]'
+      default-user-config: '$[[ inputs.user-config ]]'
+      default-pipeline-mode: '$[[ inputs.pipeline-mode ]]'
       pipeline-config: |
         include:
           - project: root/ci-components

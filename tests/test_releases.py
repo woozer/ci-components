@@ -45,7 +45,12 @@ case "$1" in
     if [ "$2" = HEAD ]; then printf '%s\n' "${FAKE_HEAD:-$CI_COMMIT_SHA}"
     else printf '%s\n' "${FAKE_TAG_COMMIT:-$CI_COMMIT_SHA}"; fi ;;
   merge-base) exit "${FAKE_ANCESTOR_EXIT:-0}" ;;
-  ls-remote) exit "${FAKE_TAG_LOOKUP_EXIT:-2}" ;;
+  ls-remote)
+    if [ "$2" = --tags ]; then
+      printf '%s\n' "${FAKE_REMOTE_TAGS:-}"
+      exit "${FAKE_TAG_LIST_EXIT:-0}"
+    fi
+    exit "${FAKE_TAG_LOOKUP_EXIT:-2}" ;;
   push) exit "${FAKE_PUSH_EXIT:-0}" ;;
 esac
 ''')
@@ -72,6 +77,35 @@ exit "${FAKE_HTTP_EXIT:-0}"
         self.assertNotIn('secret-password', child)
         self.assertIn('refs/tags/v1.2.3:refs/tags/v1.2.3', self.calls())
         self.assertNotIn('--force', self.calls())
+
+    def test_auto_starts_at_initial_version_without_existing_tags(self):
+        h = self.harness(version='auto')
+        result = h.run()
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertEqual('0.1.0', h.outputs()['RELEASE_VERSION'])
+        self.assertIn('--sort=-version:refname', self.calls())
+
+    def test_auto_increments_highest_reserved_stable_version(self):
+        h = self.harness(version='auto')
+        # Git returns version-sorted refs; reserved tags count without a release record.
+        h.env['FAKE_REMOTE_TAGS'] = '\n'.join('a'*40 + '\trefs/tags/' + tag for tag in
+            ['v9.0.0-rc1', 'v2.0.9', 'v2.0.8', 'v1.100.0'])
+        result = h.run()
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertEqual('2.0.10', h.outputs()['RELEASE_VERSION'])
+
+    def test_auto_does_not_guess_initial_version_when_tag_listing_fails(self):
+        h = self.harness(version='auto')
+        h.env['FAKE_TAG_LIST_EXIT'] = '128'
+        self.assertNotEqual(0, h.run().returncode)
+        self.assertNotIn('push ', self.calls())
+        self.assertFalse(h.output_file.exists())
+
+    def test_auto_rejects_arithmetic_overflow(self):
+        h = self.harness(version='auto')
+        h.env['FAKE_REMOTE_TAGS'] = 'a'*40 + '\trefs/tags/v1.0.99999999999999999999'
+        self.assertNotEqual(0, h.run().returncode)
+        self.assertNotIn('push ', self.calls())
 
     def test_invalid_versions_fail_before_git_or_registry_access(self):
         for version in ['', 'v1.2.3', '1.02.3', '1.2.3-SNAPSHOT', '1.2.3; touch bad', '1.2.3\n4.5.6']:
@@ -173,6 +207,22 @@ exit "${FAKE_HTTP_EXIT:-0}"
         h.env['FAKE_HTTP_STATUS'] = '200'
         self.assertNotEqual(0, h.run().returncode)
         self.assertFalse(h.output_file.exists())
+
+    def test_release_record_uses_reachable_api_and_verified_artifact_outputs(self):
+        image = 'registry.invalid/releases/service@sha256:' + 'b' * 64
+        h = Harness(self.root, 'gitlab-release', inputs={
+            'version': '1.2.3', 'api-url': 'http://internal-gitlab:8929/api/v4/'}, env={
+            'JIB_IMAGE_REF': image, 'CHART_REF': 'oci://registry.invalid/charts/service',
+            'CHART_VERSION': '1.2.3', 'CI_PROJECT_ID': '7', 'CI_JOB_TOKEN': 'fixture-token',
+            'CI_PROJECT_URL': 'http://public-gitlab/group/service',
+            'CI_PIPELINE_URL': 'http://public-gitlab/group/service/-/pipelines/99'})
+        h.write('bin/curl', '#!/bin/sh\nprintf "%s\\n" "$@" > "$CI_PROJECT_DIR/release-request"\n')
+        result = h.run()
+        self.assertEqual(0, result.returncode, result.stderr)
+        request = (self.root / 'release-request').read_text().splitlines()
+        self.assertEqual('http://internal-gitlab:8929/api/v4/projects/7/releases', request[-1])
+        self.assertIn(image, (h.output_file.parent / 'release.md').read_text())
+        self.assertEqual('http://public-gitlab/group/service/-/releases/v1.2.3', h.outputs()['GITLAB_RELEASE_URL'])
 
 
 if __name__ == '__main__':

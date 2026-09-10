@@ -17,7 +17,7 @@ flowchart LR
 
 The deployed endpoint is [localhost:8080/hello](http://localhost:8080/hello).
 
-The central **configure** job starts with defaults after 10 seconds. Unschedule it to select a cluster, Helm user profile or reduced pipeline mode, then run it manually. Follow **run-pipeline** to the jobs above. See [pipeline choices](docs/pipeline-options.md).
+Select the cluster, Helm user profile and mode on **New pipeline**, or let an automatic pipeline use defaults. The central **configure** job continues after 10 seconds; unschedule it to change choices after starting. Follow **run-pipeline** to the jobs above. See [pipeline choices](docs/pipeline-options.md).
 
 The central strategy composes these build and deployment modules:
 
@@ -30,7 +30,7 @@ The central strategy composes these build and deployment modules:
 | [helm-publish](templates/helm-publish.yml) | Publish the Helm chart to local Artifactory |
 | [helm-deploy](templates/helm-deploy.yml) | Deploy that chart and image digest |
 
-Each module chooses its own image. The application includes the organization profile at a pinned revision and supplies only its two required inputs. The central strategy owns job order, release policy and deployment orchestration.
+Each module chooses its own image. The application imports the central form and organization profile at a pinned revision. It supplies the two required app settings and forwards runtime selections. The central strategy owns job order, release policy and deployment orchestration.
 
 **Four places to read:**
 
@@ -41,7 +41,7 @@ Each module chooses its own image. The application includes the organization pro
 
 Outputs pass the image digest, chart version and deployment URL between jobs through GitLab dotenv artifacts. Hooks remain available for other consumers; this application contains no CI scripts.
 
-**Configuration stays small.** [config/organization.yml](config/organization.yml) holds shared server addresses and an image selection for each task. The [Java organization profile](config/java-service.yml) supplies local deployment settings and project-name conventions. Credentials stay in GitLab variables. Module defaults live in `spec:inputs`; the application sets no optional inputs. See [settings used by the sample](docs/defaults.md).
+**Configuration stays small.** [config/organization.yml](config/organization.yml) holds shared server addresses and an image selection for each task. The [Java organization profile](config/java-service.yml) supplies local deployment settings and project-name conventions. Credentials stay in GitLab variables. The application forwards form selections without repeating their default values. See [settings used by the sample](docs/defaults.md).
 
 See [required inputs and optional defaults](docs/inputs.md) before configuring a module. A project can use just one module. Include its component, supply the required `image` and other inputs, and declare its stage. Shared hook handling is included automatically; organization settings and other modules are optional. A deployment module can receive its chart and image digest from any producer that supplies its inputs.
 
