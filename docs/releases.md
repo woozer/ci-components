@@ -53,7 +53,7 @@ The reservation job writes a small child-pipeline configuration artifact. Its ce
 - Protect `main`: allow merge requests, deny direct pushes and force pushes, including CI identities.
 - Protect `v*`: only the release deploy key can create release tags. Tag pipelines do not publish; the protected branch pipeline owns publication.
 - Restrict release credentials to protected refs and `release/*` environments. The Git deploy key is limited to `release/reserve`. Use typed job inputs and disallow arbitrary pipeline-variable overrides.
-- Publish images and OCI charts to `docker-releases-local` with a dedicated account having Read and Deploy, without Delete/Overwrite, Manage or administrator rights. The development publisher has no write access to this repository.
+- Publish images and OCI charts to `docker-releases-local` with a dedicated account having Read, Deploy and Annotate, without Delete/Overwrite, Manage or administrator rights. Annotate lets Artifactory record OCI media-type properties; without it, Helm publication can fail with an incorrect manifest Content-Type. It does not grant artifact overwrite. The development publisher has no write access to this repository.
 - Disable Maven duplicate publication in the namespace package settings. Each pipeline receives a unique development version; official versions are reserved by Git tag.
 - Serialize reservation jobs. Serialize the delivery child pipeline through the final dev test, using the same dev lock as ordinary development delivery. Registry permissions remain necessary in addition to pipeline checks.
 
