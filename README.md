@@ -1,50 +1,31 @@
 # GitLab CI demo
 
-A Java 25 Spring Boot application returns `hello world`. Its pipeline builds, tests, publishes and deploys it using small reusable YAML modules.
+A Java 25 Spring Boot application returns `hello world`. Run `./mvnw verify` from `ci/java` to build and test without GitLab.
 
-Start with the [hello-world application](http://localhost:8929/root/hello-world). Run `./mvnw verify` from `ci/java` to build and test without GitLab. To see CI, open [Pipelines](http://localhost:8929/root/hello-world/-/pipelines), choose **New pipeline**, select `main`, and run it. Pushing a commit also starts the pipeline.
+**Start here:** copy the [application CI file](http://localhost:8929/root/hello-world/-/blob/main/.gitlab-ci.yml). Select a pinned CI library revision and supply your deployable Maven module. Application name, chart path and namespace default to the GitLab project name. There are no CI scripts in the application.
+
+The application imports the shared New pipeline form and **one central [java-service.yml](pipelines/java-service.yml)**. That file shows the complete job order and release policy. [Organization settings](config/organization.yml) contain server addresses and task images; credentials stay in GitLab.
 
 ```mermaid
 flowchart LR
-  B[Build] --> T[Cucumber]
+  B[Build] --> T[Required Cucumber tests]
   T --> M[Publish Maven]
   M --> I[Publish Jib image]
   M --> C[Publish Helm chart]
-  I --> D[Helm deploy]
-  C --> D
+  I --> S[Choose deployment settings]
+  C --> S
+  S --> D[Helm deploy]
   D --> V[Cucumber against deployment]
 ```
 
-The deployed endpoint is [localhost:8080/hello](http://localhost:8080/hello).
+Pushes and merge requests start build/tests immediately. On protected `main`, the default flow also publishes and deploys. Before deployment, **configure-deploy** waits 10 seconds: leave it alone for defaults, or use **Unschedule** and choose a cluster and Helm user profile. Follow **deploy-dev** to Helm and Cucumber. The endpoint is [localhost:8080/hello](http://localhost:8080/hello).
 
-Select the cluster, Helm user profile and mode on **New pipeline**, or let an automatic pipeline use defaults. The central **configure** job continues after 10 seconds; unschedule it to change choices after starting. Follow **run-pipeline** to the jobs above. See [pipeline choices](docs/pipeline-options.md).
+For an additional test run, open **test-custom**, choose the complete Cucumber suite or `@smoke`, and run it. The mandatory **test** always runs the complete suite. Choose **validate**, **publish** or **deploy** on **New pipeline**; this determines the job graph before execution. See [pipeline choices and redeployment](docs/pipeline-options.md).
 
-The central strategy composes these build and deployment modules:
+A successful full main pipeline offers **release** in the same graph. Its default version is the next patch. The release flow rebuilds, validates and publishes immutable release artifacts, deploys to dev, tests them and records the GitLab release. See [release policy](docs/releases.md).
 
-| Module | What it does |
-|---|---|
-| [maven-build](templates/maven-build.yml) | Package the application |
-| [cucumber-test](templates/cucumber-test.yml) | Test the HTTP endpoint, locally or after deployment |
-| [maven-publish](templates/maven-publish.yml) | Publish Maven packages to GitLab |
-| [jib-build](templates/jib-build.yml) | Publish the application image to local Artifactory |
-| [helm-publish](templates/helm-publish.yml) | Publish the Helm chart to local Artifactory |
-| [helm-deploy](templates/helm-deploy.yml) | Deploy that chart and image digest |
+The ordinary pipeline, deployment child and release child all use the same central YAML. A child is an execution boundary, not another configuration wrapper: deployment holds a shared lock until its HTTP test finishes; release starts after a version has been reserved.
 
-Each module chooses its own image. The application imports the central form and organization profile at a pinned revision. It supplies the two required app settings and forwards runtime selections. The central strategy owns job order, release policy and deployment orchestration.
+Modules remain independently usable, each with its own image, inputs, outputs and hooks. Start with [required inputs and defaults](docs/inputs.md); the full [module catalogue](docs/reference.md) and [hook contract](docs/hooks.md) are reference material. Shared lifecycle handling is in [shared/module.yml](shared/module.yml), whose comments explain `!reference`.
 
-**Four places to read:**
-
-1. [Application pipeline](http://localhost:8929/root/hello-world/-/blob/main/.gitlab-ci.yml): include the [organization profile](config/java-service.yml) and supply only the library revision and deployable Maven module.
-2. [Central strategy](pipelines/java-service.yml): define the build cycle and manual release button.
-3. [A module](templates/maven-build.yml): declare inputs, choose an image, run one operation.
-4. [Shared lifecycle](shared/module.yml): common setup, post-hook/output handling and cleanup. Its comments explain `!reference`.
-
-Outputs pass the image digest, chart version and deployment URL between jobs through GitLab dotenv artifacts. Hooks remain available for other consumers; this application contains no CI scripts.
-
-**Configuration stays small.** [config/organization.yml](config/organization.yml) holds shared server addresses and an image selection for each task. The [Java organization profile](config/java-service.yml) supplies local deployment settings and project-name conventions. Credentials stay in GitLab variables. The application forwards form selections without repeating their default values. See [settings used by the sample](docs/defaults.md).
-
-See [required inputs and optional defaults](docs/inputs.md) before configuring a module. A project can use just one module. Include its component, supply the required `image` and other inputs, and declare its stage. Shared hook handling is included automatically; organization settings and other modules are optional. A deployment module can receive its chart and image digest from any producer that supplies its inputs.
-
-For details beyond this demo, use the [library reference](docs/reference.md) and [hook contract](docs/hooks.md).
-
-For centrally managed builds and the manual release button, see the [shared release strategy](docs/releases.md). Applications include it and supply settings; they do not maintain CI scripts.
+We assess changes against standards and established practice, and explain deliberate deviations. The ten-second choice window and automatic patch policy are our choices, not universal CI standards. See [standards and decisions](docs/reuse-and-standards.md).

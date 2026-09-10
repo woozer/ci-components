@@ -351,24 +351,42 @@ class ComponentContractTests(unittest.TestCase):
         self.assertGreater(args.index('image.digest=sha256:' + 'b' * 64), args.index(values[-1]))
 
     def test_selection_defaults_emit_settings_and_bind_the_next_pipeline(self):
-        h = Harness(self.root, 'pipeline-select', inputs={
-            'pipeline-config': 'cluster: @CLUSTER@\nuser: @USER_CONFIG@\nmode: @PIPELINE_MODE@'})
-        self.assertEqual('delayed', h.job['when'])
-        self.assertEqual('10 seconds', h.job['start_in'])
+        h = Harness(self.root, 'deployment-select', inputs={
+            'pipeline-config': 'cluster: @CLUSTER@\nuser: @USER_CONFIG@'})
+        self.assertEqual('delayed', h.job['rules'][0]['when'])
+        self.assertEqual('10 seconds', h.job['rules'][0]['start_in'])
         result = h.run()
         self.assertEqual(0, result.returncode, result.stderr)
-        self.assertEqual('deploy', h.outputs()['SELECTION_MODE'])
-        self.assertEqual('cluster: local\nuser: default\nmode: deploy\n',
+        self.assertEqual('local', h.outputs()['SELECTION_CLUSTER'])
+        self.assertEqual('cluster: local\nuser: default\n',
                          (h.output_file.parent / 'pipeline.yml').read_text())
 
-    def test_pipeline_form_selections_become_the_configure_job_defaults(self):
-        h = Harness(self.root, 'pipeline-select', inputs={
-            'default-user-config': 'two-replicas', 'default-pipeline-mode': 'publish',
-            'pipeline-config': 'user: @USER_CONFIG@\nmode: @PIPELINE_MODE@'})
+    def test_pipeline_form_selections_become_the_deployment_job_defaults(self):
+        h = Harness(self.root, 'deployment-select', inputs={
+            'default-user-config': 'two-replicas',
+            'pipeline-config': 'user: @USER_CONFIG@'})
         result = h.run()
         self.assertEqual(0, result.returncode, result.stderr)
         self.assertEqual('two-replicas', h.outputs()['SELECTION_USER_CONFIG'])
-        self.assertEqual('publish', h.outputs()['SELECTION_MODE'])
+        self.assertEqual('user: two-replicas\n', (h.output_file.parent / 'pipeline.yml').read_text())
+
+    def test_deployment_selection_rejects_paths_before_publishing(self):
+        h = Harness(self.root, 'deployment-select', inputs={
+            'default-user-config': '../secret', 'pipeline-config': 'user: @USER_CONFIG@'})
+        self.assertNotEqual(0, h.run().returncode)
+        self.assertFalse(h.output_file.exists())
+
+    def test_cucumber_records_the_actual_selection_with_the_result(self):
+        h = Harness(self.root, 'cucumber-test', inputs={
+            'tags': '@smoke', 'profile': 'integration', 'target-url-variable': ''})
+        h.write('mvnw', '#!/bin/sh\nprintf "%s\\n" "$@" > "$CI_PROJECT_DIR/maven-args"\n')
+        result = h.run()
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertEqual('@smoke', h.outputs()['CUCUMBER_TEST_TAGS'])
+        self.assertEqual('integration', h.outputs()['CUCUMBER_TEST_PROFILE'])
+        args = (self.root / 'maven-args').read_text().splitlines()
+        self.assertIn('-Dcucumber.filter.tags=@smoke', args)
+        self.assertIn('-Pintegration', args)
 
     def test_wrong_fortify_scan_receipt_is_rejected_before_policy_adapter(self):
         (self.root / "scan.json").write_text(json.dumps({"commit_sha": "wrong", "pipeline_id": "99",

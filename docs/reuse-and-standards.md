@@ -2,6 +2,24 @@
 
 Current decision: use our own components, each maintained as an individual YAML file in `templates/`. This assessment records standard implementations we may adopt later. The public inputs, outputs, hooks, image requirements, and failure behavior form the contract a replacement must preserve or explicitly version. These components still require live integration validation before production adoption.
 
+## Working agreement for changes
+
+For each proposed or implemented change, check the relevant standard or established practice and the existing supported implementations. Distinguish formal standards, platform features, common practice, organization policy, and custom behavior; these are not interchangeable claims.
+
+When we choose a deviation, explain the conventional alternative, our reason, and the practical consequences for consumers, maintenance, compatibility, or assurance. Use primary documentation to support the assessment where needed, and state uncertainty instead of claiming a universal standard. Record material accepted deviations in the documentation for the affected feature. Keep this assessment proportional to the change and within the user's existing authorization.
+
+## Deliberate choices in the demo
+
+| Choice | Standard mechanism or conventional alternative | Reason and consequence |
+|---|---|---|
+| Automatic required tests plus an optional custom Cucumber run | Native GitLab job inputs and ordinary mandatory CI tests | Developers can select scenarios without weakening the required test. Optional failures do not make the whole pipeline fail. |
+| Ten seconds to change deployment settings | GitLab delayed jobs; manual deployment or defaults selected before pipeline creation are simpler alternatives | Preserves the requested choice after an automatic start. Requires Unschedule, then an explicit run; there is no popup. |
+| One central YAML for normal, deployment and release flows | Native includes, rules, dynamic child pipelines and resource groups | One place to read the composition. The internal `flow` input selects jobs; deployment remains a child so its lock spans Helm and Cucumber. |
+| Our own task components | Supported tool CLIs/plugins and maintained components listed below | Keeps the agreed input/output/hook contract; we own maintenance and integration testing. |
+| Automatic next patch release | SemVer defines version meaning; it does not mandate automatic patch bumps | An organization convenience policy. A developer must still request a minor/major version when compatibility changes require it. |
+
+The native GitLab features are documented in [job inputs](https://docs.gitlab.com/ci/jobs/job_inputs/), [downstream pipelines](https://docs.gitlab.com/ci/pipelines/downstream_pipelines/) and [resource groups](https://docs.gitlab.com/ci/resource_groups/). Our delay and version policies are not formal industry standards.
+
 ## Available implementations
 
 | Capability | Existing implementation to evaluate | What the organization still owns |
@@ -37,7 +55,7 @@ One logical component need not mean exactly one physical job. Vendor components 
 |---|---|---|
 | [NIST SSDF SP 800-218](https://csrc.nist.gov/pubs/sp/800/218/final) | Controlled toolchains, protected source/artifacts, defined testing and vulnerability response | Some pipeline patterns documented; organization practices and enforcement not configured |
 | [OWASP ASVS](https://owasp.org/www-project-application-security-verification-standard/) | A selected set of application security requirements with verification evidence | Scanners cover only part; threat modeling, application assertions and manual verification still needed |
-| [SLSA build requirements](https://slsa.dev/spec/v1.2/build-requirements) | Provenance tied to artifact digests, appropriate builder trust/isolation and verification | Digest promotion/signing demonstrated; provenance generation, distribution and builder assessment remain outstanding |
+| [SLSA build requirements](https://slsa.dev/spec/v1.2/build-requirements) | Provenance tied to artifact digests, appropriate builder trust/isolation and verification | Digest-based deployment exercised; signing, provenance generation/distribution and builder assessment remain outstanding |
 
 Image signatures and an SBOM alone do not establish a SLSA level. Likewise, successful scanner execution does not establish ASVS compliance, and an arbitrary 80% coverage threshold is organization policy rather than a universal standard.
 
@@ -51,4 +69,4 @@ Mandatory security controls must survive changes to application YAML and hooks. 
 4. Validate the replacement with contract checks and representative applications, including scanner errors, missing reports, failed hooks, and blocked production promotion. Version incompatible changes and migrate consumers explicitly.
 5. Roll out one replacement at a time while retaining organization policy enforcement and evidence requirements. Continue assessing standards conformance independently of component sourcing.
 
-The local contract tests pass, but no real GitLab pipeline, scanner, registry, Fortify service, KMS, or Kubernetes deployment has been exercised. The current implementation work is to configure and validate our own components against the organization's tool images and services. Standard component adoption remains a future option.
+The local lab has exercised GitLab pipelines, Maven publication, Jib/Helm publication to Artifactory, Kubernetes deployment, Cucumber and release protections. Scanner, Fortify and KMS/signing integrations still require live validation. Standard component adoption remains a future option.

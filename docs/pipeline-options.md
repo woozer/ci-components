@@ -1,34 +1,50 @@
 # Pipeline choices
 
-On **Build > Pipelines > New pipeline**, select the branch, then choose `cluster`, `user_config` and `pipeline_mode`. These fields also appear for `main`. The application imports the form definitions from [config/pipeline-inputs.yml](../config/pipeline-inputs.yml) and forwards the selections to the organization profile. Push and merge request pipelines use the defaults automatically.
+Build and required tests start immediately. Application CI imports the shared [New pipeline form](../config/pipeline-inputs.yml) and one [central pipeline](../pipelines/java-service.yml), using the same pinned revision. Only `library-ref` and `maven-project` are required static app settings; form values are forwarded without repeating defaults.
 
-The only static app settings are the pinned library revision and deployable Maven module. No scripts or stage definitions are copied into the app. The form definition and implementation have the same pinned revision; YAML anchors cannot cross the header's document separator, so that revision appears in both includes.
+## Choose before starting
 
-## Ten-second default
-
-`configure` uses `when: delayed` and `start_in: 10 seconds`. After the pipeline has been created, GitLab schedules it using the selections from the form, or `local`, `default` and `deploy` for an automatic/default run. Runner availability determines when execution actually starts.
-
-To change values after starting the pipeline, select **Unschedule** on `configure` before the timer expires. Open the job, set its inputs and select **Run job**. Unscheduling stops the timer, so the job waits for this explicit run. GitLab does not automatically submit the New pipeline page: its timer applies to the job in a created pipeline. [Delayed jobs](https://docs.gitlab.com/ci/jobs/job_control/#run-a-job-after-a-delay), [job inputs](https://docs.gitlab.com/ci/jobs/job_inputs/).
-
-This also works for a pipeline started automatically by a push or merge. Open its **configure** job to make the selection. GitLab does not open a popup for automatic pipelines; dropdowns before pipeline creation are available on **New pipeline**. With no action on `configure`, the pipeline proceeds with defaults after the delay.
-
-Follow **run-pipeline** to the executing jobs. The selected values and the pinned library revision are recorded in the configuration artifact; the resulting child pipeline uses those fixed settings.
+On **Build > Pipelines > New pipeline**, select the branch and these inputs. Push pipelines use their defaults.
 
 | Input | Default | Effect |
 |---|---|---|
-| `cluster` | `local` | Choose a centrally configured cluster and its cluster values |
-| `user_config` | `default` | Choose additional Helm values from the application |
-| `pipeline_mode` | `deploy` | Choose how far the ordinary pipeline runs |
+| `cluster` | `local` | Initial development cluster |
+| `user_config` | `default` | Initial additional Helm values |
+| `pipeline_mode` | `deploy` | Which jobs the pipeline includes |
 
-| Mode | Jobs |
+| Mode | Jobs on protected main |
 |---|---|
-| `validate` | Maven build and Cucumber tests |
-| `publish` | Build/tests, Maven packages, Jib image and Helm chart |
-| `deploy` | Publication, Helm deployment and Cucumber against the running application |
+| `validate` | Build, required Cucumber test, optional custom test |
+| `publish` | Also publish Maven packages, Jib image and Helm chart |
+| `deploy` | Also choose deployment settings, run Helm and test the deployment; offer release |
 
-Publication and deployment remain restricted to the protected default branch. Feature branches and merge requests run build/tests regardless of the selected mode. Reduced modes omit dependent jobs as a group. A release requires the full deployment flow and runs its own build, tests and release checks.
+Feature branches and merge requests run build/tests only. `pipeline_mode` is fixed when the pipeline is created. This follows GitLab's native configuration-input model; job inputs cannot change `rules` or add stages during execution. [Input scope](https://docs.gitlab.com/ci/inputs/), [job input limitations](https://docs.gitlab.com/ci/jobs/job_inputs/#where-you-can-use-job-inputs).
 
-## Values in the application
+## Choose tests during development
+
+Open the **test-custom** job by clicking its name, choose `not @ignore` (the complete suite) or `@smoke`, then select **Run job**. The demo's greeting check is tagged `@smoke`; the complete suite also checks that an unknown endpoint returns 404. Use **Retry job with modified values** to run a different selection. The selected expression is recorded in the job's output artifact as `CUCUMBER_TEST_TAGS`. [Native GitLab job inputs](https://docs.gitlab.com/ci/jobs/job_inputs/).
+
+This optional developer job does not qualify a merge or release. The separate mandatory **test** and release tests always run the complete configured suite. A green pipeline can coexist with a failed optional custom test; inspect that job's own status and report.
+
+This choice selects Cucumber scenarios. It is not a Spring or Maven profile. The standalone Cucumber component still supports its optional Maven `profile` input; add actual application profiles before exposing them as choices. Run the same smoke selection locally with `./mvnw -Dcucumber.filter.tags=@smoke verify`.
+
+## Choose deployment after publication
+
+**configure-deploy** is scheduled after image and chart publication succeeds. Its ten-second timer applies here, rather than before the build. With no action, it uses the initial `cluster` and `user_config` values. Runner availability determines when it actually executes.
+
+To change them, choose **Unschedule** before the timer expires, open the job and run it with the desired inputs. Unscheduling stops the timer until the user runs the job. This is our convenience policy using GitLab delayed jobs, not an automatic popup. [Delayed jobs](https://docs.gitlab.com/ci/jobs/job_control/#run-a-job-after-a-delay).
+
+**deploy-dev** starts one child containing **helm-deploy** and **cucumber-dev**. The child uses the same central YAML and downloads the image digest and chart reference from the exact parent pipeline. The parent trigger holds the development lock until both jobs finish. [Parent pipeline artifacts](https://docs.gitlab.com/ci/yaml/#needspipelinejob), [resource groups](https://docs.gitlab.com/ci/resource_groups/).
+
+## Deploy the same build with different values
+
+1. Open the successful pipeline's **configure-deploy** job and use **Retry job with modified values**.
+2. Select another Helm user profile and wait for the job to succeed.
+3. Use **Run again** on the **deploy-dev** trigger. This recreates the complete deployment child, including its Cucumber test, under the same lock.
+
+Retrying the selector alone does not automatically rerun a completed downstream job. The image and chart are reused; build and publication do not run again. Parent job artifacts must still be available (the default retention is seven days). [Recreate a downstream pipeline](https://docs.gitlab.com/ci/pipelines/downstream_pipelines/#recreate-a-downstream-pipeline).
+
+## Helm files and credentials
 
 ```text
 environment/
@@ -37,8 +53,6 @@ environment/
   user/two-replicas.yaml
 ```
 
-The path is relative to the application repository, not the filesystem root. The organization profile has an optional `environment-directory` input; the demo uses its `environment` default.
+Helm applies chart defaults, cluster values, then user values. The explicit image digest remains final. `default` is empty; `two-replicas` sets the replica count to two.
 
-Helm applies chart defaults, then the cluster file, then the user file. A later file overrides the same key in an earlier file. The explicit image digest remains final. The `default` user file is empty (`{}`); `two-replicas` changes only the replica count. [Helm values precedence](https://docs.helm.sh/docs/helm/helm_upgrade/).
-
-These files contain Helm values, not cluster credentials. The current lab has one real cluster: `local`, mapped centrally to the protected `LOCAL_KUBECONFIG` file variable. Add real credentials, target URLs and a central mapping before adding another cluster choice. Update the profile's user choices when adding another user values file; GitLab does not dynamically populate these choices from directory contents.
+The only provisioned cluster is `local`, mapped centrally to `LOCAL_KUBECONFIG` and the development URLs. Credentials are GitLab variables, never values-file contents. Add actual credentials and a central mapping before exposing another cluster. Choices are explicit; GitLab does not discover dropdown options from directories.

@@ -1,8 +1,8 @@
 # Shared release strategy
 
-Applications import the [pipeline form](../config/pipeline-inputs.yml) and [organization profile](../config/java-service.yml). They supply the required app settings (`library-ref` and `maven-project`) and forward the selected cluster, user configuration and pipeline mode. The profile applies organization conventions, then starts [pipelines/java-service.yml](../pipelines/java-service.yml). The library owns the jobs, scripts, release button, checks and dev deployment. Applications do not copy or maintain a release pipeline.
+Applications import the [pipeline form](../config/pipeline-inputs.yml) and [java-service.yml](../pipelines/java-service.yml) directly. They supply the required app settings (`library-ref` and `maven-project`) and forward the selected cluster, user configuration and pipeline mode. The same central file defines the ordinary pipeline, deployment child and release child, selected by its internal `flow` input. The library owns the jobs, scripts, release button, checks and dev deployment. Applications do not copy or maintain a release pipeline.
 
-The application name and namespace default to the GitLab project name; the chart defaults to `helm/<project-name>`. Helm values come from `environment/cluster/<cluster>.yaml`, followed by `environment/user/<user-config>.yaml`. The local profile selects the cluster credentials, dev URLs and HTTP registry access. Generic components retain secure protocol defaults. Change local infrastructure settings centrally in the profile. Optional inputs belong in app configuration only when a project deliberately departs from those conventions; the demo sets none.
+The application name and namespace default to the GitLab project name; the chart defaults to `helm/<project-name>`. Helm values come from `environment/cluster/<cluster>.yaml`, followed by `environment/user/<user-config>.yaml`. The central configuration selects the cluster credentials, dev URLs and HTTP registry access. Generic components retain secure protocol defaults. Change local infrastructure settings centrally in the configuration. Optional inputs belong in app configuration only when a project deliberately departs from those conventions; the demo sets none.
 
 The current strategy supports a multi-module Maven reactor with one deployable module. Libraries and tests are built from the root POM. Multiple deployables would require an explicit module list and separate image/chart/deployment jobs, with names and outputs isolated per deployable. The KISS release policy would keep one repository tag and version across them; this fan-out is not implemented in the current demo.
 
@@ -10,10 +10,10 @@ The Java strategy composes independent Maven, Jib, Helm and release components. 
 
 ## Everyday flow
 
-1. Push a feature branch and open a merge request. The central `configure` job starts with defaults after 10 seconds. Follow **run-pipeline** to the build and Cucumber jobs. To select a different mode or Helm user profile, unschedule `configure` before its timer expires, then run it with the desired job inputs. See [pipeline choices](pipeline-options.md).
+1. Push a feature branch and open a merge request. Build and mandatory Cucumber tests run immediately in the main graph. The optional **test-custom** job allows additional scenario selections. See [pipeline choices](pipeline-options.md).
 2. Merge to the protected default branch after review and successful checks. In this demo that branch is `main`.
-3. The main pipeline automatically publishes development artifacts, deploys to dev and runs Cucumber against the deployed application.
-4. To create an official release, open that successful **run-pipeline** child pipeline and run **release**. Its default `version: auto` selects `0.1.0` for the first release and increments the highest reserved release's patch number thereafter. To choose a minor or major version, open the job and override `version`, for example with `1.0.0`. The release button is available only after the full `deploy` mode; reduced modes do not qualify for a release.
+3. The main pipeline automatically publishes development artifacts. **configure-deploy** allows ten seconds to stop the timer and choose cluster/user values. **deploy-dev** then runs Helm and Cucumber together.
+4. To create an official release, run **release** in that successful main pipeline. Its default `version: auto` selects `0.1.0` for the first release and increments the highest reserved release's patch number thereafter. To choose a minor or major version, open the job and override `version`, for example with `1.0.0`. The release button is available only after the full `deploy` mode; reduced modes do not qualify for a release.
 5. Follow **release-delivery** to see validation, Maven publication, Jib image publication, Helm publication, dev deployment and the final Cucumber test. A successful run creates the GitLab release with its commit, image digest and chart version.
 
 There is no separate tag approval. Clicking **release** is the release decision; code review happens before the merge. The local demo has one user, so that user also merges the merge request. In the real organization, require another person's review before merging into protected branches. A manual button alone does not enforce two-person approval.
@@ -40,15 +40,15 @@ The reservation job creates the Git tag atomically on the exact commit of the se
 
 | File | Responsibility |
 |---|---|
-| [config/java-service.yml](../config/java-service.yml) | Organization defaults and the app-facing required inputs |
-| [java-service.yml](../pipelines/java-service.yml) | Automatic builds, manual release decision and serialized delivery |
-| [java-service-delivery.yml](../pipelines/java-service-delivery.yml) | Tool jobs, dev deployment and HTTP validation |
+| [organization.yml](../config/organization.yml) | Shared server addresses and task images |
+| [java-service.yml](../pipelines/java-service.yml) | Complete composition: ordinary pipeline, serialized deployment and release |
+| [deployment-select.yml](../templates/deployment-select.yml) | Choose cluster/user values and record the deployment configuration |
 | [release-reserve.yml](../templates/release-reserve.yml) | Select the version and reserve its Git tag; publish version/commit inputs |
 | [release-check.yml](../templates/release-check.yml) | Check tag, commit and existing artifacts before the release build |
 | [gitlab-release.yml](../templates/gitlab-release.yml) | Record the tested artifacts as a GitLab release |
 | [shared/release.yml](../shared/release.yml) | Shared validation functions used by those components |
 
-The reservation job writes a small child-pipeline configuration artifact. Its central template and application settings are fixed when the parent pipeline is created; only the selected version and exact commit are inserted at runtime. Job implementations stay in the library. This keeps a later retry tied to the original inputs and pinned library revision.
+The reservation job writes a small child-pipeline configuration artifact. Its central template and application settings are fixed when the parent pipeline is created; the selected version, exact commit and successful deployment choices are resolved at runtime. Job implementations stay in the library. This keeps a later retry tied to the original inputs and pinned library revision.
 
 ## Enforcement in GitLab and Artifactory
 

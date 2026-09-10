@@ -1,11 +1,13 @@
 # Settings used by the demo
 
-The organization file is [config/organization.yml](../config/organization.yml). It contains shared server addresses and image selections; including it adds no jobs. The [Java organization profile](../config/java-service.yml) adds local deployment settings and selects the central strategy, which owns modules and their order.
+The organization file is [config/organization.yml](../config/organization.yml). It contains shared server addresses and image selections; including it adds no jobs. The application imports [java-service.yml](../pipelines/java-service.yml) directly. That single composition owns modules, job order and project-name defaults.
 
 | Setting | Purpose |
 |---|---|
 | `GITLAB_INTERNAL_URL` | GitLab address reachable from job containers |
 | `OCI_REGISTRY` | Registry address used by Jib and Helm |
+| `DEV_TARGET_URL`, `DEV_PUBLIC_URL` | Development URL for CI and the GitLab UI |
+| `HELM_REGISTRY_PLAIN_HTTP` | Explicit local-lab HTTP access for Helm registry login |
 | `OCI_REPOSITORY` | Artifactory repository receiving images and charts |
 | `MAVEN_BUILD_IMAGE`, `MAVEN_PUBLISH_IMAGE` | Images for the two Maven tasks |
 | `CUCUMBER_TEST_IMAGE`, `JIB_BUILD_IMAGE` | Images for HTTP tests and Jib |
@@ -27,9 +29,9 @@ The image selections currently refer to three digest-pinned GitLab project varia
 
 The sample deploys to local Kubernetes. OpenShift can use the same `helm-deploy` module with an OpenShift kubeconfig. Scope deployment credentials to the matching GitLab environment, such as `local`, `test` or `production`, and grant access to the required namespace. Registry credentials used by publish jobs must also be available to those jobs. Do not put credential values in the organization YAML, hook parameters or output artifacts.
 
-**The static app settings are the required profile inputs:** `library-ref` and `maven-project`. The application also forwards runtime choices from the shared New pipeline form. The profile defaults application name and namespace to `$CI_PROJECT_NAME`, chart path to `helm/$CI_PROJECT_NAME`, and environment directory to `environment/`. Local endpoint URLs, HTTP registry access and the cluster-to-kubeconfig mapping are organization settings in that profile. Default values are not repeated in the application. Stages, dependencies and hooks belong to the central strategy.
+**The static app settings are the required central pipeline inputs:** `library-ref` and `maven-project`. The application also forwards runtime choices from the shared New pipeline form. The profile defaults application name and namespace to `$CI_PROJECT_NAME`, chart path to `helm/$CI_PROJECT_NAME`, and environment directory to `environment/`. Local endpoint URLs, HTTP registry access and the cluster-to-kubeconfig mapping are organization settings in the central configuration. Default values are not repeated in the application. Stages, dependencies and hooks belong to the central strategy.
 
-The central `configure` job selects `cluster`, `user_config` and `pipeline_mode`. It starts with defaults after a 10-second delay unless a user unschedules it. These are runtime job selections, not repeated values in the app YAML. See [pipeline choices](pipeline-options.md).
+The `configure-deploy` job selects `cluster` and `user_config` after publication, with a ten-second default delay. `pipeline_mode` is selected before pipeline creation. The optional `test-custom` job accepts a Cucumber tag selection; mandatory tests keep their fixed configuration. See [pipeline choices](pipeline-options.md).
 
 **Module defaults** stay in each module's `spec:inputs`. Consumers can omit these inputs:
 

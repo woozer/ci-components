@@ -3,7 +3,7 @@ spec:
   inputs:
     job-name:
       type: string
-      default: pipeline-select
+      default: deployment-select
     stage:
       type: string
       default: configure
@@ -53,12 +53,8 @@ spec:
     default-user-config:
       type: string
       default: default
-    default-pipeline-mode:
-      type: string
-      default: deploy
-      options: [validate, publish, deploy]
     pipeline-config:
-      description: 'Child YAML with @CLUSTER@, @USER_CONFIG@ and @PIPELINE_MODE@ placeholders'
+      description: 'Child YAML with @CLUSTER@ and @USER_CONFIG@ placeholders'
       type: string
 ---
 include:
@@ -69,8 +65,9 @@ include:
   image:
     name: '$[[ inputs.image ]]'
     entrypoint: ['']
-  when: delayed
-  start_in: '$[[ inputs.start-delay ]]'
+  rules:
+    - when: delayed
+      start_in: '$[[ inputs.start-delay ]]'
   allow_failure: false
   timeout: '$[[ inputs.job-timeout ]]'
   variables:
@@ -87,24 +84,17 @@ include:
     - |
       selected_cluster='${{ job.inputs.cluster }}'
       selected_user='${{ job.inputs.user_config }}'
-      selected_mode='${{ job.inputs.pipeline_mode }}'
       for name in "$selected_cluster" "$selected_user"; do
         case "$name" in
           ''|*[!a-z0-9-]*) echo 'Selection must be a lowercase name, not a path.' >&2; exit 1 ;;
         esac
       done
-      case "$selected_mode" in
-        validate|publish|deploy) ;;
-        *) echo 'Unsupported pipeline mode.' >&2; exit 1 ;;
-      esac
       printf '%s\n' "$SELECTION_PIPELINE_YAML" | sed \
         -e "s/@CLUSTER@/$selected_cluster/g" \
-        -e "s/@USER_CONFIG@/$selected_user/g" \
-        -e "s/@PIPELINE_MODE@/$selected_mode/g" > "$CI_MODULE_OUTPUT_DIR/pipeline.yml"
-      printf 'Selected cluster=%s, user-config=%s, pipeline-mode=%s\n' "$selected_cluster" "$selected_user" "$selected_mode"
+        -e "s/@USER_CONFIG@/$selected_user/g" > "$CI_MODULE_OUTPUT_DIR/pipeline.yml"
+      printf 'Selected cluster=%s, user-config=%s\n' "$selected_cluster" "$selected_user"
       emit CLUSTER "$selected_cluster"
       emit USER_CONFIG "$selected_user"
-      emit MODE "$selected_mode"
     - !reference [.ci-module, script]
   after_script:
     - !reference [.ci-module, after_script]
@@ -125,8 +115,3 @@ include:
       type: string
       default: '$[[ inputs.default-user-config ]]'
       options: $[[ inputs.user-configs ]]
-    pipeline_mode:
-      description: 'validate: build/tests; publish: add artifacts; deploy: add Helm and HTTP tests'
-      type: string
-      default: '$[[ inputs.default-pipeline-mode ]]'
-      options: [validate, publish, deploy]
