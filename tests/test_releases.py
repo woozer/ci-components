@@ -14,12 +14,7 @@ class ReleaseContractTests(unittest.TestCase):
         self.root = Path(self.temp.name)
 
     def harness(self, name='release-reserve', **overrides):
-        inputs = {
-            'release-branch': 'main', 'image-path': 'releases/service',
-            'chart-path': 'releases/charts/service', 'registry-url': 'https://registry.invalid',
-            'registry-username': 'publisher', 'registry-password-file': str(self.root / 'password'),
-            'version': '1.2.3',
-        }
+        inputs = {'release-branch': 'main', 'version': '1.2.3'}
         if name == 'release-reserve':
             inputs.update({
                 'git-url': 'ssh://git@gitlab.invalid/group/service.git',
@@ -28,14 +23,19 @@ class ReleaseContractTests(unittest.TestCase):
                 'pipeline-config': 'version: "@RELEASE_VERSION@"\ncommit: "@RELEASE_COMMIT@"',
             })
         else:
-            inputs['commit'] = 'a' * 40
+            inputs.update({
+                'commit': 'a' * 40, 'image-path': 'releases/service',
+                'chart-path': 'releases/charts/service', 'registry-url': 'https://registry.invalid',
+                'registry-username': 'publisher', 'registry-password-file': str(self.root / 'password'),
+            })
         inputs.update(overrides)
         h = Harness(self.root, name, inputs=inputs, env={
             'CI_COMMIT_BRANCH': 'main', 'CI_DEFAULT_BRANCH': 'main',
             'CI_COMMIT_REF_PROTECTED': 'true', 'CI_COMMIT_TAG': '',
             'CI_PIPELINE_URL': 'https://gitlab.invalid/group/service/-/pipelines/99',
         })
-        h.write('password', 'secret-password')
+        if name == 'release-check':
+            h.write('password', 'secret-password')
         h.write('key', 'private-key-fixture')
         h.write('known-hosts', 'public-key-fixture')
         h.write('bin/git', '''#!/bin/sh
@@ -77,6 +77,8 @@ exit "${FAKE_HTTP_EXIT:-0}"
         self.assertNotIn('secret-password', child)
         self.assertIn('refs/tags/v1.2.3:refs/tags/v1.2.3', self.calls())
         self.assertNotIn('--force', self.calls())
+        self.assertFalse((self.root / 'http-calls').exists())
+        self.assertFalse((self.root / 'password').exists())
 
     def test_auto_starts_at_initial_version_without_existing_tags(self):
         h = self.harness(version='auto')
@@ -160,27 +162,30 @@ exit "${FAKE_HTTP_EXIT:-0}"
         self.assertNotEqual(0, h.run().returncode)
         self.assertNotIn('push ', self.calls())
 
-    def test_existing_image_blocks_reservation(self):
-        h = self.harness()
+    def test_existing_image_blocks_release_check_before_building(self):
+        h = self.harness('release-check')
         h.env['FAKE_HTTP_STATUS'] = '200'
         result = h.run()
         self.assertNotEqual(0, result.returncode)
         self.assertIn('already has a published artifact', result.stderr)
         self.assertNotIn('push ', self.calls())
+        self.assertFalse(h.output_file.exists())
 
     def test_repository_errors_block_publication(self):
         for status in ['401', '403', '500']:
             with self.subTest(status=status):
-                h = self.harness()
+                h = self.harness('release-check')
                 h.env['FAKE_HTTP_STATUS'] = status
                 self.assertNotEqual(0, h.run().returncode)
                 self.assertNotIn('push ', self.calls())
+                self.assertFalse(h.output_file.exists())
 
     def test_network_failure_blocks_publication(self):
-        h = self.harness()
+        h = self.harness('release-check')
         h.env['FAKE_HTTP_EXIT'] = '7'
         self.assertNotEqual(0, h.run().returncode)
         self.assertNotIn('push ', self.calls())
+        self.assertFalse(h.output_file.exists())
 
     def test_racing_tag_creation_does_not_publish_child_configuration(self):
         h = self.harness()

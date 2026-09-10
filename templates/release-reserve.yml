@@ -3,90 +3,54 @@ spec:
   inputs:
     job-name:
       description: 'Unique job name within the consuming pipeline'
-      type: 'string'
       default: 'release-reserve'
     stage:
       description: 'Stage declared by the consuming pipeline'
-      type: 'string'
       default: 'release'
     image:
       description: 'Approved tool image, pinned by digest'
-      type: 'string'
     job-timeout:
       description: 'Maximum GitLab job duration; subject to runner limits'
-      type: 'string'
       default: '30m'
     artifact-expire-in:
       description: 'Retention for this job output variables and artifacts'
-      type: 'string'
       default: '7 days'
     working-directory:
       description: 'Repository-relative working directory'
-      type: 'string'
       default: '.'
     output-prefix:
       description: 'Unique namespace for dotenv outputs'
-      type: 'string'
       default: 'RELEASE'
       regex: '^[A-Z][A-Z0-9_]*$'
     pre-hook:
       description: 'Optional repository-relative POSIX shell script before operation'
-      type: 'string'
       default: ''
     post-hook:
       description: 'Optional script after success; failure fails the job'
-      type: 'string'
       default: ''
     cleanup-hook:
       description: 'Optional best-effort after_script hook'
-      type: 'string'
       default: ''
     hook-parameters-json:
       description: 'Non-secret JSON configuration provided as CI_MODULE_PARAMETERS_FILE'
-      type: 'string'
       default: '{}'
     release-branch:
       description: "Protected branch permitted to release"
-      type: string
       default: "$CI_DEFAULT_BRANCH"
-    registry-url:
-      description: "Artifactory URL including http or https"
-      type: string
-      default: "$RELEASE_REGISTRY_URL"
-    registry-username:
-      description: "Publisher with Read and Deploy, without Delete/Overwrite"
-      type: string
-      default: "$ARTIFACTORY_USERNAME"
-    registry-password-file:
-      description: "Path to the publisher password file"
-      type: string
-      default: "$ARTIFACTORY_PASSWORD_FILE"
-    image-path:
-      description: "Artifactory repository and image path, without tag"
-      type: string
-    chart-path:
-      description: "Optional Artifactory repository and OCI chart path"
-      type: string
-      default: ""
     version:
       description: "auto selects the next patch; override with an explicit SemVer"
-      type: string
       default: auto
     git-url:
       description: "Repository SSH URL used only for creating the tag"
-      type: string
       default: "$RELEASE_GIT_URL"
     git-key-file:
       description: "Deploy key file permitted to create release tags"
-      type: string
       default: "$RELEASE_GIT_KEY"
     git-known-hosts-file:
       description: "Pinned SSH known-hosts file"
-      type: string
       default: "$RELEASE_GIT_KNOWN_HOSTS"
     pipeline-config:
       description: "Optional child pipeline YAML with @RELEASE_VERSION@ and @RELEASE_COMMIT@ placeholders"
-      type: string
       default: ""
 ---
 include:
@@ -108,11 +72,6 @@ include:
     MODULE_CLEANUP_HOOK: '$[[ inputs.cleanup-hook ]]'
     MODULE_HOOK_PARAMETERS_JSON: '$[[ inputs.hook-parameters-json ]]'
     RELEASE_BRANCH: '$[[ inputs.release-branch ]]'
-    RELEASE_ARTIFACTORY_URL: '$[[ inputs.registry-url ]]'
-    RELEASE_REGISTRY_USER: '$[[ inputs.registry-username ]]'
-    RELEASE_REGISTRY_PASSWORD_FILE: '$[[ inputs.registry-password-file ]]'
-    RELEASE_IMAGE_PATH: '$[[ inputs.image-path ]]'
-    RELEASE_CHART_PATH: '$[[ inputs.chart-path ]]'
     RELEASE_TAG_GIT_URL: '$[[ inputs.git-url ]]'
     RELEASE_GIT_KEY_FILE: '$[[ inputs.git-key-file ]]'
     RELEASE_GIT_KNOWN_HOSTS_FILE: '$[[ inputs.git-known-hosts-file ]]'
@@ -154,7 +113,6 @@ include:
         validate_version "$RELEASE_VERSION"
         printf 'Automatic release version: %s\n' "$RELEASE_VERSION"
       fi
-      require_unused_artifacts
       tag="v$RELEASE_VERSION"
       if git ls-remote --exit-code "$RELEASE_TAG_GIT_URL" "refs/tags/$tag" > /dev/null; then
         fail "Tag $tag already reserves this version; use a new version."
