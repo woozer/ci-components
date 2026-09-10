@@ -69,9 +69,9 @@ spec:
       type: string
       default: ""
     version:
-      description: "Initial value for the manual version field; leave empty to require entry"
+      description: "auto selects the next patch; override with an explicit SemVer"
       type: string
-      default: ""
+      default: auto
     git-url:
       description: "Repository SSH URL used only for creating the tag"
       type: string
@@ -123,9 +123,8 @@ include:
     - !reference [.ci-release, script]
     - |
       RELEASE_VERSION='${{ job.inputs.version }}'
-      validate_version "$RELEASE_VERSION"
+      if [ "$RELEASE_VERSION" != auto ]; then validate_version "$RELEASE_VERSION"; fi
       require_release_branch
-      require_unused_artifacts
 
       : "${RELEASE_GIT_KEY_FILE:?Missing release Git deploy key}"
       : "${RELEASE_GIT_KNOWN_HOSTS_FILE:?Missing pinned SSH host keys}"
@@ -135,6 +134,27 @@ include:
       cp "$RELEASE_GIT_KEY_FILE" "$key_dir/key"
       chmod 600 "$key_dir/key"
       export GIT_SSH_COMMAND="ssh -i \"$key_dir/key\" -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=\"$RELEASE_GIT_KNOWN_HOSTS_FILE\""
+
+      if [ "$RELEASE_VERSION" = auto ]; then
+        # Include all reserved versions, even when their later publication failed.
+        if ! release_tags=$(git ls-remote --tags --refs --sort=-version:refname "$RELEASE_TAG_GIT_URL"); then
+          fail 'Cannot list reserved release versions; automatic version selection is blocked.'
+        fi
+        latest=$(printf '%s\n' "$release_tags" | awk '
+          !found && $2 ~ /^refs\/tags\/v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/ {
+            sub(/^refs\/tags\/v/, "", $2); print $2; found=1
+          }')
+        if [ -z "$latest" ]; then
+          RELEASE_VERSION=0.1.0
+        else
+          patch=${latest##*.}
+          [ "${#patch}" -le 18 ] || fail 'Patch number exceeds automatic arithmetic; enter an explicit version.'
+          RELEASE_VERSION="${latest%.*}.$((patch + 1))"
+        fi
+        validate_version "$RELEASE_VERSION"
+        printf 'Automatic release version: %s\n' "$RELEASE_VERSION"
+      fi
+      require_unused_artifacts
       tag="v$RELEASE_VERSION"
       if git ls-remote --exit-code "$RELEASE_TAG_GIT_URL" "refs/tags/$tag" > /dev/null; then
         fail "Tag $tag already reserves this version; use a new version."
@@ -165,7 +185,7 @@ include:
       dotenv: '.ci-output/$CI_JOB_NAME/outputs.env'
   inputs:
     version:
-      description: 'New release version, for example 1.2.3 (without v)'
+      description: 'auto: first 0.1.0, then next patch; or enter a version such as 1.0.0'
       type: string
       default: '$[[ inputs.version ]]'
-      regex: '^$|^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
+      regex: '^(auto|(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*))$'
