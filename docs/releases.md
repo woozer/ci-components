@@ -1,6 +1,6 @@
 # Shared release strategy
 
-Applications include the [organization profile](../config/java-service.yml) and supply only its required inputs: `library-ref` and `maven-project`. The profile applies organization settings and conventions, then includes [pipelines/java-service.yml](../pipelines/java-service.yml). The library owns the jobs, scripts, release button, checks and dev deployment. Applications do not copy or maintain a release pipeline.
+Applications import the [pipeline form](../config/pipeline-inputs.yml) and [organization profile](../config/java-service.yml). They supply the required app settings (`library-ref` and `maven-project`) and forward the selected cluster, user configuration and pipeline mode. The profile applies organization conventions, then starts [pipelines/java-service.yml](../pipelines/java-service.yml). The library owns the jobs, scripts, release button, checks and dev deployment. Applications do not copy or maintain a release pipeline.
 
 The application name and namespace default to the GitLab project name; the chart defaults to `helm/<project-name>`. Helm values come from `environment/cluster/<cluster>.yaml`, followed by `environment/user/<user-config>.yaml`. The local profile selects the cluster credentials, dev URLs and HTTP registry access. Generic components retain secure protocol defaults. Change local infrastructure settings centrally in the profile. Optional inputs belong in app configuration only when a project deliberately departs from those conventions; the demo sets none.
 

@@ -48,6 +48,10 @@ spec:
     version:
       description: "Release version"
       type: string
+    api-url:
+      description: 'GitLab API base URL reachable from the job container'
+      type: string
+      default: '$CI_API_V4_URL'
     image-ref-variable:
       description: "Upstream immutable image reference variable"
       type: string
@@ -84,6 +88,7 @@ include:
     MODULE_CLEANUP_HOOK: '$[[ inputs.cleanup-hook ]]'
     MODULE_HOOK_PARAMETERS_JSON: '$[[ inputs.hook-parameters-json ]]'
     RELEASE_VERSION: '$[[ inputs.version ]]'
+    RELEASE_API_URL: '$[[ inputs.api-url ]]'
     RELEASE_IMAGE_VARIABLE: '$[[ inputs.image-ref-variable ]]'
     RELEASE_CHART_VARIABLE: '$[[ inputs.chart-ref-variable ]]'
     RELEASE_CHART_VERSION_VARIABLE: '$[[ inputs.chart-version-variable ]]'
@@ -114,7 +119,7 @@ include:
         --header "JOB-TOKEN: $CI_JOB_TOKEN" --request POST \
         --data-urlencode "tag_name=v$RELEASE_VERSION" --data-urlencode "name=Release $RELEASE_VERSION" \
         --data-urlencode "description@$CI_MODULE_OUTPUT_DIR/release.md" \
-        "$CI_API_V4_URL/projects/$CI_PROJECT_ID/releases" > /dev/null
+        "${RELEASE_API_URL%/}/projects/$CI_PROJECT_ID/releases" > /dev/null
       emit URL "$CI_PROJECT_URL/-/releases/v$RELEASE_VERSION"
       emit VERSION "$RELEASE_VERSION"
     - !reference [.ci-module, script]

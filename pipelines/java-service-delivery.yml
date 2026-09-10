@@ -152,6 +152,7 @@ include:
     inputs:
       job-name: finish-release
       image: $MAVEN_BUILD_IMAGE
+      api-url: $GITLAB_INTERNAL_URL/api/v4
       version: '$[[ inputs.version ]]'
       artifact-expire-in: never
       description: 'Validated in dev. Production delivery through Argo CD must use this image digest without rebuilding.'

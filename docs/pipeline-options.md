@@ -1,12 +1,14 @@
 # Pipeline choices
 
-The application only includes the organization profile and supplies the pinned library revision and deployable Maven module. The central **configure** job contains the selectable job inputs. No scripts or stage definitions are copied into the app.
+On **Build > Pipelines > New pipeline**, select the branch, then choose `cluster`, `user_config` and `pipeline_mode`. These fields also appear for `main`. The application imports the form definitions from [config/pipeline-inputs.yml](../config/pipeline-inputs.yml) and forwards the selections to the organization profile. Push and merge request pipelines use the defaults automatically.
+
+The only static app settings are the pinned library revision and deployable Maven module. No scripts or stage definitions are copied into the app. The form definition and implementation have the same pinned revision; YAML anchors cannot cross the header's document separator, so that revision appears in both includes.
 
 ## Ten-second default
 
-`configure` uses `when: delayed` and `start_in: 10 seconds`. With no user action, GitLab schedules it using `local`, `default` and `deploy`. Runner availability determines when execution actually starts.
+`configure` uses `when: delayed` and `start_in: 10 seconds`. After the pipeline has been created, GitLab schedules it using the selections from the form, or `local`, `default` and `deploy` for an automatic/default run. Runner availability determines when execution actually starts.
 
-To choose other values, select **Unschedule** on `configure` before the timer expires. Open the job, set its inputs and select **Run job**. Unscheduling stops the timer, so the job waits for this explicit run. GitLab does not provide a self-closing input dialog on the New pipeline page. [Delayed jobs](https://docs.gitlab.com/ci/jobs/job_control/#run-a-job-after-a-delay), [job inputs](https://docs.gitlab.com/ci/jobs/job_inputs/).
+To change values after starting the pipeline, select **Unschedule** on `configure` before the timer expires. Open the job, set its inputs and select **Run job**. Unscheduling stops the timer, so the job waits for this explicit run. GitLab does not automatically submit the New pipeline page: its timer applies to the job in a created pipeline. [Delayed jobs](https://docs.gitlab.com/ci/jobs/job_control/#run-a-job-after-a-delay), [job inputs](https://docs.gitlab.com/ci/jobs/job_inputs/).
 
 Follow **run-pipeline** to the executing jobs. The selected values and the pinned library revision are recorded in the configuration artifact; the resulting child pipeline uses those fixed settings.
 

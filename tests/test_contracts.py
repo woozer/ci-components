@@ -348,6 +348,15 @@ class ComponentContractTests(unittest.TestCase):
         self.assertEqual('cluster: local\nuser: default\nmode: deploy\n',
                          (h.output_file.parent / 'pipeline.yml').read_text())
 
+    def test_pipeline_form_selections_become_the_configure_job_defaults(self):
+        h = Harness(self.root, 'pipeline-select', inputs={
+            'default-user-config': 'two-replicas', 'default-pipeline-mode': 'publish',
+            'pipeline-config': 'user: @USER_CONFIG@\nmode: @PIPELINE_MODE@'})
+        result = h.run()
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertEqual('two-replicas', h.outputs()['SELECTION_USER_CONFIG'])
+        self.assertEqual('publish', h.outputs()['SELECTION_MODE'])
+
     def test_wrong_fortify_scan_receipt_is_rejected_before_policy_adapter(self):
         (self.root / "scan.json").write_text(json.dumps({"commit_sha": "wrong", "pipeline_id": "99",
                                                        "status": "completed", "scan_id": "scan-1"}))

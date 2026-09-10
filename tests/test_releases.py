@@ -174,6 +174,22 @@ exit "${FAKE_HTTP_EXIT:-0}"
         self.assertNotEqual(0, h.run().returncode)
         self.assertFalse(h.output_file.exists())
 
+    def test_release_record_uses_reachable_api_and_verified_artifact_outputs(self):
+        image = 'registry.invalid/releases/service@sha256:' + 'b' * 64
+        h = Harness(self.root, 'gitlab-release', inputs={
+            'version': '1.2.3', 'api-url': 'http://internal-gitlab:8929/api/v4/'}, env={
+            'JIB_IMAGE_REF': image, 'CHART_REF': 'oci://registry.invalid/charts/service',
+            'CHART_VERSION': '1.2.3', 'CI_PROJECT_ID': '7', 'CI_JOB_TOKEN': 'fixture-token',
+            'CI_PROJECT_URL': 'http://public-gitlab/group/service',
+            'CI_PIPELINE_URL': 'http://public-gitlab/group/service/-/pipelines/99'})
+        h.write('bin/curl', '#!/bin/sh\nprintf "%s\\n" "$@" > "$CI_PROJECT_DIR/release-request"\n')
+        result = h.run()
+        self.assertEqual(0, result.returncode, result.stderr)
+        request = (self.root / 'release-request').read_text().splitlines()
+        self.assertEqual('http://internal-gitlab:8929/api/v4/projects/7/releases', request[-1])
+        self.assertIn(image, (h.output_file.parent / 'release.md').read_text())
+        self.assertEqual('http://public-gitlab/group/service/-/releases/v1.2.3', h.outputs()['GITLAB_RELEASE_URL'])
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

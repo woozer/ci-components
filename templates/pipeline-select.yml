@@ -53,6 +53,10 @@ spec:
     default-user-config:
       type: string
       default: default
+    default-pipeline-mode:
+      type: string
+      default: deploy
+      options: [validate, publish, deploy]
     pipeline-config:
       description: 'Child YAML with @CLUSTER@, @USER_CONFIG@ and @PIPELINE_MODE@ placeholders'
       type: string
@@ -124,5 +128,5 @@ include:
     pipeline_mode:
       description: 'validate: build/tests; publish: add artifacts; deploy: add Helm and HTTP tests'
       type: string
-      default: deploy
+      default: '$[[ inputs.default-pipeline-mode ]]'
       options: [validate, publish, deploy]
