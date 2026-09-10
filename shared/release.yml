@@ -28,7 +28,7 @@
         # This read check gives a clear error. Registry permissions enforce immutability.
         : "${RELEASE_REGISTRY_PASSWORD_FILE:?Missing release registry password file}"
         : "${RELEASE_REGISTRY_USER:?Missing release registry username}"
-        : "${RELEASE_REGISTRY_URL:?Missing release registry URL}"
+        : "${RELEASE_ARTIFACTORY_URL:?Missing release registry URL}"
         : "${RELEASE_IMAGE_PATH:?Missing release image path}"
         release_auth=$(mktemp)
         chmod 600 "$release_auth"
@@ -38,7 +38,7 @@
         for artifact in "$@"; do
           if ! status=$(curl --config "$release_auth" --silent --show-error --head --output /dev/null \
             --connect-timeout 10 --max-time 30 --write-out '%{http_code}' \
-            "${RELEASE_REGISTRY_URL%/}/artifactory/$artifact/$RELEASE_VERSION/manifest.json"); then
+            "${RELEASE_ARTIFACTORY_URL%/}/artifactory/$artifact/$RELEASE_VERSION/manifest.json"); then
             rm -f "$release_auth"
             fail 'Cannot check the release repository; publication is blocked.'
           fi

@@ -17,6 +17,8 @@ flowchart LR
 
 The deployed endpoint is [localhost:8080/hello](http://localhost:8080/hello).
 
+The central **configure** job starts with defaults after 10 seconds. Unschedule it to select a cluster, Helm user profile or reduced pipeline mode, then run it manually. Follow **run-pipeline** to the jobs above. See [pipeline choices](docs/pipeline-options.md).
+
 The central strategy composes these build and deployment modules:
 
 | Module | What it does |

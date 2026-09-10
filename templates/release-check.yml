@@ -94,7 +94,7 @@ include:
     MODULE_CLEANUP_HOOK: '$[[ inputs.cleanup-hook ]]'
     MODULE_HOOK_PARAMETERS_JSON: '$[[ inputs.hook-parameters-json ]]'
     RELEASE_BRANCH: '$[[ inputs.release-branch ]]'
-    RELEASE_REGISTRY_URL: '$[[ inputs.registry-url ]]'
+    RELEASE_ARTIFACTORY_URL: '$[[ inputs.registry-url ]]'
     RELEASE_REGISTRY_USER: '$[[ inputs.registry-username ]]'
     RELEASE_REGISTRY_PASSWORD_FILE: '$[[ inputs.registry-password-file ]]'
     RELEASE_IMAGE_PATH: '$[[ inputs.image-path ]]'
