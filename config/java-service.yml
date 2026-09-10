@@ -1,0 +1,36 @@
+# Organization profile for the local lab. Applications only supply required inputs.
+# Generic job implementations and release policy remain in /pipelines/.
+spec:
+  inputs:
+    library-ref:
+      description: 'Immutable commit of this CI library; use the same commit as include.ref'
+      type: string
+    maven-project:
+      description: 'Maven module containing the deployable application and Jib'
+      type: string
+    application:
+      description: 'Application name; defaults to the GitLab project name'
+      type: string
+      default: '$CI_PROJECT_NAME'
+    chart:
+      description: 'Helm chart directory; defaults to helm/<GitLab project name>'
+      type: string
+      default: 'helm/$CI_PROJECT_NAME'
+    namespace:
+      description: 'Existing dev namespace; defaults to the GitLab project name'
+      type: string
+      default: '$CI_PROJECT_NAME'
+---
+include:
+  - local: /pipelines/java-service.yml
+    inputs:
+      library-ref: '$[[ inputs.library-ref ]]'
+      application: '$[[ inputs.application | expand_vars ]]'
+      maven-project: '$[[ inputs.maven-project ]]'
+      chart: '$[[ inputs.chart | expand_vars ]]'
+      namespace: '$[[ inputs.namespace | expand_vars ]]'
+      # Local organization settings; consumers do not repeat these in their app.
+      values-file: '$[[ inputs.chart | expand_vars ]]/values-artifactory.yaml'
+      dev-url: http://host.docker.internal:8080
+      dev-public-url: http://localhost:8080
+      plain-http: true
