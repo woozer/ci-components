@@ -40,4 +40,6 @@ The build post-hook writes `BUILD_CUSTOM_LABEL`; the test pre-hook reads it. Oth
 
 **Configuration stays small.** [config/organization.yml](config/organization.yml) holds server addresses and an image selection for each task. Credentials stay in GitLab variables. Module defaults live in `spec:inputs`; application inputs select paths and the deployment target. The settings file adds no jobs. See [settings used by the sample](docs/defaults.md).
 
+A project can use just one module. Include its component, supply the required `image` and other inputs, and declare its stage. Shared hook handling is included automatically; organization settings and other modules are optional. A deployment module can receive its chart and image digest from any producer that supplies its inputs.
+
 For details beyond this demo, use the [library reference](docs/reference.md) and [hook contract](docs/hooks.md).

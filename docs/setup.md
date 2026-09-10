@@ -48,9 +48,9 @@ By default, Maven components use an executable Maven Wrapper in the configured w
 
 `ci-unit` must activate JaCoCo's `prepare-agent` before tests and configure Surefire. The test component runs `test jacoco:report`; make the report XML available to Sonar. `sonar-scan` preserves imported coverage artifacts and installs reactor artifacts with tests skipped to resolve multi-module dependencies. These preparation phases may compile/package again; the release OCI image is still built only once from the build jobs' artifacts.
 
-The default `cucumber-ci` profile must bind Failsafe's `integration-test` and `verify` goals, discover a real Cucumber test suite, write JUnit XML to `target/failsafe-reports`, and read `cucumber.base-url` in application test code. Configure Surefire's `skipTests` from a custom `skipUnitTests` property; do not set global `skipTests` for Cucumber because that can skip Failsafe too. Fail the suite if its configured tag filter selects no scenarios. Java multi-module projects with intentionally testless modules need a reviewed per-module discovery configuration. [Cucumber with Failsafe](https://maven.apache.org/components/surefire/maven-failsafe-plugin/examples/cucumber.html)
+Configure the POM to bind Failsafe's `integration-test` and `verify` goals, discover a real Cucumber test suite, write JUnit XML to `target/failsafe-reports`, and read `cucumber.base-url` in application test code. Configure Surefire's `skipTests` from a custom `skipUnitTests` property; do not set global `skipTests` for Cucumber because that can skip Failsafe too. Fail the suite if its configured tag filter selects no scenarios. Java multi-module projects with intentionally testless modules need a reviewed per-module discovery configuration. [Cucumber with Failsafe](https://maven.apache.org/components/surefire/maven-failsafe-plugin/examples/cucumber.html)
 
-Set `profile: ""` when Failsafe is configured without a profile. Set `target-url-variable: ""` when the test suite starts its own application; otherwise pass the name of a URL output from an upstream deployment.
+Cucumber activates no Maven profile by default. If Failsafe is configured in a profile, pass its name explicitly, for example `profile: cucumber-ci`. The optional full pipeline example selects that profile explicitly. Set `target-url-variable: ""` when the test suite starts its own application; otherwise pass the name of a URL output from an upstream deployment.
 
 `package-lock.json` and the approved npm configuration must be committed. `build` must write the configured output directory (`dist` by default). `test:ci` must run non-interactively, fail when no tests are discovered, produce `reports/junit.xml`, and write `coverage/lcov.info` if Sonar consumes JavaScript/TypeScript coverage. The npm build, test, and audit components each install their own dependencies from the same lockfile.
 
@@ -58,7 +58,7 @@ The Sonar scan in this starter uses the Maven scanner. Configure the application
 
 ## Deployment contract
 
-For Java applications using Jib, select `jib-build`, supply a digest-pinned base image and registry Maven settings, and consume its `IMAGE_REF` output. Registry HTTP requires an explicit opt-in for the local lab. `maven-publish` handles Maven repository deployment independently.
+For Java applications using Jib, select `jib-build`, supply a digest-pinned base image and registry Maven settings, and consume its `IMAGE_REF` output. The component uses Jib’s standard `jib.to.image` and `jib.from.image` properties; it does not require application-specific image properties in the POM. Registry HTTP requires an explicit opt-in for the local lab. `maven-publish` handles Maven repository deployment independently.
 
 When using the general `image-build` component, the Dockerfile should copy `backend/**/target` artifacts and `frontend/dist` from the producer jobs instead of fetching unversioned build outputs. Pin base images. Put downloaded caches, credentials, and unrelated files in `.dockerignore`.
 

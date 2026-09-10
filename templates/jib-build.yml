@@ -110,7 +110,7 @@ include:
       fi
       "$MAVEN_EXECUTABLE" --batch-mode --no-transfer-progress --settings "$MAVEN_SETTINGS" \
         -pl "$MAVEN_PROJECT_SELECTOR" compile jib:build "$@" \
-        "-Dcontainer.image=$JIB_IMAGE_REPOSITORY:$JIB_IMAGE_TAG" "-Dcontainer.base-image=$JIB_BASE_IMAGE"
+        "-Djib.to.image=$JIB_IMAGE_REPOSITORY:$JIB_IMAGE_TAG" "-Djib.from.image=$JIB_BASE_IMAGE"
       digest=$(cat "$JIB_DIGEST_FILE")
       printf '%s\n' "$digest" | LC_ALL=C grep -Eq '^sha256:[a-f0-9]{64}$'
       emit IMAGE_REF "$JIB_IMAGE_REPOSITORY@$digest"

@@ -55,9 +55,9 @@ spec:
       type: string
       default: ./mvnw
     profile:
-      description: 'POM profile binding Failsafe integration-test and verify'
+      description: 'Optional POM profile binding Failsafe integration-test and verify'
       type: 'string'
-      default: 'cucumber-ci'
+      default: ''
     tags:
       description: 'Cucumber tag expression'
       type: 'string'

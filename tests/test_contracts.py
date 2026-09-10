@@ -158,7 +158,7 @@ class ComponentContractTests(unittest.TestCase):
         self.assertEqual(["installed-maven"], h.events())
 
     def test_cucumber_can_start_its_own_application_without_an_upstream_url(self):
-        h = Harness(self.root, "cucumber-test", inputs={"profile": "", "target-url-variable": ""})
+        h = Harness(self.root, "cucumber-test", inputs={"target-url-variable": ""})
         h.write("mvnw", '#!/bin/sh\nprintf "%s\\n" "$@" > "$CI_PROJECT_DIR/maven-args"\n')
         result = h.run()
         self.assertEqual(0, result.returncode, result.stderr)
@@ -167,15 +167,31 @@ class ComponentContractTests(unittest.TestCase):
         self.assertFalse(any(arg.startswith("-P") or arg.startswith("-Dcucumber.base-url=") for arg in args))
         self.assertNotIn("CUCUMBER_TEST_TARGET_URL", h.outputs())
 
+    def test_cucumber_accepts_an_explicit_profile_and_deployment_url(self):
+        h = Harness(self.root, "cucumber-test", inputs={"profile": "acceptance"},
+                    env={"HELM_DEPLOY_URL": "http://application:8080"})
+        h.write("mvnw", '#!/bin/sh\nprintf "%s\\n" "$@" > "$CI_PROJECT_DIR/maven-args"\n')
+        result = h.run()
+        self.assertEqual(0, result.returncode, result.stderr)
+        args = (self.root / "maven-args").read_text().splitlines()
+        self.assertIn("-Pacceptance", args)
+        self.assertIn("-Dcucumber.base-url=http://application:8080", args)
+        self.assertEqual("http://application:8080", h.outputs()["CUCUMBER_TEST_TARGET_URL"])
+
     def test_jib_publishes_only_a_valid_immutable_image_reference(self):
         h = Harness(self.root, "jib-build", inputs={"image-repository": "registry.example/app",
+                    "image-tag": "release-1.2.3",
                     "base-image": "registry.example/java@sha256:" + "a" * 64,
                     "allow-insecure-registry": True})
         h.write("mvnw", '#!/bin/sh\nprintf "%s\\n" "$@" > "$CI_PROJECT_DIR/maven-args"\n')
         h.write("target/jib-image.digest", "sha256:" + "c" * 64 + "\n")
         self.assertEqual(0, h.run().returncode)
         self.assertEqual("registry.example/app@sha256:" + "c" * 64, h.outputs()["JIB_BUILD_IMAGE_REF"])
-        self.assertIn("-DsendCredentialsOverHttp=true", (self.root / "maven-args").read_text())
+        args = (self.root / "maven-args").read_text().splitlines()
+        self.assertIn("-DsendCredentialsOverHttp=true", args)
+        self.assertIn("-Djib.to.image=registry.example/app:release-1.2.3", args)
+        self.assertIn("-Djib.from.image=registry.example/java@sha256:" + "a" * 64, args)
+        self.assertFalse(any(arg.startswith("-Dcontainer.") for arg in args))
         h.write("target/jib-image.digest", "latest\n")
         self.assertNotEqual(0, h.run().returncode)
         self.assertFalse(h.output_file.exists())

@@ -243,6 +243,7 @@ include:
   - local: /templates/cucumber-test.yml
     inputs:
       image: $[[ inputs.cucumber-image ]]
+      profile: cucumber-ci
       working-directory: $[[ inputs.maven-directory ]]
       target-url-variable: TEST_DEPLOY_URL
       job-timeout: $[[ inputs.job-timeout ]]
