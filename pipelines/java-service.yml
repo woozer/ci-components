@@ -1,0 +1,202 @@
+# Central strategy; applications supply settings, never job scripts.
+spec:
+  inputs:
+    library-ref:
+      description: "Immutable commit of this CI library"
+      type: string
+    library-project:
+      description: "GitLab project containing the central strategy"
+      type: string
+      default: "root/ci-components"
+    application:
+      description: "Application and chart name"
+      type: string
+    maven-project:
+      description: "Maven module containing the application and Jib"
+      type: string
+    chart:
+      description: "Application Helm chart directory"
+      type: string
+    values-file:
+      description: "Helm values for the dev environment"
+      type: string
+    namespace:
+      description: "Existing dev namespace"
+      type: string
+    dev-url:
+      description: "Dev base URL reachable from CI"
+      type: string
+    dev-public-url:
+      description: "Dev URL displayed in GitLab"
+      type: string
+    kubeconfig-variable:
+      description: "GitLab file variable holding the dev kubeconfig"
+      type: string
+      default: "LOCAL_KUBECONFIG"
+    runner-tags:
+      type: array
+      default: [local-docker]
+    plain-http:
+      type: boolean
+      default: false
+    helm-major:
+      type: number
+      default: 4
+---
+include:
+  - local: /config/organization.yml
+  - local: /templates/maven-build.yml
+    inputs:
+      job-name: build
+      stage: build
+      image: $MAVEN_BUILD_IMAGE
+      maven-executable: mvn
+  - local: /templates/cucumber-test.yml
+    inputs:
+      job-name: test
+      stage: test
+      image: $CUCUMBER_TEST_IMAGE
+      maven-executable: mvn
+      target-url-variable: ''
+  - local: /templates/maven-publish.yml
+    inputs:
+      job-name: publish-maven
+      stage: publish
+      image: $MAVEN_PUBLISH_IMAGE
+      maven-executable: mvn
+      project-selector: '$[[ inputs.maven-project ]]'
+      settings-file: $MAVEN_PUBLISH_SETTINGS
+      repository-id: gitlab-maven
+      repository-url: $GITLAB_INTERNAL_URL/api/v4/projects/$CI_PROJECT_ID/packages/maven
+  - local: /templates/release-reserve.yml
+    inputs:
+      job-name: release
+      image: $MAVEN_BUILD_IMAGE
+      artifact-expire-in: never
+      image-path: '$RELEASE_OCI_REPOSITORY/$[[ inputs.application ]]'
+      chart-path: '$RELEASE_OCI_REPOSITORY/charts/$[[ inputs.application ]]'
+      pipeline-config: |
+        include:
+          - project: '$[[ inputs.library-project ]]'
+            ref: '$[[ inputs.library-ref ]]'
+            file: /pipelines/java-service-delivery.yml
+            inputs:
+              library-ref: '$[[ inputs.library-ref ]]'
+              library-project: '$[[ inputs.library-project ]]'
+              application: '$[[ inputs.application ]]'
+              maven-project: '$[[ inputs.maven-project ]]'
+              chart: '$[[ inputs.chart ]]'
+              values-file: '$[[ inputs.values-file ]]'
+              namespace: '$[[ inputs.namespace ]]'
+              dev-url: '$[[ inputs.dev-url ]]'
+              dev-public-url: '$[[ inputs.dev-public-url ]]'
+              kubeconfig-variable: '$[[ inputs.kubeconfig-variable ]]'
+              runner-tags: $[[ inputs.runner-tags ]]
+              plain-http: $[[ inputs.plain-http ]]
+              helm-major: $[[ inputs.helm-major ]]
+              version: '@RELEASE_VERSION@'
+              commit: '@RELEASE_COMMIT@'
+              release-build: true
+
+workflow:
+  rules:
+    # Tags reserve versions. Publication stays in the protected branch pipeline.
+    - if: '$CI_COMMIT_TAG'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS && $CI_PIPELINE_SOURCE == "push"'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"'
+    - when: never
+
+stages: [build, test, publish, deliver, release, release-delivery]
+
+default:
+  tags: $[[ inputs.runner-tags ]]
+
+variables:
+  APP_VERSION: '0.0.0-dev.$CI_PIPELINE_IID.g$CI_COMMIT_SHORT_SHA'
+  MAVEN_ARGS: '-Drevision=$APP_VERSION'
+  MAVEN_USER_HOME: '$CI_PROJECT_DIR/.m2'
+  MAVEN_OPTS: '-Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository'
+
+.maven-cache:
+  cache:
+    key: maven-java-25
+    paths: [.m2/]
+
+build:
+  extends: .maven-cache
+  interruptible: true
+
+test:
+  extends: .maven-cache
+  interruptible: true
+  needs: [build]
+
+publish-maven:
+  extends: .maven-cache
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  needs: [test]
+
+deliver-local:
+  stage: deliver
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  needs: [publish-maven]
+  inherit:
+    variables: false
+  resource_group: 'dev-$[[ inputs.application ]]'
+  trigger:
+    include:
+      - project: '$[[ inputs.library-project ]]'
+        ref: '$[[ inputs.library-ref ]]'
+        file: /pipelines/java-service-delivery.yml
+        inputs:
+          library-ref: '$[[ inputs.library-ref ]]'
+          library-project: '$[[ inputs.library-project ]]'
+          application: '$[[ inputs.application ]]'
+          maven-project: '$[[ inputs.maven-project ]]'
+          chart: '$[[ inputs.chart ]]'
+          values-file: '$[[ inputs.values-file ]]'
+          namespace: '$[[ inputs.namespace ]]'
+          dev-url: '$[[ inputs.dev-url ]]'
+          dev-public-url: '$[[ inputs.dev-public-url ]]'
+          kubeconfig-variable: '$[[ inputs.kubeconfig-variable ]]'
+          runner-tags: $[[ inputs.runner-tags ]]
+          plain-http: $[[ inputs.plain-http ]]
+          helm-major: $[[ inputs.helm-major ]]
+          version: '0.0.0-dev.$CI_PIPELINE_IID.g$CI_COMMIT_SHORT_SHA'
+          commit: '$CI_COMMIT_SHA'
+          release-build: false
+    strategy: mirror
+
+# A manual job is the release decision. Code review belongs before the merge.
+release:
+  variables:
+    GIT_DEPTH: '0'
+  environment:
+    name: release/reserve
+    action: prepare
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_REF_PROTECTED == "true"'
+      when: manual
+      allow_failure: true
+  needs: [deliver-local]
+  resource_group: release-reservation
+  interruptible: false
+
+release-delivery:
+  stage: release-delivery
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_REF_PROTECTED == "true"'
+  needs: [release]
+  inherit:
+    variables: false
+  resource_group: 'dev-$[[ inputs.application ]]'
+  trigger:
+    include:
+      - artifact: .ci-output/release/pipeline.yml
+        job: release
+    strategy: mirror
