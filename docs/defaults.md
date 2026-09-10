@@ -29,6 +29,19 @@ The sample deploys to local Kubernetes. OpenShift can use the same `helm-deploy`
 
 **Application choices** stay in its pipeline: source and chart paths, image name, Helm release and namespace, endpoint URL, stages, dependencies and hook paths.
 
-**Module defaults** stay in each module's `spec:inputs`. The demo uses the existing 30-minute job timeout and seven-day artifact retention; override `job-timeout` or `artifact-expire-in` only when needed. There is no additional defaults loader.
+**Module defaults** stay in each module's `spec:inputs`. Consumers can omit these inputs:
+
+| Input | Default for the demo modules |
+|---|---|
+| `artifact-expire-in` | `7 days` |
+| `job-timeout` | `30m` |
+| `working-directory` | `.` |
+| `pre-hook`, `post-hook`, `cleanup-hook` | Empty: no hook |
+| `hook-parameters-json` | `{}` |
+| Cucumber `profile` | Empty: no Maven profile |
+
+For example, set `artifact-expire-in: 30 days` only when that job needs longer retention. The `image` input remains required so each module explicitly selects its tool image.
+
+The declarations repeat in each component because inputs are scoped to the declaring file. GitLab's `spec:include` supports shared pipeline input definitions, but not component input definitions. Shared hook code lives in `shared/module.yml`; the typed input contract stays with each module. There is no additional defaults loader or generation step. [GitLab input scope](https://docs.gitlab.com/ci/inputs/), [shared input limitations](https://docs.gitlab.com/ci/inputs/#define-pipeline-inputs-in-external-files).
 
 The optional [full pipeline example](../examples/full-pipeline/application.gitlab-ci.yml) and its [profile documentation](organization-profile.md) are reference material for adding scanners and other modules later. They are not included by the demo.
