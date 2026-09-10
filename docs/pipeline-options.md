@@ -10,6 +10,8 @@ The only static app settings are the pinned library revision and deployable Mave
 
 To change values after starting the pipeline, select **Unschedule** on `configure` before the timer expires. Open the job, set its inputs and select **Run job**. Unscheduling stops the timer, so the job waits for this explicit run. GitLab does not automatically submit the New pipeline page: its timer applies to the job in a created pipeline. [Delayed jobs](https://docs.gitlab.com/ci/jobs/job_control/#run-a-job-after-a-delay), [job inputs](https://docs.gitlab.com/ci/jobs/job_inputs/).
 
+This also works for a pipeline started automatically by a push or merge. Open its **configure** job to make the selection. GitLab does not open a popup for automatic pipelines; dropdowns before pipeline creation are available on **New pipeline**. With no action on `configure`, the pipeline proceeds with defaults after the delay.
+
 Follow **run-pipeline** to the executing jobs. The selected values and the pinned library revision are recorded in the configuration artifact; the resulting child pipeline uses those fixed settings.
 
 | Input | Default | Effect |
