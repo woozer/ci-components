@@ -58,7 +58,7 @@ def render(name, overrides=None):
         if isinstance(value, list):
             return [command for item in value for command in commands(item)]
         if isinstance(value, str):
-            value = re.sub(r"\$\{\{ job\.inputs\.([a-z-]+) \}\}",
+            value = re.sub(r"\$\{\{ job\.inputs\.([a-z_]+) \}\}",
                            lambda match: str(job["inputs"][match[1]]["default"]), value)
         return [value]
 
@@ -129,6 +129,8 @@ class ComponentContractTests(unittest.TestCase):
             for name, value in job['variables'].items():
                 with self.subTest(component=component, variable=name):
                     self.assertNotIn(value, ('$' + name, '${' + name + '}'))
+            for name in job.get('inputs', {}):
+                self.assertRegex(name, r'^[a-z_][a-z0-9_]*$')
 
     def test_every_component_is_one_job_with_an_explicit_image_and_output_contract(self):
         self.assertEqual(26, len(COMPONENTS))

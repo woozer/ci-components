@@ -29,7 +29,7 @@ The sample deploys to local Kubernetes. OpenShift can use the same `helm-deploy`
 
 **The application sets only required profile inputs:** `library-ref` and `maven-project`. The profile defaults application name and namespace to `$CI_PROJECT_NAME`, chart path to `helm/$CI_PROJECT_NAME`, and environment directory to `environment/`. Local endpoint URLs, HTTP registry access and the cluster-to-kubeconfig mapping are organization settings in that profile. The demo declares no optional inputs. Stages, dependencies and hooks belong to the central strategy.
 
-The central `configure` job selects `cluster`, `user-config` and `pipeline-mode`. It starts with defaults after a 10-second delay unless a user unschedules it. These are runtime job selections, not repeated values in the app YAML. See [pipeline choices](pipeline-options.md).
+The central `configure` job selects `cluster`, `user_config` and `pipeline_mode`. It starts with defaults after a 10-second delay unless a user unschedules it. These are runtime job selections, not repeated values in the app YAML. See [pipeline choices](pipeline-options.md).
 
 **Module defaults** stay in each module's `spec:inputs`. Consumers can omit these inputs:
 

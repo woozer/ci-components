@@ -82,8 +82,8 @@ include:
   script:
     - |
       selected_cluster='${{ job.inputs.cluster }}'
-      selected_user='${{ job.inputs.user-config }}'
-      selected_mode='${{ job.inputs.pipeline-mode }}'
+      selected_user='${{ job.inputs.user_config }}'
+      selected_mode='${{ job.inputs.pipeline_mode }}'
       for name in "$selected_cluster" "$selected_user"; do
         case "$name" in
           ''|*[!a-z0-9-]*) echo 'Selection must be a lowercase name, not a path.' >&2; exit 1 ;;
@@ -116,12 +116,12 @@ include:
       type: string
       default: '$[[ inputs.default-cluster ]]'
       options: $[[ inputs.clusters ]]
-    user-config:
+    user_config:
       description: 'Helm values profile from environment/user/'
       type: string
       default: '$[[ inputs.default-user-config ]]'
       options: $[[ inputs.user-configs ]]
-    pipeline-mode:
+    pipeline_mode:
       description: 'validate: build/tests; publish: add artifacts; deploy: add Helm and HTTP tests'
       type: string
       default: deploy

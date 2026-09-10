@@ -13,8 +13,8 @@ Follow **run-pipeline** to the executing jobs. The selected values and the pinne
 | Input | Default | Effect |
 |---|---|---|
 | `cluster` | `local` | Choose a centrally configured cluster and its cluster values |
-| `user-config` | `default` | Choose additional Helm values from the application |
-| `pipeline-mode` | `deploy` | Choose how far the ordinary pipeline runs |
+| `user_config` | `default` | Choose additional Helm values from the application |
+| `pipeline_mode` | `deploy` | Choose how far the ordinary pipeline runs |
 
 | Mode | Jobs |
 |---|---|
