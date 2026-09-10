@@ -27,7 +27,9 @@ The image selections currently refer to three digest-pinned GitLab project varia
 
 The sample deploys to local Kubernetes. OpenShift can use the same `helm-deploy` module with an OpenShift kubeconfig. Scope deployment credentials to the matching GitLab environment, such as `local`, `test` or `production`, and grant access to the required namespace. Registry credentials used by publish jobs must also be available to those jobs. Do not put credential values in the organization YAML, hook parameters or output artifacts.
 
-**The application sets only required profile inputs:** `library-ref` and `maven-project`. The profile defaults application name and namespace to `$CI_PROJECT_NAME`, and chart path to `helm/$CI_PROJECT_NAME`. Local endpoint URLs, HTTP registry access and the `values-artifactory.yaml` convention are organization settings in that profile. The demo declares no optional inputs. Stages, dependencies and hooks belong to the central strategy.
+**The application sets only required profile inputs:** `library-ref` and `maven-project`. The profile defaults application name and namespace to `$CI_PROJECT_NAME`, chart path to `helm/$CI_PROJECT_NAME`, and environment directory to `environment/`. Local endpoint URLs, HTTP registry access and the cluster-to-kubeconfig mapping are organization settings in that profile. The demo declares no optional inputs. Stages, dependencies and hooks belong to the central strategy.
+
+The central `configure` job selects `cluster`, `user-config` and `pipeline-mode`. It starts with defaults after a 10-second delay unless a user unschedules it. These are runtime job selections, not repeated values in the app YAML. See [pipeline choices](pipeline-options.md).
 
 **Module defaults** stay in each module's `spec:inputs`. Consumers can omit these inputs:
 

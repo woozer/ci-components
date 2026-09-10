@@ -80,6 +80,10 @@ spec:
     values-file:
       description: 'Environment values file relative to working directory'
       type: 'string'
+    override-values-file:
+      description: 'Optional second values file, applied after values-file'
+      type: string
+      default: ''
     release:
       description: 'Helm release name'
       type: 'string'
@@ -125,6 +129,7 @@ include:
     IMAGE_REF_VARIABLE: '$[[ inputs.image-ref-variable ]]'
     HELM_CHART: '$[[ inputs.chart ]]'
     HELM_VALUES: '$[[ inputs.values-file ]]'
+    HELM_OVERRIDE_VALUES: '$[[ inputs.override-values-file ]]'
     HELM_RELEASE: '$[[ inputs.release ]]'
     HELM_NAMESPACE: '$[[ inputs.namespace ]]'
     HELM_TARGET_URL: '$[[ inputs.target-url ]]'
@@ -163,9 +168,12 @@ include:
         4) set -- "$@" --rollback-on-failure --wait=watcher ;;
         *) echo 'Unsupported Helm major version' >&2; exit 1 ;;
       esac
+      # Helm applies later files last. Explicit digest flags below remain final.
+      set -- "$@" --values "$HELM_VALUES"
+      if [ -n "$HELM_OVERRIDE_VALUES" ]; then set -- "$@" --values "$HELM_OVERRIDE_VALUES"; fi
       helm upgrade --install "$HELM_RELEASE" "$HELM_CHART" \
         --namespace "$HELM_NAMESPACE" \
-        --values "$HELM_VALUES" --timeout "$HELM_TIMEOUT" "$@" \
+        --timeout "$HELM_TIMEOUT" "$@" \
         --set-string "image.repository=${image_ref%@*}" \
         --set-string "image.digest=${image_ref#*@}"
       emit IMAGE_REF "$image_ref"

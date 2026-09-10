@@ -131,7 +131,7 @@ class ComponentContractTests(unittest.TestCase):
                     self.assertNotIn(value, ('$' + name, '${' + name + '}'))
 
     def test_every_component_is_one_job_with_an_explicit_image_and_output_contract(self):
-        self.assertEqual(25, len(COMPONENTS))
+        self.assertEqual(26, len(COMPONENTS))
         for name, (header, body) in COMPONENTS.items():
             with self.subTest(name=name):
                 self.assertEqual({"include", "$[[ inputs.job-name ]]"}, set(body))
@@ -320,6 +320,31 @@ class ComponentContractTests(unittest.TestCase):
         self.assertEqual("https://99.test.example.com", h.outputs()["TEST_DEPLOY_URL"])
         self.assertIn("--rollback-on-failure", (self.root / "helm-args").read_text())
         self.assertIn("image.digest=sha256:" + "b" * 64, (self.root / "helm-args").read_text())
+
+    def test_helm_user_values_follow_cluster_values_and_image_digest_stays_final(self):
+        image_ref = 'registry.example.com/app@sha256:' + 'b' * 64
+        h = Harness(self.root, 'helm-deploy', inputs={
+            'chart': 'helm/app', 'values-file': 'environment/cluster/local.yaml',
+            'override-values-file': 'environment/user/two-replicas.yaml'},
+            env={'IMAGE_VERIFY_IMAGE_REF': image_ref, 'KUBE_CONTEXT': 'local'})
+        h.write('bin/helm', '#!/bin/sh\nprintf "%s\\n" "$@" >> "$CI_PROJECT_DIR/helm-args"\n')
+        result = h.run()
+        self.assertEqual(0, result.returncode, result.stderr)
+        args = (self.root / 'helm-args').read_text().splitlines()
+        values = [args[i+1] for i, arg in enumerate(args) if arg == '--values']
+        self.assertEqual(['environment/cluster/local.yaml', 'environment/user/two-replicas.yaml'], values)
+        self.assertGreater(args.index('image.digest=sha256:' + 'b' * 64), args.index(values[-1]))
+
+    def test_selection_defaults_emit_settings_and_bind_the_next_pipeline(self):
+        h = Harness(self.root, 'pipeline-select', inputs={
+            'pipeline-config': 'cluster: @CLUSTER@\nuser: @USER_CONFIG@\nmode: @PIPELINE_MODE@'})
+        self.assertEqual('delayed', h.job['when'])
+        self.assertEqual('10 seconds', h.job['start_in'])
+        result = h.run()
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertEqual('deploy', h.outputs()['SELECTION_MODE'])
+        self.assertEqual('cluster: local\nuser: default\nmode: deploy\n',
+                         (h.output_file.parent / 'pipeline.yml').read_text())
 
     def test_wrong_fortify_scan_receipt_is_rejected_before_policy_adapter(self):
         (self.root / "scan.json").write_text(json.dumps({"commit_sha": "wrong", "pipeline_id": "99",

@@ -20,6 +20,14 @@ spec:
     values-file:
       description: "Helm values for the dev environment"
       type: string
+    user-values-file:
+      description: 'Optional Helm values applied after the cluster values'
+      type: string
+      default: ''
+    pipeline-mode:
+      type: string
+      default: deploy
+      options: [validate, publish, deploy]
     namespace:
       description: "Existing dev namespace"
       type: string
@@ -116,6 +124,7 @@ include:
       create-namespace: false
       plain-http: $[[ inputs.plain-http ]]
       values-file: $[[ inputs.values-file ]]
+      override-values-file: $[[ inputs.user-values-file ]]
       release: $[[ inputs.application ]]
       namespace: $[[ inputs.namespace ]]
       environment: $DEPLOY_ENVIRONMENT
@@ -164,6 +173,7 @@ default:
   interruptible: false
 
 variables:
+  DELIVERY_MODE: '$[[ inputs.pipeline-mode ]]'
   RELEASE_BUILD: '$[[ inputs.release-build ]]'
   PUBLISH_REPOSITORY: $OCI_REPOSITORY
   ARTIFACT_ENVIRONMENT: dev
@@ -227,6 +237,8 @@ publish-chart:
     - !reference [.helm-login, before_script]
 
 deploy-dev:
+  rules:
+    - if: '$RELEASE_BUILD == "true" || $DELIVERY_MODE == "deploy"'
   before_script:
     - !reference [.helm-login, before_script]
   needs:
@@ -238,6 +250,8 @@ deploy-dev:
     url: $[[ inputs.dev-public-url ]]
 
 cucumber-dev:
+  rules:
+    - if: '$RELEASE_BUILD == "true" || $DELIVERY_MODE == "deploy"'
   extends: [.release-job, .maven-cache]
   needs:
     - job: deploy-dev
