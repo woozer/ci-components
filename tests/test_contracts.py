@@ -13,8 +13,10 @@ from unittest import mock
 from urllib.parse import parse_qs, urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
-RUBY_YAML = 'require "yaml"; require "json"; puts JSON.generate(ARGV.to_h { |p| [p, YAML.load_stream(File.read(p))] })'
-FILES = sorted(ROOT.glob("templates/*.yml")) + sorted(ROOT.glob("profiles/*.yml")) + [ROOT / "examples/application.gitlab-ci.yml", ROOT / ".gitlab-ci.yml"]
+RUBY_YAML = '''require "yaml"; require "json"
+YAML.add_domain_type("", "reference") { |_, value| {"$reference" => value} }
+puts JSON.generate(ARGV.to_h { |p| [p, YAML.load_stream(File.read(p))] })'''
+FILES = sorted(ROOT.glob("templates/*.yml")) + sorted(ROOT.glob("profiles/*.yml")) + sorted(ROOT.glob("shared/*.yml")) + [ROOT / "examples/application.gitlab-ci.yml", ROOT / ".gitlab-ci.yml"]
 PARSED = json.loads(subprocess.check_output(["ruby", "-e", RUBY_YAML, *map(str, FILES)], text=True))
 COMPONENTS = {path.stem: PARSED[str(path)] for path in FILES if path.parent.name == "templates"}
 
@@ -42,7 +44,25 @@ def interpolate(documents, overrides=None):
 
 
 def render(name, overrides=None):
-    return next(iter(interpolate(COMPONENTS[name], overrides).items()))
+    body = interpolate(COMPONENTS[name], overrides)
+    shared = {}
+    for include in body.pop("include"):
+        shared.update(PARSED[str(ROOT / include["local"].lstrip("/"))][0])
+
+    def commands(value):
+        if isinstance(value, dict):
+            target = shared
+            for key in value["$reference"]:
+                target = target[key]
+            return commands(target)
+        if isinstance(value, list):
+            return [command for item in value for command in commands(item)]
+        return [value]
+
+    job_name, job = next(iter(body.items()))
+    for phase in ("before_script", "script", "after_script"):
+        job[phase] = commands(job[phase])
+    return job_name, job
 
 
 def profile_includes(overrides=None):
@@ -104,7 +124,7 @@ class ComponentContractTests(unittest.TestCase):
         self.assertEqual(22, len(COMPONENTS))
         for name, (header, body) in COMPONENTS.items():
             with self.subTest(name=name):
-                self.assertEqual(1, len(body))
+                self.assertEqual({"include", "$[[ inputs.job-name ]]"}, set(body))
                 self.assertNotIn("default", header["spec"]["inputs"]["image"])
                 _, job = render(name)
                 self.assertFalse(job["allow_failure"])
@@ -224,6 +244,18 @@ class ComponentContractTests(unittest.TestCase):
         self.assertEqual(0, h.run().returncode)
         self.assertEqual(9, h.cleanup.returncode)
         self.assertEqual("passed", h.outputs()["MAVEN_BUILD_STATUS"])
+
+    def test_image_build_removes_credentials_before_shared_cleanup_on_failure(self):
+        h = Harness(self.root, "image-build")
+        credentials = h.write(".ci-tmp/42/config.json", "temporary test credential")
+        h.hook("pre", "exit 4")
+        h.hook("cleanup", 'test ! -f "$CI_PROJECT_DIR/.ci-tmp/$CI_JOB_ID/config.json"\n'
+               'printf "cleanup\\n" >> "$CI_PROJECT_DIR/events"')
+        self.assertEqual(4, h.run().returncode)
+        self.assertFalse(credentials.exists())
+        self.assertEqual(0, h.cleanup.returncode)
+        self.assertEqual(["cleanup"], h.events())
+        self.assertFalse(h.output_file.exists())
 
     def test_duplicate_custom_outputs_are_rejected(self):
         h = Harness(self.root)

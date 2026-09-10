@@ -17,7 +17,7 @@ The [Java 25 sample application](http://localhost:8929/root/hello-world) is a st
 - Runtime values use namespaced dotenv outputs. Files and reports use normal artifacts. A downstream job explicitly imports its producers using `needs: {job: ..., artifacts: true}`.
 - A successful operation and successful post hook publish outputs. Failure stops the job and prevents success outputs. Required scanners and gates fail on scanner errors and timeouts.
 - Hooks are repository-relative POSIX shell scripts executed with `sh`, without `eval`. They run in subprocesses: use files to communicate; exports and directory changes do not propagate to the component shell.
-- Components are self-contained. GitLab includes a component's YAML; it does not check out scripts from the component repository. Hook and adapter paths refer to the **consuming application repository**.
+- Each component includes its common lifecycle from `shared/module.yml` in the same repository revision. GitLab resolves this YAML without checking out library scripts. Hook and adapter paths refer to the **consuming application repository**.
 - Job names and output prefixes are configurable so a component can be used more than once. Keep prefixes unique within a pipeline.
 
 ## Inputs, outputs, and hooks
@@ -130,9 +130,11 @@ Build the candidate image once, then scan, sign, verify, and promote the **same 
 
 ## Maintaining and replacing components
 
-Edit each `templates/<component-name>.yml` directly. Each file contains its own input declarations, job image, operation, hooks, and output artifacts. There is no generation step. For example:
+Edit each `templates/<component-name>.yml` directly. Each file contains its own input declarations, job image, operation, and output artifacts. Shared setup, post-hook/output validation, and cleanup live once in [`shared/module.yml`](shared/module.yml). There is no generation step. For example:
 
 ```text
+shared/
+  module.yml
 templates/
   maven-build.yml
   maven-test.yml
@@ -146,5 +148,7 @@ templates/
 ```
 
 The application pipeline consumes the public component name and contract. Keep input names/types, output names and meanings, artifact paths, hook behavior, image requirements, and failure behavior stable when changing an implementation. The consumer owns the dependency graph.
+
+Components load the shared file with `include:local` and select its three sections with `!reference`. The post-hook remains at the end of `script`, where failure fails the job; `after_script` is reserved for cleanup. `image-build` removes its temporary registry credential before calling shared cleanup. Application `extends` configurations remain available for job defaults. Consume one component-library revision per pipeline because the shared hidden job name is common to all modules. [GitLab YAML references](https://docs.gitlab.com/ci/yaml/yaml_optimization/#reference-tags), [local includes](https://docs.gitlab.com/ci/yaml/#includelocal).
 
 If we adopt a standard component later, use its supported extension points or a small adapter to preserve this contract. Validate the replacement against the existing contract checks and representative applications. Any incompatible contract change requires a new major version and an explicit consumer migration; upstream components are not assumed to be interchangeable automatically.

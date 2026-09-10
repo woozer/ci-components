@@ -51,6 +51,9 @@ spec:
       default: 'IMAGE_BUILD_IMAGE_REF'
       regex: '^[A-Z][A-Z0-9_]*$'
 ---
+include:
+  - local: /shared/module.yml
+
 '$[[ inputs.job-name ]]':
   stage: '$[[ inputs.stage ]]'
   image:
@@ -68,78 +71,16 @@ spec:
     MODULE_HOOK_PARAMETERS_JSON: '$[[ inputs.hook-parameters-json ]]'
     IMAGE_REF_VARIABLE: '$[[ inputs.image-ref-variable ]]'
   before_script:
-    - |
-      set -eu
-      cd "$CI_PROJECT_DIR/$MODULE_WORKDIR"
-      export CI_MODULE_OUTPUT_DIR="$CI_PROJECT_DIR/.ci-output/$CI_JOB_NAME"
-      mkdir -p "$CI_MODULE_OUTPUT_DIR"
-      rm -f "$CI_MODULE_OUTPUT_DIR/outputs.env"
-      export CI_MODULE_EXTRA_OUTPUTS="$CI_MODULE_OUTPUT_DIR/custom.env"
-      export CI_MODULE_PARAMETERS_FILE="$CI_MODULE_OUTPUT_DIR/hook-parameters.json"
-      printf '%s\n' "$MODULE_HOOK_PARAMETERS_JSON" > "$CI_MODULE_PARAMETERS_FILE"
-      : > "$CI_MODULE_EXTRA_OUTPUTS"
-      : > "$CI_MODULE_OUTPUT_DIR/pending.env"
-      emit() {
-        emit_newline='
-      '
-        emit_cr=$(printf '\r')
-        case "$2" in
-          ''|*"$emit_newline"*|*"$emit_cr"*|*'${'*)
-            echo "Invalid output value for $1" >&2; return 1 ;;
-        esac
-        printf '%s_%s=%s\n' "$MODULE_OUTPUT_PREFIX" "$1" "$2" >> "$CI_MODULE_OUTPUT_DIR/pending.env"
-      }
-      runtime_input() {
-        printenv "$1" || { echo "Missing upstream output variable $1; add its producer to needs" >&2; return 1; }
-      }
-      image_input() {
-        runtime_ref=$(runtime_input "$1")
-        printf '%s\n' "$runtime_ref" | LC_ALL=C grep -Eq '^.+@sha256:[a-f0-9]{64}$' || {
-          echo "Expected an immutable image digest from $1" >&2; return 1;
-        }
-        printf '%s\n' "$runtime_ref"
-      }
-      if [ -n "$MODULE_PRE_HOOK" ]; then
-        sh "$CI_PROJECT_DIR/$MODULE_PRE_HOOK"
-      fi
+    - !reference [.ci-module, before_script]
   script:
     - |
       : "${COSIGN_KEY_URI:?Configure the approved KMS signing key URI}"
       image_ref=$(image_input "$IMAGE_REF_VARIABLE")
       cosign sign --yes --key "$COSIGN_KEY_URI" "$image_ref"
       emit IMAGE_REF "$image_ref"
-    - |
-      if [ -n "$MODULE_POST_HOOK" ]; then
-        sh "$CI_PROJECT_DIR/$MODULE_POST_HOOK"
-      fi
-      emit STATUS passed
-      emit COMMIT_SHA "$CI_COMMIT_SHA"
-      emit PIPELINE_ID "$CI_PIPELINE_ID"
-      # Hook outputs are namespaced and cannot replace built-in output fields.
-      awk -F= -v prefix="${MODULE_OUTPUT_PREFIX}_CUSTOM_" '
-        index($1, prefix) != 1 { exit 1 }
-      ' "$CI_MODULE_EXTRA_OUTPUTS"
-      cat "$CI_MODULE_EXTRA_OUTPUTS" >> "$CI_MODULE_OUTPUT_DIR/pending.env"
-      awk '
-        {
-          p = index($0, "="); key = substr($0, 1, p - 1); value = substr($0, p + 1)
-          if (p < 2 || key !~ /^[A-Z][A-Z0-9_]*$/ || seen[key]++ || value == "" ||
-              value ~ /^[[:space:]]/ || value ~ /[[:space:]]$/ || value ~ /\r/ ||
-              index(value, "${")) exit 1
-        }
-      ' "$CI_MODULE_OUTPUT_DIR/pending.env"
-      test "$(wc -c < "$CI_MODULE_OUTPUT_DIR/pending.env")" -le 5120
-      mv "$CI_MODULE_OUTPUT_DIR/pending.env" "$CI_MODULE_OUTPUT_DIR/outputs.env"
+    - !reference [.ci-module, script]
   after_script:
-    - |
-      set -eu
-      cd "$CI_PROJECT_DIR/$MODULE_WORKDIR"
-      export CI_MODULE_OUTPUT_DIR="$CI_PROJECT_DIR/.ci-output/$CI_JOB_NAME"
-      export CI_MODULE_EXTRA_OUTPUTS="$CI_MODULE_OUTPUT_DIR/custom.env"
-      export CI_MODULE_PARAMETERS_FILE="$CI_MODULE_OUTPUT_DIR/hook-parameters.json"
-      if [ -n "$MODULE_CLEANUP_HOOK" ]; then
-        sh "$CI_PROJECT_DIR/$MODULE_CLEANUP_HOOK"
-      fi
+    - !reference [.ci-module, after_script]
   artifacts:
     when: 'always'
     expire_in: '$[[ inputs.artifact-expire-in ]]'
