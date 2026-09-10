@@ -73,11 +73,9 @@ Each component's `STATUS` is informational. The GitLab job exit status and requi
 
 ## Local application integration
 
-The [hello-world pipeline](http://localhost:8929/root/hello-world/-/blob/main/.gitlab-ci.yml) consumes individual components from this project at an immutable commit SHA. Its parent pipeline builds, tests and publishes Maven packages. A serialized child pipeline publishes the Jib image and OCI Helm chart, deploys their outputs, and tests the deployment with Cucumber.
+The [hello-world pipeline](http://localhost:8929/root/hello-world/-/blob/main/.gitlab-ci.yml) imports the shared input form and one central [java-service.yml](../pipelines/java-service.yml) at an immutable commit. The central file composes build, required tests, optional developer tests, publication, deployment and release. It also defines the child flows; there is no separate organization-profile or delivery wrapper.
 
-Each application job supplies its image and operation inputs; the application owns `needs`, branch rules and deployment serialization. Hooks live in the application repository. A build post hook publishes a custom label that the next test job reads through dotenv artifacts. Project variables provide local image defaults and protected file credentials. Maven remains usable directly outside GitLab.
-
-The local lab enables these seven operations; the other scanner, gate and signing components need their services and policy configured before being added. The optional organization profile remains available for projects adopting that broader workflow.
+The application supplies its deployable module and declarative Helm values. CI scripts, job order, hooks and release policy remain in the library. Modules can still be consumed individually by other projects. The broader scanner/signing examples require their services and policies before adoption.
 
 ## Pipeline composition
 

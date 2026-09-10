@@ -1,0 +1,9 @@
+# Shared registry login for the central Java publication/deployment jobs.
+.helm-login:
+  before_script:
+    - !reference [.ci-module, before_script]
+    - |
+      set --
+      if [ "${HELM_REGISTRY_PLAIN_HTTP:-false}" = true ]; then set -- --plain-http; fi
+      helm registry login "$OCI_REGISTRY" "$@" --username "$ARTIFACTORY_USERNAME" \
+        --password-stdin < "$ARTIFACTORY_PASSWORD_FILE"

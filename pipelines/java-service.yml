@@ -1,59 +1,52 @@
-# Central strategy; applications supply settings, never job scripts.
+# One central composition. Modules own commands; this file owns job order/policy.
+# The ordinary pipeline and its deployment/release children use this same file.
 spec:
   inputs:
     library-ref:
-      description: "Immutable commit of this CI library"
-      type: string
+      description: 'Immutable library revision; use the same value as include.ref'
     library-project:
-      description: "GitLab project containing the central strategy"
-      type: string
-      default: "root/ci-components"
-    application:
-      description: "Application and chart name"
-      type: string
+      default: root/ci-components
     maven-project:
-      description: "Maven module containing the application and Jib"
-      type: string
+      description: 'Deployable Maven module containing Jib'
+    application:
+      default: '$CI_PROJECT_NAME'
     chart:
-      description: "Application Helm chart directory"
-      type: string
-    values-file:
-      description: "Helm values for the dev environment"
-      type: string
-    user-values-file:
-      description: 'Optional Helm values applied after the cluster values'
-      type: string
-      default: ''
+      default: 'helm/$CI_PROJECT_NAME'
+    namespace:
+      default: '$CI_PROJECT_NAME'
+    environment-directory:
+      default: environment
+    cluster:
+      default: local
+      options: [local]
+    user-config:
+      default: default
+      options: [default, two-replicas]
     pipeline-mode:
-      description: 'How far the ordinary pipeline runs; release checks are always required'
-      type: string
+      description: 'Choose before pipeline creation; runtime choices affect deployment only'
       default: deploy
       options: [validate, publish, deploy]
-    namespace:
-      description: "Existing dev namespace"
-      type: string
-    dev-url:
-      description: "Dev base URL reachable from CI"
-      type: string
-    dev-public-url:
-      description: "Dev URL displayed in GitLab"
-      type: string
-    kubeconfig-variable:
-      description: "GitLab file variable holding the dev kubeconfig"
-      type: string
-      default: "LOCAL_KUBECONFIG"
-    runner-tags:
+    flow:
+      description: 'Internal: ordinary pipeline, deployment of existing artifacts, or reserved release'
+      default: pipeline
+      options: [pipeline, deploy, release]
+    version:
+      description: 'Internal: retain the producing pipeline version in child pipelines'
+      default: '0.0.0-dev.$CI_PIPELINE_IID.g$CI_COMMIT_SHORT_SHA'
+    commit:
+      default: '$CI_COMMIT_SHA'
+    publish-needs:
+      description: 'Internal: image/chart producers; deployment children refer to their parent'
       type: array
-      default: [local-docker]
-    plain-http:
-      type: boolean
-      default: false
-    helm-major:
-      type: number
-      default: 4
+      default:
+        - job: publish-image
+          artifacts: true
+        - job: publish-chart
+          artifacts: true
 ---
 include:
   - local: /config/organization.yml
+  - local: /shared/helm.yml
   - local: /templates/maven-build.yml
     inputs:
       job-name: build
@@ -63,6 +56,13 @@ include:
   - local: /templates/cucumber-test.yml
     inputs:
       job-name: test
+      stage: test
+      image: $CUCUMBER_TEST_IMAGE
+      maven-executable: mvn
+      target-url-variable: ''
+  - local: /templates/cucumber-test.yml
+    inputs:
+      job-name: test-custom
       stage: test
       image: $CUCUMBER_TEST_IMAGE
       maven-executable: mvn
@@ -77,6 +77,60 @@ include:
       settings-file: $MAVEN_PUBLISH_SETTINGS
       repository-id: gitlab-maven
       repository-url: $GITLAB_INTERNAL_URL/api/v4/projects/$CI_PROJECT_ID/packages/maven
+  - local: /templates/jib-build.yml
+    inputs:
+      job-name: publish-image
+      stage: image
+      image: $JIB_BUILD_IMAGE
+      maven-executable: mvn
+      project-selector: '$[[ inputs.maven-project ]]'
+      settings-file: $ARTIFACTORY_MAVEN_SETTINGS
+      image-repository: '$OCI_REGISTRY/$PUBLISH_REPOSITORY/$[[ inputs.application ]]'
+      image-tag: $APP_VERSION
+      base-image: $JIB_BASE_IMAGE
+      digest-file: '$[[ inputs.maven-project ]]/target/jib-image.digest'
+      allow-insecure-registry: true
+      output-prefix: JIB
+  - local: /templates/helm-publish.yml
+    inputs:
+      job-name: publish-chart
+      stage: image
+      image: $HELM_PUBLISH_IMAGE
+      chart: '$[[ inputs.chart ]]'
+      chart-name: '$[[ inputs.application ]]'
+      chart-version: $APP_VERSION
+      app-version: $APP_VERSION
+      oci-repository: oci://$OCI_REGISTRY/$PUBLISH_REPOSITORY/charts
+      plain-http: true
+      output-prefix: CHART
+  - local: /templates/deployment-select.yml
+    inputs:
+      job-name: configure-deploy
+      image: $MAVEN_BUILD_IMAGE
+      user-configs: [default, two-replicas]
+      default-cluster: '$[[ inputs.cluster ]]'
+      default-user-config: '$[[ inputs.user-config ]]'
+      pipeline-config: |
+        include:
+          - project: '$[[ inputs.library-project ]]'
+            ref: '$[[ inputs.library-ref ]]'
+            file: /pipelines/java-service.yml
+            inputs:
+              flow: deploy
+              library-ref: '$[[ inputs.library-ref ]]'
+              library-project: '$[[ inputs.library-project ]]'
+              maven-project: '$[[ inputs.maven-project ]]'
+              application: '$[[ inputs.application | expand_vars ]]'
+              namespace: '$[[ inputs.namespace | expand_vars ]]'
+              environment-directory: '$[[ inputs.environment-directory ]]'
+              cluster: '@CLUSTER@'
+              user-config: '@USER_CONFIG@'
+              version: '$APP_VERSION'
+              publish-needs:
+                - pipeline: '$CI_PIPELINE_ID'
+                  job: publish-image
+                - pipeline: '$CI_PIPELINE_ID'
+                  job: publish-chart
   - local: /templates/release-reserve.yml
     inputs:
       job-name: release
@@ -86,45 +140,91 @@ include:
         include:
           - project: '$[[ inputs.library-project ]]'
             ref: '$[[ inputs.library-ref ]]'
-            file: /pipelines/java-service-delivery.yml
+            file: /pipelines/java-service.yml
             inputs:
+              flow: release
               library-ref: '$[[ inputs.library-ref ]]'
               library-project: '$[[ inputs.library-project ]]'
-              application: '$[[ inputs.application ]]'
+              application: '$[[ inputs.application | expand_vars ]]'
               maven-project: '$[[ inputs.maven-project ]]'
-              chart: '$[[ inputs.chart ]]'
-              values-file: '$[[ inputs.values-file ]]'
-              user-values-file: '$[[ inputs.user-values-file ]]'
-              namespace: '$[[ inputs.namespace ]]'
-              dev-url: '$[[ inputs.dev-url ]]'
-              dev-public-url: '$[[ inputs.dev-public-url ]]'
-              kubeconfig-variable: '$[[ inputs.kubeconfig-variable ]]'
-              runner-tags: $[[ inputs.runner-tags ]]
-              plain-http: $[[ inputs.plain-http ]]
-              helm-major: $[[ inputs.helm-major ]]
+              chart: '$[[ inputs.chart | expand_vars ]]'
+              namespace: '$[[ inputs.namespace | expand_vars ]]'
+              environment-directory: '$[[ inputs.environment-directory ]]'
+              cluster: '$SELECTION_CLUSTER'
+              user-config: '$SELECTION_USER_CONFIG'
               version: '@RELEASE_VERSION@'
               commit: '@RELEASE_COMMIT@'
-              release-build: true
+  - local: /templates/release-check.yml
+    inputs:
+      job-name: check-release
+      image: $MAVEN_BUILD_IMAGE
+      version: '$[[ inputs.version ]]'
+      commit: '$[[ inputs.commit ]]'
+      image-path: '$RELEASE_OCI_REPOSITORY/$[[ inputs.application ]]'
+      chart-path: '$RELEASE_OCI_REPOSITORY/charts/$[[ inputs.application ]]'
+  - local: /templates/helm-deploy.yml
+    inputs:
+      job-name: helm-deploy
+      stage: deploy
+      image: $HELM_DEPLOY_IMAGE
+      image-ref-variable: JIB_IMAGE_REF
+      chart-variable: CHART_REF
+      chart-version-variable: CHART_VERSION
+      kubeconfig-variable: LOCAL_KUBECONFIG
+      create-namespace: false
+      plain-http: true
+      values-file: '$[[ inputs.environment-directory ]]/cluster/$[[ inputs.cluster ]].yaml'
+      override-values-file: '$[[ inputs.environment-directory ]]/user/$[[ inputs.user-config ]].yaml'
+      release: '$[[ inputs.application ]]'
+      namespace: '$[[ inputs.namespace ]]'
+      environment: $DEPLOY_ENVIRONMENT
+      target-url: $DEV_TARGET_URL
+      timeout: 5m
+      output-prefix: DEPLOY
+  - local: /templates/cucumber-test.yml
+    inputs:
+      job-name: cucumber-dev
+      image: $CUCUMBER_TEST_IMAGE
+      maven-executable: mvn
+      target-url-variable: DEPLOY_URL
+  - local: /templates/gitlab-release.yml
+    inputs:
+      job-name: finish-release
+      image: $MAVEN_BUILD_IMAGE
+      api-url: $GITLAB_INTERNAL_URL/api/v4
+      version: '$[[ inputs.version ]]'
+      artifact-expire-in: never
+      description: 'Validated in dev. Production delivery through Argo CD must use this image digest without rebuilding.'
 
 workflow:
   rules:
-    # Tags reserve versions. Publication stays in the protected branch pipeline.
     - if: '$CI_COMMIT_TAG'
       when: never
-    - if: '$CI_PIPELINE_SOURCE == "parent_pipeline"'
+    - if: '$CI_PIPELINE_SOURCE == "parent_pipeline" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_REF_PROTECTED == "true" && "$[[ inputs.flow ]]" == "release"'
+      variables:
+        PUBLISH_REPOSITORY: $RELEASE_OCI_REPOSITORY
+        ARTIFACT_ENVIRONMENT: release/publish
+        DEPLOY_ENVIRONMENT: release/dev
+    - if: '$CI_PIPELINE_SOURCE == "parent_pipeline" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_REF_PROTECTED == "true" && "$[[ inputs.flow ]]" == "deploy"'
+    - if: '"$[[ inputs.flow ]]" != "pipeline"'
+      when: never
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS && $CI_PIPELINE_SOURCE == "push"'
       when: never
     - if: '$CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"'
     - when: never
 
-stages: [build, test, publish, deliver, release, release-delivery]
+stages: [check, build, test, publish, image, configure, deploy, integration, release, release-delivery, finish]
 
 default:
-  tags: $[[ inputs.runner-tags ]]
+  tags: [local-docker]
 
 variables:
-  APP_VERSION: '0.0.0-dev.$CI_PIPELINE_IID.g$CI_COMMIT_SHORT_SHA'
+  APP_VERSION: '$[[ inputs.version ]]'
+  RELEASE_COMMIT: '$[[ inputs.commit ]]'
+  PUBLISH_REPOSITORY: $OCI_REPOSITORY
+  ARTIFACT_ENVIRONMENT: dev
+  DEPLOY_ENVIRONMENT: dev
   MAVEN_ARGS: '-Drevision=$APP_VERSION'
   MAVEN_USER_HOME: '$CI_PROJECT_DIR/.m2'
   MAVEN_OPTS: '-Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository'
@@ -134,57 +234,113 @@ variables:
     key: maven-java-25
     paths: [.m2/]
 
+.publish:
+  environment:
+    name: $ARTIFACT_ENVIRONMENT
+    action: prepare
+  rules:
+    - if: '"$[[ inputs.flow ]]" == "release"'
+    - if: '"$[[ inputs.flow ]]" == "pipeline" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_REF_PROTECTED == "true" && "$[[ inputs.pipeline-mode ]]" != "validate"'
+
+.validation:
+  environment:
+    name: $ARTIFACT_ENVIRONMENT
+    action: prepare
+  rules:
+    - if: '"$[[ inputs.flow ]]" == "release"'
+      interruptible: false
+    - if: '"$[[ inputs.flow ]]" == "pipeline"'
+
+.deployment:
+  rules:
+    - if: '"$[[ inputs.flow ]]" == "deploy" || "$[[ inputs.flow ]]" == "release"'
+
+check-release:
+  extends: .publish
+  rules:
+    - if: '"$[[ inputs.flow ]]" == "release"'
+  variables:
+    GIT_DEPTH: '0'
+
 build:
-  extends: .maven-cache
+  extends: [.validation, .maven-cache]
   interruptible: true
 
 test:
-  extends: .maven-cache
+  extends: [.validation, .maven-cache]
   interruptible: true
   needs: [build]
 
-publish-maven:
+# A separate developer run cannot replace the mandatory test above.
+test-custom:
   extends: .maven-cache
   rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && "$[[ inputs.pipeline-mode ]]" != "validate"'
+    - if: '"$[[ inputs.flow ]]" == "pipeline"'
+      when: manual
+      allow_failure: true
+  needs: [build]
+  inputs:
+    tags:
+      description: 'Cucumber scenarios: complete suite or smoke checks'
+      default: 'not @ignore'
+      options: ['not @ignore', '@smoke']
+  before_script:
+    - !reference [.ci-module, before_script]
+    - export CUCUMBER_TAGS='${{ job.inputs.tags }}'
+
+publish-maven:
+  extends: [.publish, .maven-cache]
   needs: [test]
 
-# Compare the input directly: trigger jobs disable inherited YAML variables.
-deliver-local:
-  stage: deliver
-  rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && "$[[ inputs.pipeline-mode ]]" != "validate"'
+publish-image:
+  extends: [.publish, .maven-cache]
   needs: [publish-maven]
+
+publish-chart:
+  extends: .publish
+  needs: [publish-maven]
+  before_script:
+    - !reference [.helm-login, before_script]
+
+# The delay applies only to deployment, after publication has succeeded.
+configure-deploy:
+  rules:
+    - if: '"$[[ inputs.flow ]]" == "pipeline" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_REF_PROTECTED == "true" && "$[[ inputs.pipeline-mode ]]" == "deploy"'
+      when: delayed
+      start_in: 10 seconds
+
+deploy-dev:
+  stage: deploy
+  rules:
+    - if: '"$[[ inputs.flow ]]" == "pipeline" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_REF_PROTECTED == "true" && "$[[ inputs.pipeline-mode ]]" == "deploy"'
+  needs: [configure-deploy]
   inherit:
     variables: false
+  # Hold the lock through Helm AND its HTTP test, including every redeployment.
   resource_group: 'dev-$[[ inputs.application ]]'
   trigger:
     include:
-      - project: '$[[ inputs.library-project ]]'
-        ref: '$[[ inputs.library-ref ]]'
-        file: /pipelines/java-service-delivery.yml
-        inputs:
-          library-ref: '$[[ inputs.library-ref ]]'
-          library-project: '$[[ inputs.library-project ]]'
-          application: '$[[ inputs.application ]]'
-          maven-project: '$[[ inputs.maven-project ]]'
-          chart: '$[[ inputs.chart ]]'
-          values-file: '$[[ inputs.values-file ]]'
-          user-values-file: '$[[ inputs.user-values-file ]]'
-          pipeline-mode: '$[[ inputs.pipeline-mode ]]'
-          namespace: '$[[ inputs.namespace ]]'
-          dev-url: '$[[ inputs.dev-url ]]'
-          dev-public-url: '$[[ inputs.dev-public-url ]]'
-          kubeconfig-variable: '$[[ inputs.kubeconfig-variable ]]'
-          runner-tags: $[[ inputs.runner-tags ]]
-          plain-http: $[[ inputs.plain-http ]]
-          helm-major: $[[ inputs.helm-major ]]
-          version: '0.0.0-dev.$CI_PIPELINE_IID.g$CI_COMMIT_SHORT_SHA'
-          commit: '$CI_COMMIT_SHA'
-          release-build: false
+      - artifact: .ci-output/configure-deploy/pipeline.yml
+        job: configure-deploy
     strategy: mirror
 
-# A manual job is the release decision. Code review belongs before the merge.
+helm-deploy:
+  extends: .deployment
+  needs: $[[ inputs.publish-needs ]]
+  before_script:
+    - !reference [.helm-login, before_script]
+  environment:
+    url: $DEV_PUBLIC_URL
+
+cucumber-dev:
+  extends: [.deployment, .maven-cache]
+  needs:
+    - job: helm-deploy
+      artifacts: true
+  environment:
+    name: $DEPLOY_ENVIRONMENT
+    action: prepare
+
 release:
   variables:
     GIT_DEPTH: '0'
@@ -192,17 +348,21 @@ release:
     name: release/reserve
     action: prepare
   rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_REF_PROTECTED == "true" && "$[[ inputs.pipeline-mode ]]" == "deploy"'
+    - if: '"$[[ inputs.flow ]]" == "pipeline" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_REF_PROTECTED == "true" && "$[[ inputs.pipeline-mode ]]" == "deploy"'
       when: manual
       allow_failure: true
-  needs: [deliver-local]
+  needs:
+    - job: deploy-dev
+      artifacts: false
+    - job: configure-deploy
+      artifacts: true
   resource_group: release-reservation
   interruptible: false
 
 release-delivery:
   stage: release-delivery
   rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_REF_PROTECTED == "true" && "$[[ inputs.pipeline-mode ]]" == "deploy"'
+    - if: '"$[[ inputs.flow ]]" == "pipeline" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_REF_PROTECTED == "true" && "$[[ inputs.pipeline-mode ]]" == "deploy"'
   needs: [release]
   inherit:
     variables: false
@@ -212,3 +372,16 @@ release-delivery:
       - artifact: .ci-output/release/pipeline.yml
         job: release
     strategy: mirror
+
+finish-release:
+  extends: .publish
+  stage: finish
+  rules:
+    - if: '"$[[ inputs.flow ]]" == "release"'
+  needs:
+    - job: publish-image
+      artifacts: true
+    - job: publish-chart
+      artifacts: true
+    - job: cucumber-dev
+      artifacts: false

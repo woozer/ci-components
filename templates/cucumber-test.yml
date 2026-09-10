@@ -101,6 +101,8 @@ include:
         -DskipUnitTests=true -DfailIfNoTests=true \
         "-Dcucumber.filter.tags=$CUCUMBER_TAGS" verify
       emit REPORT_ROOT "$MODULE_WORKDIR"
+      emit TAGS "$CUCUMBER_TAGS"
+      if [ -n "$CUCUMBER_PROFILE" ]; then emit PROFILE "$CUCUMBER_PROFILE"; fi
       if [ -n "$TARGET_URL_VARIABLE" ]; then emit TARGET_URL "$target_url"; fi
     - !reference [.ci-module, script]
   after_script:
