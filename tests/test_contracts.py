@@ -123,6 +123,13 @@ class ComponentContractTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
 
+    def test_default_input_bindings_do_not_reference_their_own_job_variable(self):
+        for component in COMPONENTS:
+            _, job = render(component)
+            for name, value in job['variables'].items():
+                with self.subTest(component=component, variable=name):
+                    self.assertNotIn(value, ('$' + name, '${' + name + '}'))
+
     def test_every_component_is_one_job_with_an_explicit_image_and_output_contract(self):
         self.assertEqual(25, len(COMPONENTS))
         for name, (header, body) in COMPONENTS.items():

@@ -108,12 +108,12 @@ include:
     MODULE_CLEANUP_HOOK: '$[[ inputs.cleanup-hook ]]'
     MODULE_HOOK_PARAMETERS_JSON: '$[[ inputs.hook-parameters-json ]]'
     RELEASE_BRANCH: '$[[ inputs.release-branch ]]'
-    RELEASE_REGISTRY_URL: '$[[ inputs.registry-url ]]'
+    RELEASE_ARTIFACTORY_URL: '$[[ inputs.registry-url ]]'
     RELEASE_REGISTRY_USER: '$[[ inputs.registry-username ]]'
     RELEASE_REGISTRY_PASSWORD_FILE: '$[[ inputs.registry-password-file ]]'
     RELEASE_IMAGE_PATH: '$[[ inputs.image-path ]]'
     RELEASE_CHART_PATH: '$[[ inputs.chart-path ]]'
-    RELEASE_GIT_URL: '$[[ inputs.git-url ]]'
+    RELEASE_TAG_GIT_URL: '$[[ inputs.git-url ]]'
     RELEASE_GIT_KEY_FILE: '$[[ inputs.git-key-file ]]'
     RELEASE_GIT_KNOWN_HOSTS_FILE: '$[[ inputs.git-known-hosts-file ]]'
     RELEASE_PIPELINE_CONFIG: '$[[ inputs.pipeline-config ]]'
@@ -129,14 +129,14 @@ include:
 
       : "${RELEASE_GIT_KEY_FILE:?Missing release Git deploy key}"
       : "${RELEASE_GIT_KNOWN_HOSTS_FILE:?Missing pinned SSH host keys}"
-      : "${RELEASE_GIT_URL:?Missing release Git URL}"
+      : "${RELEASE_TAG_GIT_URL:?Missing release Git URL}"
       key_dir=$(mktemp -d)
       trap 'rm -rf "$key_dir"' EXIT HUP INT TERM
       cp "$RELEASE_GIT_KEY_FILE" "$key_dir/key"
       chmod 600 "$key_dir/key"
       export GIT_SSH_COMMAND="ssh -i \"$key_dir/key\" -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=\"$RELEASE_GIT_KNOWN_HOSTS_FILE\""
       tag="v$RELEASE_VERSION"
-      if git ls-remote --exit-code "$RELEASE_GIT_URL" "refs/tags/$tag" > /dev/null; then
+      if git ls-remote --exit-code "$RELEASE_TAG_GIT_URL" "refs/tags/$tag" > /dev/null; then
         fail "Tag $tag already reserves this version; use a new version."
       else
         [ "$?" -eq 2 ] || fail 'Cannot check release tags; publication is blocked.'
@@ -144,7 +144,7 @@ include:
       git -c user.name='Release pipeline' -c user.email='release@localhost.invalid' \
         tag -a "$tag" "$CI_COMMIT_SHA" -m "Release $RELEASE_VERSION from $CI_PIPELINE_URL (job $CI_JOB_ID)"
       # Git creates the remote ref atomically. A racing reservation fails; never force.
-      git push -o ci.skip "$RELEASE_GIT_URL" "refs/tags/$tag:refs/tags/$tag"
+      git push -o ci.skip "$RELEASE_TAG_GIT_URL" "refs/tags/$tag:refs/tags/$tag"
 
       if [ -n "$RELEASE_PIPELINE_CONFIG" ]; then
         printf '%s\n' "$RELEASE_PIPELINE_CONFIG" | sed \
