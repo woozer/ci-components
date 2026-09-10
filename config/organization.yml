@@ -1,0 +1,21 @@
+# Shared organization settings for the local demo. This file adds no jobs.
+# Base images are digest-pinned GitLab group/project variables configured by
+# the local runner setup. Each task can select a different approved image here.
+variables:
+  GITLAB_INTERNAL_URL: http://host.docker.internal:8929
+  OCI_REGISTRY: host.docker.internal:8082
+  OCI_REPOSITORY: docker-local
+
+  MAVEN_BUILD_IMAGE: $JAVA_CI_IMAGE
+  CUCUMBER_TEST_IMAGE: $JAVA_CI_IMAGE
+  MAVEN_PUBLISH_IMAGE: $JAVA_CI_IMAGE
+  JIB_BUILD_IMAGE: $JAVA_CI_IMAGE
+  HELM_PUBLISH_IMAGE: $HELM_CI_IMAGE
+  HELM_DEPLOY_IMAGE: $HELM_CI_IMAGE
+  JIB_BASE_IMAGE: $JAVA_RUNTIME_IMAGE
+
+# Credentials stay in protected GitLab variables, never in committed YAML.
+# LOCAL_KUBECONFIG is a file variable containing the cluster URL, CA and login.
+# For OpenShift, supply its kubeconfig with the deployment environment's scope.
+# Registry credentials: ARTIFACTORY_MAVEN_SETTINGS, ARTIFACTORY_USERNAME,
+# ARTIFACTORY_PASSWORD_FILE, DOCKER_AUTH_CONFIG. See docs/defaults.md.

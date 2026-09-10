@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 RUBY_YAML = '''require "yaml"; require "json"
 YAML.add_domain_type("", "reference") { |_, value| {"$reference" => value} }
 puts JSON.generate(ARGV.to_h { |p| [p, YAML.load_stream(File.read(p))] })'''
-FILES = sorted(ROOT.glob("templates/*.yml")) + sorted(ROOT.glob("profiles/*.yml")) + sorted(ROOT.glob("shared/*.yml")) + [ROOT / "examples/application.gitlab-ci.yml", ROOT / ".gitlab-ci.yml"]
+FILES = sorted(ROOT.glob("templates/*.yml")) + sorted(ROOT.glob("config/*.yml")) + [ROOT / "examples/full-pipeline/profile.yml"] + sorted(ROOT.glob("shared/*.yml")) + [ROOT / "examples/full-pipeline/application.gitlab-ci.yml", ROOT / ".gitlab-ci.yml"]
 PARSED = json.loads(subprocess.check_output(["ruby", "-e", RUBY_YAML, *map(str, FILES)], text=True))
 COMPONENTS = {path.stem: PARSED[str(path)] for path in FILES if path.parent.name == "templates"}
 
@@ -66,7 +66,7 @@ def render(name, overrides=None):
 
 
 def profile_includes(overrides=None):
-    return interpolate(PARSED[str(ROOT / "profiles/organization.yml")], overrides)["include"]
+    return interpolate(PARSED[str(ROOT / "examples/full-pipeline/profile.yml")], overrides)["include"]
 
 
 class Harness:
@@ -336,10 +336,10 @@ class ComponentContractTests(unittest.TestCase):
         self.assertFalse(h.output_file.exists())
 
     def test_example_production_depends_on_all_required_checks(self):
-        example = PARSED[str(ROOT / "examples/application.gitlab-ci.yml")][0]
+        example = PARSED[str(ROOT / "examples/full-pipeline/application.gitlab-ci.yml")][0]
         profile = example["include"][0]
-        self.assertEqual("/profiles/organization.yml", profile["file"])
-        required = {key for key, spec in PARSED[str(ROOT / "profiles/organization.yml")][0]["spec"]["inputs"].items()
+        self.assertEqual("/examples/full-pipeline/profile.yml", profile["file"])
+        required = {key for key, spec in PARSED[str(ROOT / "examples/full-pipeline/profile.yml")][0]["spec"]["inputs"].items()
                     if "default" not in spec}
         self.assertTrue(required <= profile["inputs"].keys())
         includes = {}
@@ -397,7 +397,7 @@ class ComponentContractTests(unittest.TestCase):
         self.assertEqual("2h", jobs["fortify-scan"]["timeout"])
         self.assertEqual(9, next(item["inputs"]["fail-cvss"] for item in profile_includes({"dependency-check-fail-cvss": 9})
                                  if item["local"] == "/templates/dependency-check.yml"))
-        self.assertEqual({"include"}, set(PARSED[str(ROOT / "profiles/organization.yml")][1]))
+        self.assertEqual({"include"}, set(PARSED[str(ROOT / "examples/full-pipeline/profile.yml")][1]))
         for job in jobs.values():
             self.assertNotIn("needs", job)
             self.assertEqual("30 days", job["artifacts"]["expire_in"])

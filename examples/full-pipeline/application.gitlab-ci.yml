@@ -11,7 +11,7 @@ stages: [build, test, analyze, gate, package, supply-chain, sign, verify, deploy
 include:
   - project: platform/ci-components
     ref: REPLACE_WITH_COMMIT_SHA
-    file: /profiles/organization.yml
+    file: /examples/full-pipeline/profile.yml
     inputs:
       maven-directory: backend
       npm-directory: frontend

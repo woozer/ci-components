@@ -1,56 +1,34 @@
-# Defaults and organization profiles
+# Settings used by the demo
 
-Use two layers of ordinary GitLab YAML:
+The organization file is [config/organization.yml](../config/organization.yml). It contains server addresses and image selections; including it adds no jobs. The application chooses modules and their order.
 
-| Location | Owns |
+| Setting | Purpose |
 |---|---|
-| `templates/<module>.yml`, under `spec:inputs` | Module defaults, input types, hooks, output contract, and one job |
-| `profiles/organization.yml` | Optional organization baseline: images, shared retention, timeouts, scanner policy, and application path defaults |
-| Application `.gitlab-ci.yml` | Profile input overrides, stages, dependencies, hook scripts, and promotion rules |
+| `GITLAB_INTERNAL_URL` | GitLab address reachable from job containers |
+| `OCI_REGISTRY` | Registry address used by Jib and Helm |
+| `OCI_REPOSITORY` | Artifactory repository receiving images and charts |
+| `MAVEN_BUILD_IMAGE`, `MAVEN_PUBLISH_IMAGE` | Images for the two Maven tasks |
+| `CUCUMBER_TEST_IMAGE`, `JIB_BUILD_IMAGE` | Images for HTTP tests and Jib |
+| `HELM_PUBLISH_IMAGE`, `HELM_DEPLOY_IMAGE` | Images for chart publishing and deployment |
+| `JIB_BASE_IMAGE` | Java runtime used inside the application image |
 
-Each module still works independently. Its `image` input is required, so a Maven job cannot silently inherit an npm image. There is no global `default:image`, separate per-module defaults file, configuration loader, or YAML generation step.
+The image selections currently refer to three digest-pinned GitLab project variables: `JAVA_CI_IMAGE`, `HELM_CI_IMAGE`, and `JAVA_RUNTIME_IMAGE`. They are already configured in this lab. Change a task's mapping to select another approved image, or use a literal digest-pinned image reference. Group/project variables can override YAML defaults.
 
-The organization profile composes the Maven + npm + Kubernetes baseline used by `examples/application.gitlab-ci.yml`. It includes jobs but deliberately leaves `workflow`, `stages`, and `needs` to that application example. Use individual components for a smaller pipeline or a different architecture. Add `handoff` only where the application requires explicit delegation; see [hooks](hooks.md).
+**Credentials and environments** belong in GitLab's CI/CD variable settings:
 
-## Approved defaults and application overrides
+| Variable | How it is stored and used |
+|---|---|
+| `LOCAL_KUBECONFIG` | Protected file variable: Kubernetes API URL, CA and deployment credential |
+| `ARTIFACTORY_MAVEN_SETTINGS` | Protected file variable: Maven/Jib registry credentials |
+| `ARTIFACTORY_USERNAME` | Protected variable: registry publisher account |
+| `ARTIFACTORY_PASSWORD_FILE` | Protected, masked file variable: publisher password |
+| `DOCKER_AUTH_CONFIG` | Masked variable: runner registry read/cache credentials |
+| `CI_JOB_TOKEN` | Supplied automatically by GitLab for Maven package publishing |
 
-The profile currently binds each image input to a separate group/project CI variable, such as `$MAVEN_BUILD_IMAGE`. Configure these with the approved digest-pinned images listed in [setup](setup.md). These bindings do not select or install images automatically. For a versioned organization image catalogue, replace the profile's image defaults with literal approved digest references and release the profile at an immutable commit.
+The sample deploys to local Kubernetes. OpenShift can use the same `helm-deploy` module with an OpenShift kubeconfig. Scope deployment credentials to the matching GitLab environment, such as `local`, `test` or `production`, and grant access to the required namespace. Registry credentials used by publish jobs must also be available to those jobs. Do not put credential values in the organization YAML, hook parameters or output artifacts.
 
-```yaml
-include:
-  - project: platform/ci-components
-    ref: REPLACE_WITH_COMMIT_SHA
-    file: /profiles/organization.yml
-    inputs:
-      production-namespace: application-production
-      test-url: https://$CI_PROJECT_ID-$CI_PIPELINE_ID.test.example.com
-      production-url: https://application.example.com
-      maven-directory: services/api
-      npm-directory: web
-      maven-build-image: registry.example.com/ci/maven@sha256:REPLACE_WITH_DIGEST
-      artifact-expire-in: 30 days
-      job-timeout: 45m
-```
+**Application choices** stay in its pipeline: source and chart paths, image name, Helm release and namespace, endpoint URL, stages, dependencies and hook paths.
 
-These overrides affect this inclusion. Each image has its own input, including separate test and production Helm images. The profile uses 30 minutes for ordinary jobs, one hour for Dependency-Check, and two hours for the Fortify scan. Adjust the longer jobs through `dependency-check-job-timeout` and `fortify-scan-job-timeout`; they do not inherit the ordinary timeout. GitLab Runner's maximum timeout remains an upper limit. Artifact retention defaults to seven days.
+**Module defaults** stay in each module's `spec:inputs`. The demo uses the existing 30-minute job timeout and seven-day artifact retention; override `job-timeout` or `artifact-expire-in` only when needed. There is no additional defaults loader.
 
-Inputs are scoped to the file declaring them. The profile explicitly passes values to its nested module includes; modules do not read the profile themselves. Nested `include:local` files resolve in the project and revision containing the profile. [GitLab inputs](https://docs.gitlab.com/ci/inputs/), [nested includes](https://docs.gitlab.com/ci/yaml/includes/)
-
-## Hooks and individual modules
-
-When consuming an individual module, pass `pre-hook`, `post-hook`, `cleanup-hook`, and `hook-parameters-json` as component inputs, as shown in [setup](setup.md#extending-a-module).
-
-When using the full profile, application job overlays can set these runtime hook variables without replacing the component scripts:
-
-```yaml
-maven-build:
-  variables:
-    MODULE_PRE_HOOK: ci/hooks/pre-build.sh
-    MODULE_POST_HOOK: ci/hooks/post-build.sh
-    MODULE_CLEANUP_HOOK: ci/hooks/cleanup.sh
-    MODULE_HOOK_PARAMETERS_JSON: '{"label":"candidate"}'
-```
-
-Scripts live in the consuming repository and receive the same hook context and output contract. Do not redefine `before_script`, `script`, or `after_script` to add a hook: GitLab replaces arrays instead of appending them. Job-level overrides are part of the application's trusted configuration; these defaults do not enforce security policy against an application author who can edit its pipeline. Keep credentials in protected variables or a secret manager, outside inputs and artifacts.
-
-If a standard component replaces an implementation later, preserve the public input/output and documented hook contracts in its adapter. The organization profile is the place to change that component selection; it should not acquire build or deployment scripts.
+The optional [full pipeline example](../examples/full-pipeline/application.gitlab-ci.yml) and its [profile documentation](organization-profile.md) are reference material for adding scanners and other modules later. They are not included by the demo.
