@@ -126,7 +126,6 @@ default:
   tags: $[[ inputs.runner-tags ]]
 
 variables:
-  PIPELINE_MODE: '$[[ inputs.pipeline-mode ]]'
   APP_VERSION: '0.0.0-dev.$CI_PIPELINE_IID.g$CI_COMMIT_SHORT_SHA'
   MAVEN_ARGS: '-Drevision=$APP_VERSION'
   MAVEN_USER_HOME: '$CI_PROJECT_DIR/.m2'
@@ -149,13 +148,14 @@ test:
 publish-maven:
   extends: .maven-cache
   rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $PIPELINE_MODE != "validate"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && "$[[ inputs.pipeline-mode ]]" != "validate"'
   needs: [test]
 
+# Compare the input directly: trigger jobs disable inherited YAML variables.
 deliver-local:
   stage: deliver
   rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $PIPELINE_MODE != "validate"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && "$[[ inputs.pipeline-mode ]]" != "validate"'
   needs: [publish-maven]
   inherit:
     variables: false
@@ -194,7 +194,7 @@ release:
     name: release/reserve
     action: prepare
   rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_REF_PROTECTED == "true" && $PIPELINE_MODE == "deploy"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_REF_PROTECTED == "true" && "$[[ inputs.pipeline-mode ]]" == "deploy"'
       when: manual
       allow_failure: true
   needs: [deliver-local]
@@ -204,7 +204,7 @@ release:
 release-delivery:
   stage: release-delivery
   rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_REF_PROTECTED == "true" && $PIPELINE_MODE == "deploy"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_REF_PROTECTED == "true" && "$[[ inputs.pipeline-mode ]]" == "deploy"'
   needs: [release]
   inherit:
     variables: false

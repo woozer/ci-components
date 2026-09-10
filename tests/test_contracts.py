@@ -132,6 +132,19 @@ class ComponentContractTests(unittest.TestCase):
             for name in job.get('inputs', {}):
                 self.assertRegex(name, r'^[a-z_][a-z0-9_]*$')
 
+    def test_pipeline_rules_do_not_depend_on_disabled_variable_inheritance(self):
+        for path in ROOT.glob('pipelines/*.yml'):
+            body = PARSED[str(path)][-1]
+            for name, job in body.items():
+                if not isinstance(job, dict) or job.get('inherit', {}).get('variables') is not False:
+                    continue
+                unavailable = set(body.get('variables', {})) - set(job.get('variables', {}))
+                for rule in job.get('rules', []):
+                    referenced = set(re.findall(r'\$([A-Z][A-Z0-9_]*)', rule.get('if', '')))
+                    with self.subTest(pipeline=path.name, job=name):
+                        self.assertFalse(unavailable & referenced,
+                                         f'Rule reads excluded variables: {unavailable & referenced}')
+
     def test_every_component_is_one_job_with_an_explicit_image_and_output_contract(self):
         self.assertEqual(26, len(COMPONENTS))
         for name, (header, body) in COMPONENTS.items():
