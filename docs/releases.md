@@ -1,6 +1,10 @@
 # Shared release strategy
 
-Applications include [pipelines/java-service.yml](../pipelines/java-service.yml) and supply their settings. The library owns the jobs, scripts, release button, checks and dev deployment. Applications do not copy or maintain a release pipeline.
+Applications include the [organization profile](../config/java-service.yml) and supply only its required inputs: `library-ref` and `maven-project`. The profile applies organization settings and conventions, then includes [pipelines/java-service.yml](../pipelines/java-service.yml). The library owns the jobs, scripts, release button, checks and dev deployment. Applications do not copy or maintain a release pipeline.
+
+The application name and namespace default to the GitLab project name; the chart defaults to `helm/<project-name>`. The local profile selects `values-artifactory.yaml` inside that chart, the local dev URLs and HTTP registry access. Generic components retain secure protocol defaults. Change local infrastructure settings centrally in the profile. Optional inputs belong in app configuration only when a project deliberately departs from those conventions; the demo sets none.
+
+The current strategy supports a multi-module Maven reactor with one deployable module. Libraries and tests are built from the root POM. Multiple deployables would require an explicit module list and separate image/chart/deployment jobs, with names and outputs isolated per deployable. The KISS release policy would keep one repository tag and version across them; this fan-out is not implemented in the current demo.
 
 The Java strategy composes independent Maven, Jib, Helm and release components. Other stacks can reuse the same release components with their own build modules. Organization URLs and task images remain in [organization settings](../config/organization.yml); credentials belong in GitLab variables.
 
@@ -34,6 +38,7 @@ The reservation job creates the Git tag atomically on the exact commit of the se
 
 | File | Responsibility |
 |---|---|
+| [config/java-service.yml](../config/java-service.yml) | Organization defaults and the app-facing required inputs |
 | [java-service.yml](../pipelines/java-service.yml) | Automatic builds, manual release decision and serialized delivery |
 | [java-service-delivery.yml](../pipelines/java-service-delivery.yml) | Tool jobs, dev deployment and HTTP validation |
 | [release-reserve.yml](../templates/release-reserve.yml) | Check and reserve a release tag; publish version/commit inputs |

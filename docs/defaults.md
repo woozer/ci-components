@@ -1,6 +1,6 @@
 # Settings used by the demo
 
-The organization file is [config/organization.yml](../config/organization.yml). It contains server addresses and image selections; including it adds no jobs. The application chooses modules and their order.
+The organization file is [config/organization.yml](../config/organization.yml). It contains shared server addresses and image selections; including it adds no jobs. The [Java organization profile](../config/java-service.yml) adds local deployment settings and selects the central strategy, which owns modules and their order.
 
 | Setting | Purpose |
 |---|---|
@@ -27,7 +27,7 @@ The image selections currently refer to three digest-pinned GitLab project varia
 
 The sample deploys to local Kubernetes. OpenShift can use the same `helm-deploy` module with an OpenShift kubeconfig. Scope deployment credentials to the matching GitLab environment, such as `local`, `test` or `production`, and grant access to the required namespace. Registry credentials used by publish jobs must also be available to those jobs. Do not put credential values in the organization YAML, hook parameters or output artifacts.
 
-**Application choices** stay in its pipeline: source and chart paths, image name, Helm release and namespace, endpoint URL, stages, dependencies and hook paths.
+**The application sets only required profile inputs:** `library-ref` and `maven-project`. The profile defaults application name and namespace to `$CI_PROJECT_NAME`, and chart path to `helm/$CI_PROJECT_NAME`. Local endpoint URLs, HTTP registry access and the `values-artifactory.yaml` convention are organization settings in that profile. The demo declares no optional inputs. Stages, dependencies and hooks belong to the central strategy.
 
 **Module defaults** stay in each module's `spec:inputs`. Consumers can omit these inputs:
 

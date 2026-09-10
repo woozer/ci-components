@@ -97,20 +97,20 @@ include:
     MAVEN_SETTINGS: '$[[ inputs.settings-file ]]'
     JIB_IMAGE_REPOSITORY: '$[[ inputs.image-repository ]]'
     JIB_IMAGE_TAG: '$[[ inputs.image-tag ]]'
-    JIB_BASE_IMAGE: '$[[ inputs.base-image ]]'
+    JIB_FROM_IMAGE: '$[[ inputs.base-image ]]'
     JIB_DIGEST_FILE: '$[[ inputs.digest-file ]]'
   before_script:
     - !reference [.ci-module, before_script]
   script:
     - |
-      printf '%s\n' "$JIB_BASE_IMAGE" | LC_ALL=C grep -Eq '^.+@sha256:[a-f0-9]{64}$'
+      printf '%s\n' "$JIB_FROM_IMAGE" | LC_ALL=C grep -Eq '^.+@sha256:[a-f0-9]{64}$'
       set --
       if [ '$[[ inputs.allow-insecure-registry ]]' = 'true' ]; then
         set -- -Djib.allowInsecureRegistries=true -DsendCredentialsOverHttp=true
       fi
       "$MAVEN_EXECUTABLE" --batch-mode --no-transfer-progress --settings "$MAVEN_SETTINGS" \
         -pl "$MAVEN_PROJECT_SELECTOR" compile jib:build "$@" \
-        "-Djib.to.image=$JIB_IMAGE_REPOSITORY:$JIB_IMAGE_TAG" "-Djib.from.image=$JIB_BASE_IMAGE"
+        "-Djib.to.image=$JIB_IMAGE_REPOSITORY:$JIB_IMAGE_TAG" "-Djib.from.image=$JIB_FROM_IMAGE"
       digest=$(cat "$JIB_DIGEST_FILE")
       printf '%s\n' "$digest" | LC_ALL=C grep -Eq '^sha256:[a-f0-9]{64}$'
       emit IMAGE_REF "$JIB_IMAGE_REPOSITORY@$digest"

@@ -28,18 +28,18 @@ The central strategy composes these build and deployment modules:
 | [helm-publish](templates/helm-publish.yml) | Publish the Helm chart to local Artifactory |
 | [helm-deploy](templates/helm-deploy.yml) | Deploy that chart and image digest |
 
-Each module chooses its own image. The application includes the central strategy at a pinned revision and supplies settings. The strategy owns job order, release policy and deployment orchestration.
+Each module chooses its own image. The application includes the organization profile at a pinned revision and supplies only its two required inputs. The central strategy owns job order, release policy and deployment orchestration.
 
 **Four places to read:**
 
-1. [Application pipeline](http://localhost:8929/root/hello-world/-/blob/main/.gitlab-ci.yml): include the strategy and supply application settings.
+1. [Application pipeline](http://localhost:8929/root/hello-world/-/blob/main/.gitlab-ci.yml): include the [organization profile](config/java-service.yml) and supply only the library revision and deployable Maven module.
 2. [Central strategy](pipelines/java-service.yml): define the build cycle and manual release button.
 3. [A module](templates/maven-build.yml): declare inputs, choose an image, run one operation.
 4. [Shared lifecycle](shared/module.yml): common setup, post-hook/output handling and cleanup. Its comments explain `!reference`.
 
 Outputs pass the image digest, chart version and deployment URL between jobs through GitLab dotenv artifacts. Hooks remain available for other consumers; this application contains no CI scripts.
 
-**Configuration stays small.** [config/organization.yml](config/organization.yml) holds server addresses and an image selection for each task. Credentials stay in GitLab variables. Module defaults live in `spec:inputs`; application inputs select paths and the deployment target. The settings file adds no jobs. See [settings used by the sample](docs/defaults.md).
+**Configuration stays small.** [config/organization.yml](config/organization.yml) holds shared server addresses and an image selection for each task. The [Java organization profile](config/java-service.yml) supplies local deployment settings and project-name conventions. Credentials stay in GitLab variables. Module defaults live in `spec:inputs`; the application sets no optional inputs. See [settings used by the sample](docs/defaults.md).
 
 See [required inputs and optional defaults](docs/inputs.md) before configuring a module. A project can use just one module. Include its component, supply the required `image` and other inputs, and declare its stage. Shared hook handling is included automatically; organization settings and other modules are optional. A deployment module can receive its chart and image digest from any producer that supplies its inputs.
 
