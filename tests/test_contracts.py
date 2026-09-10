@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 RUBY_YAML = '''require "yaml"; require "json"
 YAML.add_domain_type("", "reference") { |_, value| {"$reference" => value} }
 puts JSON.generate(ARGV.to_h { |p| [p, YAML.load_stream(File.read(p))] })'''
-FILES = sorted(ROOT.glob("templates/*.yml")) + sorted(ROOT.glob("config/*.yml")) + [ROOT / "examples/full-pipeline/profile.yml"] + sorted(ROOT.glob("shared/*.yml")) + [ROOT / "examples/full-pipeline/application.gitlab-ci.yml", ROOT / ".gitlab-ci.yml"]
+FILES = sorted(ROOT.glob("templates/*.yml")) + sorted(ROOT.glob("config/*.yml")) + sorted(ROOT.glob("pipelines/*.yml")) + [ROOT / "examples/full-pipeline/profile.yml"] + sorted(ROOT.glob("shared/*.yml")) + [ROOT / "examples/full-pipeline/application.gitlab-ci.yml", ROOT / ".gitlab-ci.yml"]
 PARSED = json.loads(subprocess.check_output(["ruby", "-e", RUBY_YAML, *map(str, FILES)], text=True))
 COMPONENTS = {path.stem: PARSED[str(path)] for path in FILES if path.parent.name == "templates"}
 
@@ -57,6 +57,9 @@ def render(name, overrides=None):
             return commands(target)
         if isinstance(value, list):
             return [command for item in value for command in commands(item)]
+        if isinstance(value, str):
+            value = re.sub(r"\$\{\{ job\.inputs\.([a-z-]+) \}\}",
+                           lambda match: str(job["inputs"][match[1]]["default"]), value)
         return [value]
 
     job_name, job = next(iter(body.items()))
@@ -121,7 +124,7 @@ class ComponentContractTests(unittest.TestCase):
         self.root = Path(self.temp.name)
 
     def test_every_component_is_one_job_with_an_explicit_image_and_output_contract(self):
-        self.assertEqual(22, len(COMPONENTS))
+        self.assertEqual(25, len(COMPONENTS))
         for name, (header, body) in COMPONENTS.items():
             with self.subTest(name=name):
                 self.assertEqual({"include", "$[[ inputs.job-name ]]"}, set(body))

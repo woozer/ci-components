@@ -8,4 +8,4 @@ validate-components:
     name: $CI_VALIDATION_IMAGE
     entrypoint: [""]
   script:
-    - python3 tests/test_contracts.py
+    - python3 -m unittest discover -s tests -p 'test_*.py' -v

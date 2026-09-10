@@ -128,7 +128,7 @@ Build the candidate image once, then scan, sign, verify, and promote the **same 
 - Configure Maven test/coverage profiles, npm CI test reporters, a chart that supports image digests, and the Fortify adapters described in `docs/fortify-adapters.md`.
 - Add secrets through your secret manager or appropriately protected GitLab variables, never through component inputs or output artifacts.
 - Configure GitLab merge/deployment protections and run GitLab CI Lint on the fully resolved consumer pipeline in your own instance.
-- Run `python3 tests/test_contracts.py` locally. The tests read the component YAML directly and require Python 3 and Ruby's standard YAML library. These checks do not replace live scanner, runner, registry, and Kubernetes validation.
+- Run `python3 -m unittest discover -s tests -p 'test_*.py'` locally. The tests read the component YAML directly and require Python 3 and Ruby's standard YAML library. These checks do not replace live scanner, runner, registry, and Kubernetes validation.
 
 ## Maintaining and replacing components
 

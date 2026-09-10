@@ -1,0 +1,52 @@
+# Shared release checks. Server permissions remain the enforcement boundary.
+.ci-release:
+  script:
+    - |
+      fail() { printf '%s\n' "$*" >&2; exit 1; }
+
+      validate_version() {
+        case "$1" in
+          ''|*[!0-9.]*) fail 'Enter a release version such as 1.2.3, without v or a prerelease suffix.' ;;
+        esac
+        printf '%s\n' "$1" | LC_ALL=C grep -Eq '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$' ||
+          fail 'Enter a release version such as 1.2.3, without v or a prerelease suffix.'
+        [ "${#1}" -le 64 ] || fail 'Release version is too long.'
+      }
+
+      require_release_branch() {
+        [ -n "${RELEASE_BRANCH:-}" ] && [ "${CI_COMMIT_BRANCH:-}" = "$RELEASE_BRANCH" ] &&
+          [ "${CI_COMMIT_REF_PROTECTED:-}" = true ] && [ -z "${CI_COMMIT_TAG:-}" ] ||
+          fail 'Releases are allowed only from the configured protected branch pipeline.'
+        [ "$(git rev-parse HEAD)" = "$CI_COMMIT_SHA" ] || fail 'Checkout differs from the pipeline commit.'
+        git check-ref-format "refs/heads/$RELEASE_BRANCH"
+        git fetch --no-tags origin "+refs/heads/$RELEASE_BRANCH:refs/remotes/origin/$RELEASE_BRANCH"
+        git merge-base --is-ancestor "$CI_COMMIT_SHA" "refs/remotes/origin/$RELEASE_BRANCH" ||
+          fail 'The pipeline commit is not in the release branch history.'
+      }
+
+      require_unused_artifacts() {
+        # This read check gives a clear error. Registry permissions enforce immutability.
+        : "${RELEASE_REGISTRY_PASSWORD_FILE:?Missing release registry password file}"
+        : "${RELEASE_REGISTRY_USER:?Missing release registry username}"
+        : "${RELEASE_REGISTRY_URL:?Missing release registry URL}"
+        : "${RELEASE_IMAGE_PATH:?Missing release image path}"
+        release_auth=$(mktemp)
+        chmod 600 "$release_auth"
+        printf 'user = "%s:%s"\n' "$RELEASE_REGISTRY_USER" "$(cat "$RELEASE_REGISTRY_PASSWORD_FILE")" > "$release_auth"
+        set -- "$RELEASE_IMAGE_PATH"
+        if [ -n "$RELEASE_CHART_PATH" ]; then set -- "$@" "$RELEASE_CHART_PATH"; fi
+        for artifact in "$@"; do
+          if ! status=$(curl --config "$release_auth" --silent --show-error --head --output /dev/null \
+            --connect-timeout 10 --max-time 30 --write-out '%{http_code}' \
+            "${RELEASE_REGISTRY_URL%/}/artifactory/$artifact/$RELEASE_VERSION/manifest.json"); then
+            rm -f "$release_auth"
+            fail 'Cannot check the release repository; publication is blocked.'
+          fi
+          case "$status" in
+            404) ;;
+            200) rm -f "$release_auth"; fail "Release $RELEASE_VERSION already has a published artifact; use a new version." ;;
+            *) rm -f "$release_auth"; fail "Release repository check failed (HTTP $status)." ;;
+          esac
+        done
+        rm -f "$release_auth"
+      }
