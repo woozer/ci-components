@@ -1,66 +1,54 @@
-# Parameters and continuation
+# Extending jobs and pipelines
 
-Pre/post hooks extend one component's job. A separate `handoff` job supports **module → hook → next module**, with an image chosen for the custom script.
+Use GitLab job dependencies for an extra pipeline step. Use the existing component hooks for small additions inside one job. The Java demo keeps these definitions in the central CI library; no CI scripts need to be added to its application repository.
 
-Every component accepts `hook-parameters-json`. Its non-secret JSON configuration is written to `CI_MODULE_PARAMETERS_FILE`. Hook scripts parse that file using their image's tooling. Credentials stay in scoped secret-manager/environment inputs.
+## Extra step: a normal GitLab job
 
-The handoff accepts `work-variable` (the name of an upstream dotenv output) and `hook` (a script in the consuming repository). It provides:
-
-| Environment variable | Purpose |
-|---|---|
-| `CI_HOOK_WORK` | Upstream image reference, URL, artifact path, or other single-line value |
-| `CI_MODULE_PARAMETERS_FILE` | JSON parameter file |
-| `CI_HOOK_NEXT` | Executable helper to request continuation |
-| `CI_MODULE_EXTRA_OUTPUTS` | File for `<PREFIX>_CUSTOM_...` output variables |
+The following fragment adds a required check between existing `build` and `publish` jobs. The build publishes `package.jar` as an artifact; `check` is a declared stage. Set `CHECK_IMAGE` to an approved image containing POSIX shell and the tools needed for the real check.
 
 ```yaml
-stages: [package, handoff, supply-chain]
-include:
-  - component: $CI_SERVER_FQDN/platform/ci-components/image-build@REPLACE_WITH_COMMIT_SHA
-    inputs:
-      image: $IMAGE_BUILD_IMAGE
-  - component: $CI_SERVER_FQDN/platform/ci-components/handoff@REPLACE_WITH_COMMIT_SHA
-    inputs:
-      job-name: custom-check
-      image: $HANDOFF_IMAGE
-      output-prefix: CUSTOM_CHECK
-      work-variable: IMAGE_BUILD_IMAGE_REF
-      hook: ci/hooks/check-image.sh
-      hook-parameters-json: '{"requireDigest":true}'
-  - component: $CI_SERVER_FQDN/platform/ci-components/image-scan@REPLACE_WITH_COMMIT_SHA
-    inputs:
-      image: $IMAGE_SCAN_IMAGE
-      image-ref-variable: CUSTOM_CHECK_WORK_VALUE
-
 custom-check:
+  stage: check
+  image: $CHECK_IMAGE
   needs:
-    - job: image-build
+    - job: build
       artifacts: true
-image-scan:
+  script:
+    - test -s package.jar
+
+publish:
   needs:
+    - job: build
+      artifacts: true
     - job: custom-check
-      artifacts: true
+      artifacts: false
 ```
 
-The application's hook implements its own work, then requests continuation:
+GitLab starts `publish` after both required jobs succeed. The check's exit status determines success. Listing `build` directly also supplies its files; artifacts are not automatically forwarded through intermediate jobs. Replace the illustrative non-empty-file check with the required business or technical validation. [GitLab needs](https://docs.gitlab.com/ci/yaml/needs/), [job artifacts](https://docs.gitlab.com/ci/jobs/job_artifacts/).
 
-```sh
-#!/bin/sh
-set -eu
-./ci/company-check.sh "$CI_MODULE_PARAMETERS_FILE" "$CI_HOOK_WORK"
-"$CI_HOOK_NEXT" "$CI_HOOK_WORK"
-```
+For additional values, publish an `artifacts:reports:dotenv` file and import that job's artifacts with `needs`. For structured data, publish a JSON artifact. Keep secrets in GitLab's credential mechanisms. A step that changes an artifact must publish the replacement and arrange the required scans and verification for that replacement. [Dotenv variables](https://docs.gitlab.com/ci/variables/dotenv_variables/).
 
-Calling `"$CI_HOOK_NEXT"` with no argument forwards the original value. One argument replaces it. The resulting `<PREFIX>_WORK_VALUE` becomes available to the next job.
+## Small addition inside a component
 
-`next` is a small custom helper, not a built-in GitLab feature. It records a continuation request; GitLab schedules the configured next job **after the hook job succeeds**, in that job's own image. The hook cannot synchronously call the downstream job or wait for its return value. The consumer's `needs` graph selects the next job and retains mandatory policy checks.
+These optional component inputs are our library convention over GitLab's native job lifecycle:
 
-No call to `next`, hook failure, or a failure after calling `next` blocks the chain. A duplicate call returns an error; scripts must propagate errors with `set -eu`. This is a contract for trusted scripts, not a sandbox against a script deliberately changing its own job files.
+| Component input | Execution | Failure behavior |
+|---|---|---|
+| `pre-hook` | During `before_script`, after common setup | Fails the job |
+| `post-hook` | At the end of `script`, before outputs are published | Fails the job |
+| `cleanup-hook` | During `after_script`, in a fresh shell | Best effort; cannot turn a successful job into a failure |
 
-If a hook changes an image, it must output a new immutable digest and the remaining chain must scan, sign, and verify that replacement before deployment. Keep checks placed after signature verification read-only with respect to the artifact. Required policy gates must remain outside a consumer's ability to remove them.
+Required checks belong in `script` or their own required job. `after_script` is for cleanup. Each component references [shared/module.yml](../shared/module.yml) for these phases; its comments explain the YAML references. [GitLab job execution](https://docs.gitlab.com/ci/jobs/job_execution/).
 
-Dotenv transfers values, not file contents. For work referencing a file, the hook must import the producer's artifacts. A later job needing the original bytes must also import that producer or the handoff must explicitly republish the required paths. Requiring both producer and handoff does not bypass the handoff: GitLab waits for all `needs` entries. For structured work, publish a JSON artifact and pass its relative path.
+Hook paths are relative to the consuming repository and are executed with `sh` in the component's working directory. They run as subprocesses; use files to pass results back. `hook-parameters-json` is written to `CI_MODULE_PARAMETERS_FILE`. Optional outputs go into `CI_MODULE_EXTRA_OUTPUTS` using the component prefix followed by `_CUSTOM_`. Hooks and outputs must not contain secrets. Examples of [pre-build](../examples/hooks/pre-build.sh), [post-build](../examples/hooks/post-build.sh) and [cleanup](../examples/hooks/cleanup.sh) remain available.
 
-Choosing a different set of jobs at runtime requires a separately designed dynamic child pipeline; dotenv values are unavailable to `rules` and `include`. [GitLab dotenv](https://docs.gitlab.com/ci/variables/dotenv_variables/), [dynamic child pipelines](https://docs.gitlab.com/ci/pipelines/downstream_pipelines/#dynamic-child-pipelines)
+## Migration from the removed callback component
 
-The executable example in `examples/hooks/handoff.sh` uses Python 3 in the hook image to read JSON parameters and then calls `next`.
+Replace the old continuation component with a normal job:
+
+1. Keep the script's useful processing in that job's `script`, using the same required tool image.
+2. Read upstream values through imported dotenv artifacts; remove the explicit continuation-helper call.
+3. Publish any changed values or files as ordinary artifacts.
+4. Make the next job depend on this job, and on any original producer whose files it still needs.
+
+There is no replacement callback helper. GitLab owns scheduling. Runtime dotenv values cannot change the existing job graph; select jobs through pipeline inputs and `rules`, or use a child pipeline when runtime configuration requires one.

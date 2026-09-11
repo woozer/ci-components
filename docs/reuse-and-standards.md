@@ -1,10 +1,10 @@
 # Future option: reuse standard components
 
-Current decision: use our own components, each maintained as an individual YAML file in `templates/`. This assessment records standard implementations we may adopt later. The public inputs, outputs, hooks, image requirements, and failure behavior form the contract a replacement must preserve or explicitly version. These components still require live integration validation before production adoption.
+Current decision: use our own components, with active modules in `templates/` and unused modules in `modules/todo/`, each maintained as an individual YAML file. This assessment records standard implementations we may adopt later. The public inputs, outputs, hooks, image requirements, and failure behavior form the contract a replacement must preserve or explicitly version. These components still require live integration validation before production adoption.
 
 ## Working agreement for changes
 
-For each proposed or implemented change, check the relevant standard or established practice and the existing supported implementations. Distinguish formal standards, platform features, common practice, organization policy, and custom behavior; these are not interchangeable claims.
+Prefer supported GitLab features over custom orchestration. For each proposed or implemented change, check the relevant standard or established practice and the existing supported implementations. Distinguish formal standards, platform features, common practice, organization policy, and custom behavior; these are not interchangeable claims.
 
 When we choose a deviation, explain the conventional alternative, our reason, and the practical consequences for consumers, maintenance, compatibility, or assurance. Use primary documentation to support the assessment where needed, and state uncertainty instead of claiming a universal standard. Record material accepted deviations in the documentation for the affected feature. Keep this assessment proportional to the change and within the user's existing authorization.
 
@@ -45,7 +45,7 @@ These are maintained implementations, not all official GitLab products. **to be 
 - SonarScanner already waits for its quality gate. Combining analysis and the associated gate in one logical component is a reasonable single-responsibility exception and removes custom polling code. [Sonar parameters](https://docs.sonarsource.com/sonarqube-server/2026.1/analyzing-source-code/analysis-parameters/parameters-not-settable-in-ui)
 - Fortify already supplies a complete AST workflow and a lower-level fcli component. Reuse its setup and scan handling; customize only where organization policy or edition-specific integration requires it.
 
-Our optional `handoff` component implements the extra explicit `next(work)` convention requested in this conversation. It is a small custom adapter over GitLab scheduling, not an industry-standard callback API. Prefer native template hooks for ordinary extensions. Add the handoff only where a separately imaged custom job and explicit continuation add value.
+The custom `handoff` component and its `next(work)` callback protocol have been removed. Extra processing is an ordinary GitLab job with its own image and `needs` dependencies. GitLab schedules the next required job after successful completion; artifacts and dotenv carry results. Consumers of an older pinned revision must migrate that component before upgrading. See [extension patterns](hooks.md).
 
 One logical component need not mean exactly one physical job. Vendor components may need preparation, scan, and report jobs. Keep one responsibility per building block where practical without dismantling a tested vendor workflow merely to impose a job-count rule.
 
@@ -70,3 +70,15 @@ Mandatory security controls must survive changes to application YAML and hooks. 
 5. Roll out one replacement at a time while retaining organization policy enforcement and evidence requirements. Continue assessing standards conformance independently of component sourcing.
 
 The local lab has exercised GitLab pipelines, Maven publication, Jib/Helm publication to Artifactory, Kubernetes deployment, Cucumber and release protections. Scanner, Fortify and KMS/signing integrations still require live validation. Standard component adoption remains a future option.
+
+## Angular UI and browser tests
+
+The optional `ui-directory` activates the existing npm/image/Helm modules in the same central pipeline. Native `rules`, `needs` and artifacts connect the jobs. Backend and UI have separate images, Helm releases and deployments; one repository release versions both. This is an organization composition, not a new pipeline engine or a formal standard. More deployables can consume the individual modules; this demo composition deliberately supports one backend and one UI.
+
+The UI uses the current stable Angular CLI workspace, a lockfile and `npm ci`. The [maintained unprivileged Nginx image](https://github.com/nginx/docker-nginx-unprivileged) serves static files and proxies `/api/` to the backend. Its supported environment-template mechanism configures the backend URL. Both deployments accept the selected cluster/user values; chart-specific settings such as the service port stay in each chart's defaults.
+
+Dockerfile images use [GitLab's documented rootless BuildKit method](https://docs.gitlab.com/ci/docker/using_buildkit/). In this Docker Desktop lab, a dedicated `local-buildkit` runner uses Docker's default seccomp profile plus `clone`, `unshare`, `setns`, `mount` and `umount2`. The runner remains unprivileged and does not mount the Docker socket into jobs. This is local runner configuration that must be reviewed for another host, not an application hook. The tool image adds Python for registry authentication and metadata parsing. The Java image still uses Jib.
+
+Cucumber UI scenarios call the official [Playwright Java API](https://playwright.dev/java/docs/test-runners) with headless Chromium. Headless still requires a browser engine. The existing Cucumber component selects a [Playwright browser image](https://playwright.dev/java/docs/docker) extended with our Java 25 and Maven versions; ordinary backend tests retain the smaller Java image. The browser and Java dependency versions must match. The CI browser runs against our own test application with the image's default settings; this image is not intended for arbitrary untrusted browsing.
+
+`@ui` scenarios run after both deployments and block completion of the release. They compare the rendered table to the browser's actual API response, refresh the list and verify a mobile viewport. Screenshots are embedded in the Cucumber report; failures also preserve Playwright traces. No custom Cucumber/Playwright adapter service is needed.

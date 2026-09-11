@@ -1,5 +1,6 @@
 # Working agreements
 
+- Prefer built-in GitLab capabilities for orchestration, inputs, dependencies and artifacts. Use ordinary jobs with `needs` for extra steps. Do not add a custom continuation/callback protocol or pipeline execution engine when GitLab already supports the required behavior.
 - When proposing or making changes, check whether the approach follows an applicable standard or established practice, and whether supported platform features or maintained components already cover the need. Use current primary documentation when verification is needed.
 - Distinguish formal standards, supported platform features, common practice, organization policy, and custom behavior. Do not describe a preference or custom implementation as an industry standard.
 - When choosing a deviation, explain it to the user: the standard or conventional alternative, why we deviate, and the practical consequences for consumers, maintenance, compatibility, or assurance. Make uncertainty explicit.

@@ -65,6 +65,34 @@ exit "${FAKE_HTTP_EXIT:-0}"
         p = self.root / 'git-calls'
         return p.read_text() if p.exists() else ''
 
+    def test_release_records_all_deployable_digests_and_rejects_mismatched_versions(self):
+        for extra_version, expected_success in [('1.2.3', True), ('1.2.4', False)]:
+            with self.subTest(extra_version=extra_version):
+                h = Harness(self.root, 'gitlab-release', inputs={
+                    'version': '1.2.3', 'api-url': 'https://gitlab.invalid/api/v4',
+                    'additional-artifact-prefixes': 'UI_IMAGE:UI_CHART',
+                }, env={
+                    'JIB_IMAGE_REF': 'registry.invalid/api@sha256:' + 'a' * 64,
+                    'CHART_REF': 'oci://registry.invalid/charts/api', 'CHART_VERSION': '1.2.3',
+                    'UI_IMAGE_IMAGE_REF': 'registry.invalid/ui@sha256:' + 'b' * 64,
+                    'UI_CHART_REF': 'oci://registry.invalid/charts/ui', 'UI_CHART_VERSION': extra_version,
+                    'CI_PROJECT_URL': 'https://gitlab.invalid/group/app', 'CI_PROJECT_ID': '1',
+                    'CI_PIPELINE_URL': 'https://gitlab.invalid/group/app/-/pipelines/99',
+                    'CI_JOB_TOKEN': 'test-token',
+                })
+                calls = self.root / 'release-api-called'
+                calls.unlink(missing_ok=True)
+                h.write('bin/curl', '#!/bin/sh\n: > "$CI_PROJECT_DIR/release-api-called"\n')
+                result = h.run()
+                self.assertEqual(expected_success, result.returncode == 0, result.stderr)
+                self.assertEqual(expected_success, calls.exists())
+                self.assertEqual(expected_success, h.output_file.exists())
+                if expected_success:
+                    body = (h.output_file.parent / 'release.md').read_text()
+                    self.assertIn('registry.invalid/api@sha256:' + 'a' * 64, body)
+                    self.assertIn('registry.invalid/ui@sha256:' + 'b' * 64, body)
+                    self.assertIn('oci://registry.invalid/charts/ui', body)
+
     def test_reserve_emits_version_and_binds_child_to_exact_commit(self):
         h = self.harness()
         result = h.run()

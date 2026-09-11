@@ -2,6 +2,8 @@
 # Base images are digest-pinned GitLab group/project variables configured by
 # the local runner setup. Each task can select a different approved image here.
 variables:
+  UI_TARGET_URL: http://host.docker.internal:8090
+  UI_PUBLIC_URL: http://localhost:8090
   DEV_TARGET_URL: http://host.docker.internal:8080
   DEV_PUBLIC_URL: http://localhost:8080
   HELM_REGISTRY_PLAIN_HTTP: 'true'
@@ -11,11 +13,16 @@ variables:
 
   MAVEN_BUILD_IMAGE: $JAVA_CI_IMAGE
   CUCUMBER_TEST_IMAGE: $JAVA_CI_IMAGE
+  CUCUMBER_UI_IMAGE: $BROWSER_CI_IMAGE
   MAVEN_PUBLISH_IMAGE: $JAVA_CI_IMAGE
   JIB_BUILD_IMAGE: $JAVA_CI_IMAGE
   HELM_PUBLISH_IMAGE: $HELM_CI_IMAGE
   HELM_DEPLOY_IMAGE: $HELM_CI_IMAGE
   JIB_BASE_IMAGE: $JAVA_RUNTIME_IMAGE
+  NPM_BUILD_IMAGE: $NODE_CI_IMAGE
+  NPM_TEST_IMAGE: $NODE_CI_IMAGE
+  IMAGE_BUILD_IMAGE: $BUILDKIT_CI_IMAGE
+  NGINX_BASE_IMAGE: $NGINX_RUNTIME_IMAGE
 
 # Credentials stay in protected GitLab variables, never in committed YAML.
 # LOCAL_KUBECONFIG is a file variable containing the cluster URL, CA and login.

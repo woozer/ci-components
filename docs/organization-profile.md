@@ -10,7 +10,7 @@ Use two layers of ordinary GitLab YAML:
 
 Each module still works independently. Its `image` input is required, so a Maven job cannot silently inherit an npm image. There is no global `default:image`, separate per-module defaults file, configuration loader, or YAML generation step.
 
-The organization profile composes the Maven + npm + Kubernetes baseline used by `examples/full-pipeline/application.gitlab-ci.yml`. It includes jobs but deliberately leaves `workflow`, `stages`, and `needs` to that application example. Use individual components for a smaller pipeline or a different architecture. Add `handoff` only where the application requires explicit delegation; see [hooks](hooks.md).
+This future-work example includes modules from `modules/todo/` and is not used by the Java demo. The organization profile composes the Maven + npm + Kubernetes baseline used by `examples/full-pipeline/application.gitlab-ci.yml`. It includes jobs but deliberately leaves `workflow`, `stages`, and `needs` to that application example. Use individual components for a smaller pipeline or a different architecture. Add extra steps as ordinary jobs with `needs`; see [extension patterns](hooks.md).
 
 ## Approved defaults and application overrides
 
