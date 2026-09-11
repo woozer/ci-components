@@ -71,6 +71,8 @@ Mandatory security controls must survive changes to application YAML and hooks. 
 
 The local lab has exercised GitLab pipelines, Maven publication, Jib/Helm publication to Artifactory, Kubernetes deployment, Cucumber and release protections. Scanner, Fortify and KMS/signing integrations still require live validation. Standard component adoption remains a future option.
 
+The [deployment concurrency investigation](deployment-concurrency.md) compares ordinary jobs with the current child pipeline. GitLab supports `oldest_first` for pipeline ordering; local experiments also show why older-job retries need additional treatment. It records options and evidence without changing the current delivery policy.
+
 ## Angular UI and browser tests
 
 The optional `ui-directory` activates the existing npm/image/Helm modules in the same central pipeline. Native `rules`, `needs` and artifacts connect the jobs. Backend and UI have separate images, Helm releases and deployments; one repository release versions both. This is an organization composition, not a new pipeline engine or a formal standard. More deployables can consume the individual modules; this demo composition deliberately supports one backend and one UI.
