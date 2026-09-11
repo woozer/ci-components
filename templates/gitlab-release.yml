@@ -64,6 +64,9 @@ spec:
       description: "Upstream chart version variable"
       type: string
       default: "CHART_VERSION"
+    additional-artifact-prefixes:
+      description: 'Optional space-separated IMAGE_PREFIX:CHART_PREFIX pairs for other deployables'
+      default: ''
     description:
       description: "Additional release description"
       type: string
@@ -93,6 +96,7 @@ include:
     RELEASE_CHART_VARIABLE: '$[[ inputs.chart-ref-variable ]]'
     RELEASE_CHART_VERSION_VARIABLE: '$[[ inputs.chart-version-variable ]]'
     RELEASE_DESCRIPTION: '$[[ inputs.description ]]'
+    RELEASE_ADDITIONAL_ARTIFACT_PREFIXES: '$[[ inputs.additional-artifact-prefixes ]]'
   before_script:
     - !reference [.ci-module, before_script]
   script:
@@ -112,6 +116,17 @@ include:
       - Packages: $CI_PROJECT_URL/-/packages
       - Validation: $CI_PIPELINE_URL
       EOF
+      # Additional deployables share this release version, each with its own digest.
+      set -f
+      for pair in $RELEASE_ADDITIONAL_ARTIFACT_PREFIXES; do
+        printf '%s\n' "$pair" | LC_ALL=C grep -Eq '^[A-Z][A-Z0-9_]*:[A-Z][A-Z0-9_]*$' || fail 'Invalid artifact prefix pair.'
+        extra_image=$(image_input "${pair%:*}_IMAGE_REF")
+        extra_chart=$(runtime_input "${pair#*:}_REF")
+        extra_version=$(runtime_input "${pair#*:}_VERSION")
+        [ "$extra_version" = "$RELEASE_VERSION" ] || fail 'Additional chart and release versions differ.'
+        printf '\n- Image: `%s`\n- Helm chart: `%s`, version `%s`\n' "$extra_image" "$extra_chart" "$extra_version" >> "$CI_MODULE_OUTPUT_DIR/release.md"
+      done
+      set +f
       if [ -n "$RELEASE_DESCRIPTION" ]; then
         printf '\n%s\n' "$RELEASE_DESCRIPTION" >> "$CI_MODULE_OUTPUT_DIR/release.md"
       fi

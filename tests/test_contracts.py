@@ -16,9 +16,10 @@ ROOT = Path(__file__).resolve().parents[1]
 RUBY_YAML = '''require "yaml"; require "json"
 YAML.add_domain_type("", "reference") { |_, value| {"$reference" => value} }
 puts JSON.generate(ARGV.to_h { |p| [p, YAML.load_stream(File.read(p))] })'''
-FILES = sorted(ROOT.glob("templates/*.yml")) + sorted(ROOT.glob("config/*.yml")) + sorted(ROOT.glob("pipelines/*.yml")) + [ROOT / "examples/full-pipeline/profile.yml"] + sorted(ROOT.glob("shared/*.yml")) + [ROOT / "examples/full-pipeline/application.gitlab-ci.yml", ROOT / ".gitlab-ci.yml"]
+MODULE_FILES = sorted(ROOT.glob("templates/*.yml")) + sorted(ROOT.glob("modules/todo/*.yml"))
+FILES = MODULE_FILES + sorted(ROOT.glob("config/*.yml")) + sorted(ROOT.glob("pipelines/*.yml")) + [ROOT / "examples/full-pipeline/profile.yml"] + sorted(ROOT.glob("shared/*.yml")) + [ROOT / "examples/full-pipeline/application.gitlab-ci.yml", ROOT / ".gitlab-ci.yml"]
 PARSED = json.loads(subprocess.check_output(["ruby", "-e", RUBY_YAML, *map(str, FILES)], text=True))
-COMPONENTS = {path.stem: PARSED[str(path)] for path in FILES if path.parent.name == "templates"}
+COMPONENTS = {path.stem: PARSED[str(path)] for path in MODULE_FILES}
 
 
 def interpolate(documents, overrides=None):
@@ -297,6 +298,37 @@ class ComponentContractTests(unittest.TestCase):
         self.assertEqual(["cleanup"], h.events())
         self.assertFalse(h.output_file.exists())
 
+    def test_image_build_publishes_artifactory_digest_and_cleans_auth(self):
+        h = Harness(self.root, "image-build", inputs={
+            "image-repository": "registry.invalid/dev/ui", "image-tag": "1.2.3",
+            "registry": "registry.invalid", "registry-username": "publisher",
+            "registry-password-file": str(self.root / "password"),
+            "plain-http": True, "base-image": "registry.invalid/base/nginx@sha256:" + "a" * 64,
+        })
+        # Runtime GitLab boolean inputs are lowercase strings.
+        h.env['BUILD_PLAIN_HTTP'] = 'true'
+        h.write("password", "test-secret")
+        h.write("bin/buildctl-daemonless.sh", """#!/bin/sh
+set -eu
+printf '%s\\n' "$*" > "$CI_PROJECT_DIR/buildkit-args"
+python3 - <<'PYTHON'
+import json, os, pathlib
+config = pathlib.Path(os.environ['DOCKER_CONFIG'])
+assert json.loads((config / 'config.json').read_text())['auths']['registry.invalid']['password'] == 'test-secret'
+assert 'http = true' in (config / 'buildkitd.toml').read_text()
+output = pathlib.Path(os.environ['CI_MODULE_OUTPUT_DIR'])
+(output / 'build-metadata.json').write_text(json.dumps({'containerimage.digest': 'sha256:' + 'b' * 64}))
+PYTHON
+""")
+        result = h.run()
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertEqual('registry.invalid/dev/ui@sha256:' + 'b' * 64, h.outputs()['IMAGE_BUILD_IMAGE_REF'])
+        args = (self.root / 'buildkit-args').read_text()
+        self.assertIn('name=registry.invalid/dev/ui:1.2.3,push=true,registry.insecure=true', args)
+        self.assertIn('build-arg:BASE_IMAGE=registry.invalid/base/nginx@sha256:', args)
+        self.assertNotIn('test-secret', args + result.stdout + h.output_file.read_text())
+        self.assertFalse((self.root / '.ci-tmp/42/config.json').exists())
+
     def test_duplicate_custom_outputs_are_rejected(self):
         h = Harness(self.root)
         h.hook("post", 'printf "MAVEN_BUILD_CUSTOM_A=one\\nMAVEN_BUILD_CUSTOM_A=two\\n" > "$CI_MODULE_EXTRA_OUTPUTS"')
@@ -457,7 +489,7 @@ class ComponentContractTests(unittest.TestCase):
         self.assertEqual("1h", jobs["dependency-check"]["timeout"])
         self.assertEqual("2h", jobs["fortify-scan"]["timeout"])
         self.assertEqual(9, next(item["inputs"]["fail-cvss"] for item in profile_includes({"dependency-check-fail-cvss": 9})
-                                 if item["local"] == "/templates/dependency-check.yml"))
+                                 if item["local"] == "/modules/todo/dependency-check.yml"))
         self.assertEqual({"include"}, set(PARSED[str(ROOT / "examples/full-pipeline/profile.yml")][1]))
         for job in jobs.values():
             self.assertNotIn("needs", job)

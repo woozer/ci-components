@@ -137,7 +137,7 @@ include:
       working-directory: $[[ inputs.maven-directory ]]
       job-timeout: $[[ inputs.job-timeout ]]
       artifact-expire-in: $[[ inputs.artifact-expire-in ]]
-  - local: /templates/maven-test.yml
+  - local: /modules/todo/maven-test.yml
     inputs:
       image: $[[ inputs.maven-test-image ]]
       working-directory: $[[ inputs.maven-directory ]]
@@ -155,20 +155,20 @@ include:
       working-directory: $[[ inputs.npm-directory ]]
       job-timeout: $[[ inputs.job-timeout ]]
       artifact-expire-in: $[[ inputs.artifact-expire-in ]]
-  - local: /templates/sonar-scan.yml
+  - local: /modules/todo/sonar-scan.yml
     inputs:
       image: $[[ inputs.sonar-scanner-image ]]
       working-directory: $[[ inputs.maven-directory ]]
       scanner-version: $[[ inputs.sonar-maven-plugin-version ]]
       job-timeout: $[[ inputs.job-timeout ]]
       artifact-expire-in: $[[ inputs.artifact-expire-in ]]
-  - local: /templates/sonar-gate.yml
+  - local: /modules/todo/sonar-gate.yml
     inputs:
       image: $[[ inputs.sonar-gate-image ]]
       task-file-variable: SONAR_SCAN_TASK_FILE
       job-timeout: $[[ inputs.job-timeout ]]
       artifact-expire-in: $[[ inputs.artifact-expire-in ]]
-  - local: /templates/dependency-check.yml
+  - local: /modules/todo/dependency-check.yml
     inputs:
       image: $[[ inputs.dependency-check-image ]]
       working-directory: $[[ inputs.maven-directory ]]
@@ -176,20 +176,20 @@ include:
       fail-cvss: $[[ inputs.dependency-check-fail-cvss ]]
       job-timeout: $[[ inputs.dependency-check-job-timeout ]]
       artifact-expire-in: $[[ inputs.artifact-expire-in ]]
-  - local: /templates/npm-audit.yml
+  - local: /modules/todo/npm-audit.yml
     inputs:
       image: $[[ inputs.npm-audit-image ]]
       working-directory: $[[ inputs.npm-directory ]]
       audit-level: $[[ inputs.npm-audit-level ]]
       job-timeout: $[[ inputs.job-timeout ]]
       artifact-expire-in: $[[ inputs.artifact-expire-in ]]
-  - local: /templates/fortify-scan.yml
+  - local: /modules/todo/fortify-scan.yml
     inputs:
       image: $[[ inputs.fortify-scan-image ]]
       adapter: $[[ inputs.fortify-scan-adapter ]]
       job-timeout: $[[ inputs.fortify-scan-job-timeout ]]
       artifact-expire-in: $[[ inputs.artifact-expire-in ]]
-  - local: /templates/fortify-gate.yml
+  - local: /modules/todo/fortify-gate.yml
     inputs:
       image: $[[ inputs.fortify-gate-image ]]
       adapter: $[[ inputs.fortify-gate-adapter ]]
@@ -201,25 +201,25 @@ include:
       image: $[[ inputs.image-build-image ]]
       job-timeout: $[[ inputs.job-timeout ]]
       artifact-expire-in: $[[ inputs.artifact-expire-in ]]
-  - local: /templates/image-scan.yml
+  - local: /modules/todo/image-scan.yml
     inputs:
       image: $[[ inputs.image-scan-image ]]
       image-ref-variable: IMAGE_BUILD_IMAGE_REF
       job-timeout: $[[ inputs.job-timeout ]]
       artifact-expire-in: $[[ inputs.artifact-expire-in ]]
-  - local: /templates/sbom.yml
+  - local: /modules/todo/sbom.yml
     inputs:
       image: $[[ inputs.sbom-image ]]
       image-ref-variable: IMAGE_BUILD_IMAGE_REF
       job-timeout: $[[ inputs.job-timeout ]]
       artifact-expire-in: $[[ inputs.artifact-expire-in ]]
-  - local: /templates/image-sign.yml
+  - local: /modules/todo/image-sign.yml
     inputs:
       image: $[[ inputs.image-sign-image ]]
       image-ref-variable: IMAGE_BUILD_IMAGE_REF
       job-timeout: $[[ inputs.job-timeout ]]
       artifact-expire-in: $[[ inputs.artifact-expire-in ]]
-  - local: /templates/image-verify.yml
+  - local: /modules/todo/image-verify.yml
     inputs:
       image: $[[ inputs.image-verify-image ]]
       image-ref-variable: IMAGE_SIGN_IMAGE_REF
@@ -248,7 +248,7 @@ include:
       target-url-variable: TEST_DEPLOY_URL
       job-timeout: $[[ inputs.job-timeout ]]
       artifact-expire-in: $[[ inputs.artifact-expire-in ]]
-  - local: /templates/zap-baseline.yml
+  - local: /modules/todo/zap-baseline.yml
     inputs:
       image: $[[ inputs.zap-image ]]
       target-url-variable: TEST_DEPLOY_URL

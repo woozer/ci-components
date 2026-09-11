@@ -18,7 +18,7 @@ flowchart LR
   D --> V[Cucumber against deployment]
 ```
 
-Pushes and merge requests start build/tests immediately. On protected `main`, the default flow also publishes and deploys. Before deployment, **configure-deploy** waits 10 seconds: leave it alone for defaults, or use **Unschedule** and choose a cluster and Helm user profile. Follow **deploy-dev** to Helm and Cucumber. The endpoint is [localhost:8080/hello](http://localhost:8080/hello).
+Pushes and merge requests start build/tests immediately. On protected `main`, the default flow also publishes and deploys. Before deployment, **configure-deploy** waits 10 seconds: leave it alone for defaults, or use **Unschedule** and choose a cluster and Helm user profile. Follow **deploy-dev** to Helm and Cucumber. The UI is [localhost:8090](http://localhost:8090); the backend remains [localhost:8080/hello](http://localhost:8080/hello).
 
 For an additional test run, open **test-custom**, choose the complete Cucumber suite or `@smoke`, and run it. The mandatory **test** always runs the complete suite. Choose **validate**, **publish** or **deploy** on **New pipeline**; this determines the job graph before execution. See [pipeline choices and redeployment](docs/pipeline-options.md).
 
@@ -26,6 +26,8 @@ A successful full main pipeline offers **release** in the same graph. Its defaul
 
 The ordinary pipeline, deployment child and release child all use the same central YAML. A child is an execution boundary, not another configuration wrapper: deployment holds a shared lock until its HTTP test finishes; release starts after a version has been reserved.
 
-Modules remain independently usable, each with its own image, inputs, outputs and hooks. Start with [required inputs and defaults](docs/inputs.md); the full [module catalogue](docs/reference.md) and [hook contract](docs/hooks.md) are reference material. Shared lifecycle handling is in [shared/module.yml](shared/module.yml), whose comments explain `!reference`.
+**Active modules:** `templates/` contains the thirteen modules used by the Java + Angular demo. The twelve unused modules are parked in [modules/todo/](modules/todo/) for future evaluation. The custom continuation component has been removed.
+
+Active modules remain independently usable, each with its own image, inputs, outputs and hooks. Start with [required inputs and defaults](docs/inputs.md); the full [module catalogue](docs/reference.md) and [hook contract](docs/hooks.md) are reference material. Shared lifecycle handling is in [shared/module.yml](shared/module.yml), whose comments explain `!reference`.
 
 We assess changes against standards and established practice, and explain deliberate deviations. The ten-second choice window and automatic patch policy are our choices, not universal CI standards. See [standards and decisions](docs/reuse-and-standards.md).

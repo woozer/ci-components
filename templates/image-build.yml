@@ -1,4 +1,4 @@
-# Build and push a candidate image using rootless BuildKit
+# Build and push a Dockerfile image using rootless BuildKit
 spec:
   inputs:
     job-name:
@@ -49,6 +49,27 @@ spec:
       description: 'Dockerfile path relative to build context'
       type: 'string'
       default: 'Dockerfile'
+    image-repository:
+      description: 'Registry host/repository/image without tag'
+      default: '$CI_REGISTRY_IMAGE'
+    image-tag:
+      description: 'Unique build or reserved release version'
+      default: 'candidate-$CI_PIPELINE_ID-$CI_COMMIT_SHA'
+    registry:
+      description: 'Registry host including optional port'
+      default: '$CI_REGISTRY'
+    registry-username:
+      default: '$CI_REGISTRY_USER'
+    registry-password-file:
+      description: 'Optional file variable; otherwise CI_REGISTRY_PASSWORD is used'
+      default: ''
+    plain-http:
+      description: 'Only for an isolated local registry without TLS'
+      type: boolean
+      default: false
+    base-image:
+      description: 'Optional approved base, supplied as the Dockerfile BASE_IMAGE build argument'
+      default: ''
 ---
 include:
   - local: /shared/module.yml
@@ -69,27 +90,47 @@ include:
     MODULE_CLEANUP_HOOK: '$[[ inputs.cleanup-hook ]]'
     MODULE_HOOK_PARAMETERS_JSON: '$[[ inputs.hook-parameters-json ]]'
     IMAGE_DOCKERFILE: '$[[ inputs.dockerfile ]]'
+    BUILD_REPOSITORY: '$[[ inputs.image-repository ]]'
+    BUILD_TAG: '$[[ inputs.image-tag ]]'
+    BUILD_REGISTRY: '$[[ inputs.registry ]]'
+    BUILD_USERNAME: '$[[ inputs.registry-username ]]'
+    BUILD_PASSWORD_FILE: '$[[ inputs.registry-password-file ]]'
+    BUILD_PLAIN_HTTP: '$[[ inputs.plain-http ]]'
+    BUILD_BASE_IMAGE: '$[[ inputs.base-image ]]'
     BUILDKITD_FLAGS: '--oci-worker-no-process-sandbox'
   before_script:
     - !reference [.ci-module, before_script]
   script:
     - |
-      : "${CI_REGISTRY:?GitLab container registry must be enabled}"
-      : "${CI_REGISTRY_USER:?Missing registry user}"
-      : "${CI_REGISTRY_PASSWORD:?Missing registry credential}"
+      : "${BUILD_REGISTRY:?Missing registry}"
+      : "${BUILD_REPOSITORY:?Missing image repository}"
+      : "${BUILD_TAG:?Missing image tag}"
+      : "${BUILD_USERNAME:?Missing registry user}"
       export DOCKER_CONFIG="$CI_PROJECT_DIR/.ci-tmp/$CI_JOB_ID"
-      export IMAGE_CANDIDATE_TAG="$CI_REGISTRY_IMAGE:candidate-$CI_PIPELINE_ID-$CI_COMMIT_SHA"
       umask 077
       mkdir -p "$DOCKER_CONFIG"
       python3 - <<'PY'
       import json, os, pathlib
-      config = {'auths': {os.environ['CI_REGISTRY']: {'username': os.environ['CI_REGISTRY_USER'], 'password': os.environ['CI_REGISTRY_PASSWORD']}}}
-      (pathlib.Path(os.environ['DOCKER_CONFIG']) / 'config.json').write_text(json.dumps(config))
+      env = os.environ
+      password_file = env['BUILD_PASSWORD_FILE']
+      password = pathlib.Path(password_file).read_text().strip() if password_file else env.get('CI_REGISTRY_PASSWORD', '')
+      if not password:
+          raise SystemExit('Missing registry credential')
+      directory = pathlib.Path(env['DOCKER_CONFIG'])
+      config = {'auths': {env['BUILD_REGISTRY']: {'username': env['BUILD_USERNAME'], 'password': password}}}
+      (directory / 'config.json').write_text(json.dumps(config))
+      if env['BUILD_PLAIN_HTTP'] == 'true':
+          (directory / 'buildkitd.toml').write_text('[registry.' + json.dumps(env['BUILD_REGISTRY']) + ']\n  http = true\n')
       PY
+      if [ "$BUILD_PLAIN_HTTP" = true ]; then
+        export BUILDKITD_FLAGS="$BUILDKITD_FLAGS --config $DOCKER_CONFIG/buildkitd.toml"
+      fi
+      set --
+      if [ -n "$BUILD_BASE_IMAGE" ]; then set -- --opt "build-arg:BASE_IMAGE=$BUILD_BASE_IMAGE"; fi
       buildctl-daemonless.sh build --frontend dockerfile.v0 \
         --local context=. --local dockerfile=. \
-        --opt "filename=$IMAGE_DOCKERFILE" \
-        --output "type=image,name=$IMAGE_CANDIDATE_TAG,push=true" \
+        --opt "filename=$IMAGE_DOCKERFILE" "$@" \
+        --output "type=image,name=$BUILD_REPOSITORY:$BUILD_TAG,push=true,registry.insecure=$BUILD_PLAIN_HTTP" \
         --metadata-file "$CI_MODULE_OUTPUT_DIR/build-metadata.json"
       python3 - <<'PY'
       import json, os, pathlib, re
@@ -100,7 +141,7 @@ include:
       (output / 'digest.txt').write_text(digest)
       PY
       image_digest=$(cat "$CI_MODULE_OUTPUT_DIR/digest.txt")
-      emit IMAGE_REF "$CI_REGISTRY_IMAGE@$image_digest"
+      emit IMAGE_REF "$BUILD_REPOSITORY@$image_digest"
       emit DIGEST "$image_digest"
     - !reference [.ci-module, script]
   after_script:

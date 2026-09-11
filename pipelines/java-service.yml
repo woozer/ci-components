@@ -12,6 +12,23 @@ spec:
       default: '$CI_PROJECT_NAME'
     chart:
       default: 'helm/$CI_PROJECT_NAME'
+    ui-directory:
+      description: 'Optional Angular/npm deployable; empty keeps a backend-only pipeline'
+      default: ''
+    ui-application:
+      default: '$CI_PROJECT_NAME-ui'
+    ui-chart:
+      default: 'helm/$CI_PROJECT_NAME-ui'
+    ui-publish-needs:
+      description: 'Internal: UI producers and backend deployment'
+      type: array
+      default:
+        - job: publish-ui-image
+          artifacts: true
+        - job: publish-ui-chart
+          artifacts: true
+        - job: helm-deploy
+          artifacts: false
     namespace:
       default: '$CI_PROJECT_NAME'
     environment-directory:
@@ -60,6 +77,7 @@ include:
       image: $CUCUMBER_TEST_IMAGE
       maven-executable: mvn
       target-url-variable: ''
+      tags: 'not @ui and not @ignore'
   - local: /templates/cucumber-test.yml
     inputs:
       job-name: test-custom
@@ -67,6 +85,44 @@ include:
       image: $CUCUMBER_TEST_IMAGE
       maven-executable: mvn
       target-url-variable: ''
+      tags: 'not @ui and not @ignore'
+  - local: /templates/npm-build.yml
+    inputs:
+      job-name: build-ui
+      stage: build
+      image: $NPM_BUILD_IMAGE
+      working-directory: '$[[ inputs.ui-directory ]]'
+  - local: /templates/npm-test.yml
+    inputs:
+      job-name: test-ui
+      image: $NPM_TEST_IMAGE
+      working-directory: '$[[ inputs.ui-directory ]]'
+  - local: /templates/image-build.yml
+    inputs:
+      job-name: publish-ui-image
+      stage: image
+      image: $IMAGE_BUILD_IMAGE
+      working-directory: '$[[ inputs.ui-directory ]]'
+      registry: $OCI_REGISTRY
+      registry-username: $ARTIFACTORY_USERNAME
+      registry-password-file: $ARTIFACTORY_PASSWORD_FILE
+      image-repository: '$OCI_REGISTRY/$PUBLISH_REPOSITORY/$[[ inputs.ui-application ]]'
+      image-tag: $APP_VERSION
+      base-image: $NGINX_BASE_IMAGE
+      plain-http: true
+      output-prefix: UI_IMAGE
+  - local: /templates/helm-publish.yml
+    inputs:
+      job-name: publish-ui-chart
+      stage: image
+      image: $HELM_PUBLISH_IMAGE
+      chart: '$[[ inputs.ui-chart ]]'
+      chart-name: '$[[ inputs.ui-application ]]'
+      chart-version: $APP_VERSION
+      app-version: $APP_VERSION
+      oci-repository: oci://$OCI_REGISTRY/$PUBLISH_REPOSITORY/charts
+      plain-http: true
+      output-prefix: UI_CHART
   - local: /templates/maven-publish.yml
     inputs:
       job-name: publish-maven
@@ -117,9 +173,13 @@ include:
             file: /pipelines/java-service.yml
             inputs:
               flow: deploy
+              chart: '$[[ inputs.chart | expand_vars ]]'
               library-ref: '$[[ inputs.library-ref ]]'
               library-project: '$[[ inputs.library-project ]]'
               maven-project: '$[[ inputs.maven-project ]]'
+              ui-directory: '$[[ inputs.ui-directory ]]'
+              ui-application: '$[[ inputs.ui-application | expand_vars ]]'
+              ui-chart: '$[[ inputs.ui-chart | expand_vars ]]'
               application: '$[[ inputs.application | expand_vars ]]'
               namespace: '$[[ inputs.namespace | expand_vars ]]'
               environment-directory: '$[[ inputs.environment-directory ]]'
@@ -131,6 +191,13 @@ include:
                   job: publish-image
                 - pipeline: '$CI_PIPELINE_ID'
                   job: publish-chart
+              ui-publish-needs:
+                - pipeline: '$CI_PIPELINE_ID'
+                  job: publish-ui-image
+                - pipeline: '$CI_PIPELINE_ID'
+                  job: publish-ui-chart
+                - job: helm-deploy
+                  artifacts: false
   - local: /templates/release-reserve.yml
     inputs:
       job-name: release
@@ -147,6 +214,9 @@ include:
               library-project: '$[[ inputs.library-project ]]'
               application: '$[[ inputs.application | expand_vars ]]'
               maven-project: '$[[ inputs.maven-project ]]'
+              ui-directory: '$[[ inputs.ui-directory ]]'
+              ui-application: '$[[ inputs.ui-application | expand_vars ]]'
+              ui-chart: '$[[ inputs.ui-chart | expand_vars ]]'
               chart: '$[[ inputs.chart | expand_vars ]]'
               namespace: '$[[ inputs.namespace | expand_vars ]]'
               environment-directory: '$[[ inputs.environment-directory ]]'
@@ -162,6 +232,43 @@ include:
       commit: '$[[ inputs.commit ]]'
       image-path: '$RELEASE_OCI_REPOSITORY/$[[ inputs.application ]]'
       chart-path: '$RELEASE_OCI_REPOSITORY/charts/$[[ inputs.application ]]'
+  - local: /templates/release-check.yml
+    inputs:
+      job-name: check-ui-release
+      image: $MAVEN_BUILD_IMAGE
+      version: '$[[ inputs.version ]]'
+      commit: '$[[ inputs.commit ]]'
+      image-path: '$RELEASE_OCI_REPOSITORY/$[[ inputs.ui-application ]]'
+      chart-path: '$RELEASE_OCI_REPOSITORY/charts/$[[ inputs.ui-application ]]'
+      output-prefix: UI_RELEASE_CHECK
+  - local: /templates/helm-deploy.yml
+    inputs:
+      job-name: helm-deploy-ui
+      stage: deploy
+      image: $HELM_DEPLOY_IMAGE
+      image-ref-variable: UI_IMAGE_IMAGE_REF
+      chart-variable: UI_CHART_REF
+      chart-version-variable: UI_CHART_VERSION
+      kubeconfig-variable: LOCAL_KUBECONFIG
+      create-namespace: false
+      plain-http: true
+      values-file: '$[[ inputs.environment-directory ]]/cluster/$[[ inputs.cluster ]].yaml'
+      override-values-file: '$[[ inputs.environment-directory ]]/user/$[[ inputs.user-config ]].yaml'
+      release: '$[[ inputs.ui-application ]]'
+      namespace: '$[[ inputs.namespace ]]'
+      environment: $DEPLOY_ENVIRONMENT
+      target-url: $UI_TARGET_URL
+      timeout: 5m
+      output-prefix: UI_DEPLOY
+  - local: /templates/cucumber-test.yml
+    inputs:
+      job-name: cucumber-ui
+      image: $CUCUMBER_UI_IMAGE
+      maven-executable: mvn
+      target-url-variable: UI_DEPLOY_URL
+      profile: ui
+      tags: '@ui or @animals'
+      output-prefix: UI_CUCUMBER
   - local: /templates/helm-deploy.yml
     inputs:
       job-name: helm-deploy
@@ -187,6 +294,7 @@ include:
       image: $CUCUMBER_TEST_IMAGE
       maven-executable: mvn
       target-url-variable: DEPLOY_URL
+      tags: 'not @ui and not @ignore'
   - local: /templates/gitlab-release.yml
     inputs:
       job-name: finish-release
@@ -194,6 +302,7 @@ include:
       api-url: $GITLAB_INTERNAL_URL/api/v4
       version: '$[[ inputs.version ]]'
       artifact-expire-in: never
+      additional-artifact-prefixes: $RELEASE_EXTRA_ARTIFACTS
       description: 'Validated in dev. Production delivery through Argo CD must use this image digest without rebuilding.'
 
 workflow:
@@ -282,15 +391,19 @@ test-custom:
   inputs:
     tags:
       description: 'Cucumber scenarios: complete suite or smoke checks'
-      default: 'not @ignore'
-      options: ['not @ignore', '@smoke']
+      default: 'not @ui and not @ignore'
+      options: ['not @ui and not @ignore', '@smoke and not @ui']
   before_script:
     - !reference [.ci-module, before_script]
     - export CUCUMBER_TAGS='${{ job.inputs.tags }}'
 
 publish-maven:
   extends: [.publish, .maven-cache]
-  needs: [test]
+  needs:
+    - job: test
+    - job: test-ui
+      optional: true
+      artifacts: false
 
 publish-image:
   extends: [.publish, .maven-cache]
@@ -377,7 +490,12 @@ finish-release:
   extends: .publish
   stage: finish
   rules:
+    - if: '"$[[ inputs.flow ]]" == "release" && "$[[ inputs.ui-directory ]]" != ""'
+      variables:
+        RELEASE_EXTRA_ARTIFACTS: 'UI_IMAGE:UI_CHART'
     - if: '"$[[ inputs.flow ]]" == "release"'
+      variables:
+        RELEASE_EXTRA_ARTIFACTS: ''
   needs:
     - job: publish-image
       artifacts: true
@@ -385,3 +503,80 @@ finish-release:
       artifacts: true
     - job: cucumber-dev
       artifacts: false
+    - job: publish-ui-image
+      optional: true
+      artifacts: true
+    - job: publish-ui-chart
+      optional: true
+      artifacts: true
+    - job: cucumber-ui
+      optional: true
+      artifacts: false
+
+# UI jobs use native rules/needs. Backend-only consumers leave ui-directory empty.
+.ui-validation:
+  extends: .validation
+  rules:
+    - if: '"$[[ inputs.ui-directory ]]" == ""'
+      when: never
+    - !reference [.validation, rules]
+  cache:
+    key: npm
+    paths: [.npm/]
+  variables:
+    npm_config_cache: '$CI_PROJECT_DIR/.npm'
+
+.ui-publish:
+  extends: .publish
+  rules:
+    - if: '"$[[ inputs.ui-directory ]]" == ""'
+      when: never
+    - !reference [.publish, rules]
+
+.ui-deployment:
+  extends: .deployment
+  rules:
+    - if: '"$[[ inputs.ui-directory ]]" == ""'
+      when: never
+    - !reference [.deployment, rules]
+
+build-ui:
+  extends: .ui-validation
+  interruptible: true
+
+test-ui:
+  extends: .ui-validation
+  interruptible: true
+
+publish-ui-image:
+  extends: .ui-publish
+  tags: [local-buildkit]
+  needs: [build-ui, publish-maven]
+
+publish-ui-chart:
+  extends: .ui-publish
+  needs: [publish-maven]
+  before_script:
+    - !reference [.helm-login, before_script]
+
+check-ui-release:
+  extends: .publish
+  rules:
+    - if: '"$[[ inputs.flow ]]" == "release" && "$[[ inputs.ui-directory ]]" != ""'
+  variables:
+    GIT_DEPTH: '0'
+
+helm-deploy-ui:
+  extends: .ui-deployment
+  needs: $[[ inputs.ui-publish-needs ]]
+  before_script:
+    - !reference [.helm-login, before_script]
+  environment:
+    url: $UI_PUBLIC_URL
+
+cucumber-ui:
+  extends: [.ui-deployment, .maven-cache]
+  needs: [helm-deploy-ui]
+  environment:
+    name: $DEPLOY_ENVIRONMENT
+    action: prepare

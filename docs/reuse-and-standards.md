@@ -1,6 +1,6 @@
 # Future option: reuse standard components
 
-Current decision: use our own components, each maintained as an individual YAML file in `templates/`. This assessment records standard implementations we may adopt later. The public inputs, outputs, hooks, image requirements, and failure behavior form the contract a replacement must preserve or explicitly version. These components still require live integration validation before production adoption.
+Current decision: use our own components, with active modules in `templates/` and unused modules in `modules/todo/`, each maintained as an individual YAML file. This assessment records standard implementations we may adopt later. The public inputs, outputs, hooks, image requirements, and failure behavior form the contract a replacement must preserve or explicitly version. These components still require live integration validation before production adoption.
 
 ## Working agreement for changes
 
@@ -70,3 +70,15 @@ Mandatory security controls must survive changes to application YAML and hooks. 
 5. Roll out one replacement at a time while retaining organization policy enforcement and evidence requirements. Continue assessing standards conformance independently of component sourcing.
 
 The local lab has exercised GitLab pipelines, Maven publication, Jib/Helm publication to Artifactory, Kubernetes deployment, Cucumber and release protections. Scanner, Fortify and KMS/signing integrations still require live validation. Standard component adoption remains a future option.
+
+## Angular UI and browser tests
+
+The optional `ui-directory` activates the existing npm/image/Helm modules in the same central pipeline. Native `rules`, `needs` and artifacts connect the jobs. Backend and UI have separate images, Helm releases and deployments; one repository release versions both. This is an organization composition, not a new pipeline engine or a formal standard. More deployables can consume the individual modules; this demo composition deliberately supports one backend and one UI.
+
+The UI uses the current stable Angular CLI workspace, a lockfile and `npm ci`. The [maintained unprivileged Nginx image](https://github.com/nginx/docker-nginx-unprivileged) serves static files and proxies `/api/` to the backend. Its supported environment-template mechanism configures the backend URL. Both deployments accept the selected cluster/user values; chart-specific settings such as the service port stay in each chart's defaults.
+
+Dockerfile images use [GitLab's documented rootless BuildKit method](https://docs.gitlab.com/ci/docker/using_buildkit/). In this Docker Desktop lab, a dedicated `local-buildkit` runner uses Docker's default seccomp profile plus `clone`, `unshare`, `setns`, `mount` and `umount2`. The runner remains unprivileged and does not mount the Docker socket into jobs. This is local runner configuration that must be reviewed for another host, not an application hook. The tool image adds Python for registry authentication and metadata parsing. The Java image still uses Jib.
+
+Cucumber UI scenarios call the official [Playwright Java API](https://playwright.dev/java/docs/test-runners) with headless Chromium. Headless still requires a browser engine. The existing Cucumber component selects a [Playwright browser image](https://playwright.dev/java/docs/docker) extended with our Java 25 and Maven versions; ordinary backend tests retain the smaller Java image. The browser and Java dependency versions must match. The CI browser runs against our own test application with the image's default settings; this image is not intended for arbitrary untrusted browsing.
+
+`@ui` scenarios run after both deployments and block completion of the release. They compare the rendered table to the browser's actual API response, refresh the list and verify a mobile viewport. Screenshots are embedded in the Cucumber report; failures also preserve Playwright traces. No custom Cucumber/Playwright adapter service is needed.

@@ -64,3 +64,7 @@ GitLab/Artifactory administrators can change permissions; CI must never use thei
 These components are shared, but including YAML does not configure server permissions. The local setup is applied by `infra/gitlab-runner/configure-releases.py`, outside the application. Provision equivalent permissions for every consuming project and release repository in the organization.
 
 The local free-edition lab stores Maven packages in GitLab and images/charts in Artifactory JCR. Test reports stay in GitLab. JCR does not support native Maven repositories; moving Maven packages into Artifactory requires an appropriate edition. [JFrog editions](https://docs.jfrog.com/artifactory/docs/jfrog-container-registry)
+
+## Repositories with the optional UI
+
+With `ui-directory`, a reserved release covers both deployables at the same version. Separate `check-release` and `check-ui-release` jobs reject existing image/chart coordinates before building. Both test suites must pass before publication. The backend uses Jib; the UI uses rootless BuildKit. Both publish to the immutable release repository, deploy to dev, and pass HTTP/browser Cucumber tests before `finish-release` records both image digests and both chart references. Production must promote both recorded images without rebuilding. Helm releases are separate: a failed UI deployment does not automatically roll back an already successful backend deployment; keep API changes backward compatible.

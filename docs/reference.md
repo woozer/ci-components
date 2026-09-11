@@ -10,7 +10,7 @@ This is a starter, not an installed organization policy. Tool images, service cr
 
 The [Java 25 sample application](http://localhost:8929/root/hello-world) is a standalone multi-module Spring Boot project with Cucumber HTTP tests, Jib image builds, and a Helm chart. Its Maven build works independently of these CI components. The local Artifactory registry reproduces container publishing locally.
 
-**Current decision: use our own components.** Each component is maintained directly in one YAML file under `templates/`. Standard vendor/GitLab components remain an option for future replacements; see [the reuse and standards assessment](reuse-and-standards.md). Use [native job dependencies and small component hooks](hooks.md) for extensions.
+**Current decision: use our own components.** Active components are maintained as individual YAML files in `templates/`. Unused modules are retained in `modules/todo/` for future evaluation. Standard vendor/GitLab components remain an option for future replacements; see [the reuse and standards assessment](reuse-and-standards.md). Use [native job dependencies and small component hooks](hooks.md) for extensions.
 
 ## Design contract
 
@@ -42,30 +42,43 @@ Dotenv outputs exist at **job runtime**. They cannot drive `include`, `spec:inpu
 
 Hooks are trusted application code, not a security boundary. Protect the component repository, consumer CI/hook files, protected runners, credentials, and deployment environments. Required organization policy must be enforced through platform settings or centrally managed pipeline policies as appropriate for your GitLab edition.
 
-## Component catalogue
+## Active component catalogue
+
+These thirteen modules are used by the central Java pipeline and live in `templates/`.
 
 | Component | Responsibility | Additional outputs with default prefix |
 |---|---|---|
 | `maven-build` | Package Java artifacts | `MAVEN_BUILD_ARTIFACT_ROOT` |
 | `maven-publish` | Publish reactor artifacts to a Maven repository | `MAVEN_PUBLISH_REPOSITORY_URL` |
-| `maven-test` | Surefire unit tests and configured JaCoCo report | `MAVEN_TEST_REPORT_ROOT` |
+| `jib-build` | Build and publish a Java OCI image using Jib | `JIB_BUILD_IMAGE_REF`, `JIB_BUILD_IMAGE_REPOSITORY`, `JIB_BUILD_IMAGE_DIGEST` |
+| `helm-publish` | Package and publish a versioned OCI Helm chart | `HELM_PUBLISH_REF`, `HELM_PUBLISH_VERSION` |
+| `helm-deploy` | Deploy a verified digest into one environment | `HELM_DEPLOY_URL`, `HELM_DEPLOY_IMAGE_REF`, `HELM_DEPLOY_RELEASE`, `HELM_DEPLOY_NAMESPACE` |
+| `cucumber-test` | Run Failsafe/Cucumber locally or against a deployed URL | `CUCUMBER_TEST_REPORT_ROOT`, `CUCUMBER_TEST_TARGET_URL` |
 | `npm-build` | Build locked npm project | `NPM_BUILD_ARTIFACT_DIR` |
 | `npm-test` | Run the application's CI unit-test script | `NPM_TEST_REPORT_DIR` |
+| `image-build` | Build and push one Dockerfile OCI image | `IMAGE_BUILD_IMAGE_REF`, `IMAGE_BUILD_DIGEST` |
+| `deployment-select` | Record cluster/user choices for deployment | `SELECTION_CLUSTER`, `SELECTION_USER_CONFIG` |
+| `release-reserve` | Reserve a unique version with a Git tag | `RELEASE_VERSION`, `RELEASE_TAG` |
+| `release-check` | Validate reserved tag, commit and unused artifact coordinates | `RELEASE_CHECK_VERSION`, `RELEASE_CHECK_TAG` |
+| `gitlab-release` | Record validated artifacts as a GitLab release | `GITLAB_RELEASE_URL` |
+
+## Modules for future work
+
+These twelve modules live in [modules/todo/](../modules/todo/). They are not included by the Java demo. Their contract tests remain, but service integrations must be validated before promoting a module to the active catalogue.
+
+| Module | Intended responsibility | Additional outputs with default prefix |
+|---|---|---|
+| `maven-test` | Surefire unit tests and configured JaCoCo report | `MAVEN_TEST_REPORT_ROOT` |
 | `sonar-scan` | Submit Maven/Java analysis and coverage | `SONAR_SCAN_TASK_FILE` |
 | `sonar-gate` | Await that analysis and enforce its Sonar gate | `SONAR_GATE_ANALYSIS_ID`, `SONAR_GATE_RESULT` |
 | `dependency-check` | OWASP Dependency-Check for Maven dependencies | `DEPENDENCY_CHECK_REPORT_DIR` |
 | `npm-audit` | Audit npm dependencies | `NPM_AUDIT_REPORT` |
 | `fortify-scan` | Run the selected Fortify edition's scan adapter | `FORTIFY_SCAN_RECEIPT` |
 | `fortify-gate` | Enforce policy on that exact scan receipt | `FORTIFY_GATE_REPORT` |
-| `jib-build` | Build and publish a Java OCI image using Jib | `JIB_BUILD_IMAGE_REF`, `JIB_BUILD_IMAGE_REPOSITORY`, `JIB_BUILD_IMAGE_DIGEST` |
-| `helm-publish` | Package and publish a versioned OCI Helm chart | `HELM_PUBLISH_REF`, `HELM_PUBLISH_VERSION` |
-| `image-build` | Build and push one candidate OCI image | `IMAGE_BUILD_IMAGE_REF`, `IMAGE_BUILD_DIGEST` |
 | `image-scan` | Scan the candidate image for vulnerabilities | `IMAGE_SCAN_REPORT` |
 | `sbom` | Inventory the candidate image in CycloneDX format | `SBOM_REPORT` |
 | `image-sign` | Sign the candidate digest using Cosign | `IMAGE_SIGN_IMAGE_REF` |
 | `image-verify` | Verify its signature using the approved public key | `IMAGE_VERIFY_IMAGE_REF` |
-| `helm-deploy` | Deploy a verified digest into one environment | `HELM_DEPLOY_URL`, `HELM_DEPLOY_IMAGE_REF`, `HELM_DEPLOY_RELEASE`, `HELM_DEPLOY_NAMESPACE` |
-| `cucumber-test` | Run Failsafe/Cucumber locally or against a deployed URL | `CUCUMBER_TEST_REPORT_ROOT`, `CUCUMBER_TEST_TARGET_URL` |
 | `zap-baseline` | Run a ZAP passive baseline scan of the deployment | `ZAP_BASELINE_REPORT_DIR`, `ZAP_BASELINE_TARGET_URL` |
 
 Each component's `STATUS` is informational. The GitLab job exit status and required dependency graph enforce the workflow. Do not implement promotion by checking a caller-supplied `STATUS=passed` variable.
@@ -129,20 +142,13 @@ Build the candidate image once, then scan, sign, verify, and promote the **same 
 
 ## Maintaining and replacing components
 
-Edit each `templates/<component-name>.yml` directly. Each file contains its own input declarations, job image, operation, and output artifacts. Shared setup, post-hook/output validation, and cleanup live once in [`shared/module.yml`](../shared/module.yml). There is no generation step. For example:
+Edit active `templates/<component-name>.yml` files directly. Future modules are in `modules/todo/`; move one into `templates/` only when a real consumer and the required integration validation are ready. Each file contains its own input declarations, job image, operation, and output artifacts. Shared setup, post-hook/output validation, and cleanup live once in [`shared/module.yml`](../shared/module.yml). There is no generation step. For example:
 
 ```text
-shared/
-  module.yml
-templates/
-  maven-build.yml
-  maven-test.yml
-  npm-build.yml
-  npm-test.yml
-  sonar-scan.yml
-  sonar-gate.yml
-  helm-deploy.yml
-  ...
+pipelines/java-service.yml   # all Java job order and policy
+shared/module.yml           # common job lifecycle
+templates/                  # thirteen active modules
+modules/todo/               # twelve unused modules for future work
 ```
 
 The application pipeline consumes the public component name and contract. Keep input names/types, output names and meanings, artifact paths, hook behavior, image requirements, and failure behavior stable when changing an implementation. The consumer owns the dependency graph.
