@@ -4,7 +4,7 @@ Current decision: use our own components, each maintained as an individual YAML 
 
 ## Working agreement for changes
 
-For each proposed or implemented change, check the relevant standard or established practice and the existing supported implementations. Distinguish formal standards, platform features, common practice, organization policy, and custom behavior; these are not interchangeable claims.
+Prefer supported GitLab features over custom orchestration. For each proposed or implemented change, check the relevant standard or established practice and the existing supported implementations. Distinguish formal standards, platform features, common practice, organization policy, and custom behavior; these are not interchangeable claims.
 
 When we choose a deviation, explain the conventional alternative, our reason, and the practical consequences for consumers, maintenance, compatibility, or assurance. Use primary documentation to support the assessment where needed, and state uncertainty instead of claiming a universal standard. Record material accepted deviations in the documentation for the affected feature. Keep this assessment proportional to the change and within the user's existing authorization.
 
@@ -45,7 +45,7 @@ These are maintained implementations, not all official GitLab products. **to be 
 - SonarScanner already waits for its quality gate. Combining analysis and the associated gate in one logical component is a reasonable single-responsibility exception and removes custom polling code. [Sonar parameters](https://docs.sonarsource.com/sonarqube-server/2026.1/analyzing-source-code/analysis-parameters/parameters-not-settable-in-ui)
 - Fortify already supplies a complete AST workflow and a lower-level fcli component. Reuse its setup and scan handling; customize only where organization policy or edition-specific integration requires it.
 
-Our optional `handoff` component implements the extra explicit `next(work)` convention requested in this conversation. It is a small custom adapter over GitLab scheduling, not an industry-standard callback API. Prefer native template hooks for ordinary extensions. Add the handoff only where a separately imaged custom job and explicit continuation add value.
+The custom `handoff` component and its `next(work)` callback protocol have been removed. Extra processing is an ordinary GitLab job with its own image and `needs` dependencies. GitLab schedules the next required job after successful completion; artifacts and dotenv carry results. Consumers of an older pinned revision must migrate that component before upgrading. See [extension patterns](hooks.md).
 
 One logical component need not mean exactly one physical job. Vendor components may need preparation, scan, and report jobs. Keep one responsibility per building block where practical without dismantling a tested vendor workflow merely to impose a job-count rule.
 

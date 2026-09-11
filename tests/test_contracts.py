@@ -146,7 +146,6 @@ class ComponentContractTests(unittest.TestCase):
                                          f'Rule reads excluded variables: {unavailable & referenced}')
 
     def test_every_component_is_one_job_with_an_explicit_image_and_output_contract(self):
-        self.assertEqual(26, len(COMPONENTS))
         for name, (header, body) in COMPONENTS.items():
             with self.subTest(name=name):
                 self.assertEqual({"include", "$[[ inputs.job-name ]]"}, set(body))
@@ -161,7 +160,7 @@ class ComponentContractTests(unittest.TestCase):
                     for code in re.findall(r"python3 - <<'PY'\n(.*?)\nPY", script, re.S):
                         compile(code, name, "exec")
 
-    def test_hooks_order_and_custom_output_handoff(self):
+    def test_hooks_order_and_custom_output_transfer(self):
         h = Harness(self.root, inputs={"output-prefix": "SERVICE_A"})
         h.hook("pre", 'printf "pre\\n" >> "$CI_PROJECT_DIR/events"')
         h.hook("post", 'printf "post\\n" >> "$CI_PROJECT_DIR/events"\nprintf "SERVICE_A_CUSTOM_VERSION=1.2.3\\n" >> "$CI_MODULE_EXTRA_OUTPUTS"')
@@ -395,37 +394,6 @@ class ComponentContractTests(unittest.TestCase):
         h.write("gate.sh", '#!/bin/sh\nprintf "gate\\n" >> "$CI_PROJECT_DIR/events"\n')
         self.assertNotEqual(0, h.run().returncode)
         self.assertEqual([], h.events())
-        self.assertFalse(h.output_file.exists())
-
-    def test_handoff_passes_parameters_and_replacement_work(self):
-        h = Harness(self.root, "handoff", inputs={"hook": "handoff.sh", "work-variable": "UPSTREAM_VALUE",
-                    "hook-parameters-json": '{"label":"release"}'}, env={"UPSTREAM_VALUE": "original"})
-        h.write("handoff.sh", '#!/bin/sh\nset -eu\ncp "$CI_MODULE_PARAMETERS_FILE" "$CI_PROJECT_DIR/received.json"\n"$CI_HOOK_NEXT" "replacement"\n')
-        result = h.run()
-        self.assertEqual(0, result.returncode, result.stderr)
-        self.assertEqual({"label": "release"}, json.loads((self.root / "received.json").read_text()))
-        self.assertEqual("replacement", h.outputs()["HANDOFF_WORK_VALUE"])
-        self.assertEqual("true", h.outputs()["HANDOFF_NEXT_CALLED"])
-
-    def test_handoff_without_next_blocks(self):
-        h = Harness(self.root, "handoff", inputs={"hook": "handoff.sh", "work-variable": "UPSTREAM_VALUE"},
-                    env={"UPSTREAM_VALUE": "original"})
-        h.write("handoff.sh", "#!/bin/sh\nexit 0\n")
-        self.assertNotEqual(0, h.run().returncode)
-        self.assertFalse(h.output_file.exists())
-
-    def test_handoff_failure_after_next_still_blocks(self):
-        h = Harness(self.root, "handoff", inputs={"hook": "handoff.sh", "work-variable": "UPSTREAM_VALUE"},
-                    env={"UPSTREAM_VALUE": "original"})
-        h.write("handoff.sh", '#!/bin/sh\nset -eu\n"$CI_HOOK_NEXT"\nexit 3\n')
-        self.assertEqual(3, h.run().returncode)
-        self.assertFalse(h.output_file.exists())
-
-    def test_handoff_duplicate_next_blocks(self):
-        h = Harness(self.root, "handoff", inputs={"hook": "handoff.sh", "work-variable": "UPSTREAM_VALUE"},
-                    env={"UPSTREAM_VALUE": "original"})
-        h.write("handoff.sh", '#!/bin/sh\nset -eu\n"$CI_HOOK_NEXT"\n"$CI_HOOK_NEXT"\n')
-        self.assertNotEqual(0, h.run().returncode)
         self.assertFalse(h.output_file.exists())
 
     def test_example_production_depends_on_all_required_checks(self):

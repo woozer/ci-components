@@ -2,7 +2,7 @@
 
 ## Dedicated images
 
-There is no global image and no shared image required across components. Every module's `image` input is mandatory. The optional organization profile supplies separate image-variable defaults and allows explicit input overrides; images may be reused when tool requirements match. Set each variable to your approved image pinned with `@sha256:<64 hexadecimal characters>`. See [defaults and profiles](defaults.md) for configuration ownership. The optional handoff module and repository validation job have their own image variables outside that profile.
+There is no global image and no shared image required across components. Every module's `image` input is mandatory. The optional organization profile supplies separate image-variable defaults and allows explicit input overrides; images may be reused when tool requirements match. Set each variable to your approved image pinned with `@sha256:<64 hexadecimal characters>`. See [defaults and profiles](defaults.md) for configuration ownership. The repository validation job has its own image variable outside that profile.
 
 | Example variable | Required contents |
 |---|---|
@@ -25,7 +25,6 @@ There is no global image and no shared image required across components. Every m
 | `HELM_PRODUCTION_IMAGE` | Selected Helm major version, kubectl, CA certificates, `sh` |
 | `CUCUMBER_IMAGE` | JDK, Maven Wrapper prerequisites, browser libraries if the suite requires them |
 | `ZAP_IMAGE` | ZAP's packaged `zap-baseline.py`, writable `/zap/wrk`, `sh` |
-| `HANDOFF_IMAGE` | The custom hook's tools; Python 3 and `sh` for the supplied sample, plus `chmod` |
 | `CI_VALIDATION_IMAGE` | Python 3, Ruby with standard YAML library, `sh`; used only by this component repository |
 
 All images also need basic POSIX utilities (`awk`, `grep`, `wc`, `printenv`, `cat`, `cp`, `mv`, `rm`, `mkdir`). Minimal/distroless upstream images may need a small internal wrapper image to add the shell. No image needs tools for unrelated building blocks. Bake tools into maintained images instead of downloading arbitrary binaries in hooks.

@@ -10,7 +10,7 @@ This is a starter, not an installed organization policy. Tool images, service cr
 
 The [Java 25 sample application](http://localhost:8929/root/hello-world) is a standalone multi-module Spring Boot project with Cucumber HTTP tests, Jib image builds, and a Helm chart. Its Maven build works independently of these CI components. The local Artifactory registry reproduces container publishing locally.
 
-**Current decision: use our own components.** Each component is maintained directly in one YAML file under `templates/`. Standard vendor/GitLab components remain an option for future replacements; see [the reuse and standards assessment](reuse-and-standards.md). Parameterized delegation is described in [the hook contract](hooks.md).
+**Current decision: use our own components.** Each component is maintained directly in one YAML file under `templates/`. Standard vendor/GitLab components remain an option for future replacements; see [the reuse and standards assessment](reuse-and-standards.md). Use [native job dependencies and small component hooks](hooks.md) for extensions.
 
 ## Design contract
 
@@ -67,7 +67,6 @@ Hooks are trusted application code, not a security boundary. Protect the compone
 | `helm-deploy` | Deploy a verified digest into one environment | `HELM_DEPLOY_URL`, `HELM_DEPLOY_IMAGE_REF`, `HELM_DEPLOY_RELEASE`, `HELM_DEPLOY_NAMESPACE` |
 | `cucumber-test` | Run Failsafe/Cucumber locally or against a deployed URL | `CUCUMBER_TEST_REPORT_ROOT`, `CUCUMBER_TEST_TARGET_URL` |
 | `zap-baseline` | Run a ZAP passive baseline scan of the deployment | `ZAP_BASELINE_REPORT_DIR`, `ZAP_BASELINE_TARGET_URL` |
-| `handoff` | Delegate work to a script that explicitly calls `next` | `HANDOFF_WORK_VALUE`, `HANDOFF_NEXT_CALLED` |
 
 Each component's `STATUS` is informational. The GitLab job exit status and required dependency graph enforce the workflow. Do not implement promotion by checking a caller-supplied `STATUS=passed` variable.
 
@@ -143,7 +142,6 @@ templates/
   sonar-scan.yml
   sonar-gate.yml
   helm-deploy.yml
-  handoff.yml
   ...
 ```
 
