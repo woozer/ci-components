@@ -36,6 +36,24 @@ To change them, choose **Unschedule** before the timer expires, open the job and
 
 **deploy-dev** starts one child containing **helm-deploy** and **cucumber-dev**. The child uses the same central YAML and downloads the image digest and chart reference from the exact parent pipeline. The parent trigger holds the development lock until both jobs finish. [Parent pipeline artifacts](https://docs.gitlab.com/ci/yaml/#needspipelinejob), [resource groups](https://docs.gitlab.com/ci/resource_groups/).
 
+With `ui-directory` configured, this child also deploys the UI and runs **cucumber-ui**. Both Cucumber jobs depend on both Helm deployments succeeding. This also applies to release delivery. The build-time tests still run before deployment.
+
+## Wait for healthy deployments
+
+Helm uses its native readiness wait and rollback on failure. Kubernetes calls the sample's backend `/actuator/health/readiness` and UI `/healthz` every 10 seconds (`periodSeconds: 10`); it can check an unready container sooner. Healthy endpoints return HTTP 200. The charts set `maxUnavailable: 0`, requiring all desired replicas to become ready during rollout. No CI polling script is needed. [Kubernetes probes](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/), [Helm upgrade](https://helm.sh/docs/helm/helm_upgrade/).
+
+The central pipeline's optional `deployment-timeout` defaults to `5m` per Helm deployment. To override it, add only the changed value to the existing java-service include:
+
+```yaml
+inputs:
+  # Keep the existing required inputs here.
+  deployment-timeout: 8m
+```
+
+The setting carries through deployment and release child pipelines. It is a Helm operation timeout, not a deadline for the whole pipeline; rollback can take additional time. Keep it comfortably below the Helm job's default 30-minute limit. A standalone `helm-deploy` component exposes `timeout` and `job-timeout` separately. A failed or timed-out Helm job prevents both deployed integration suites from starting, even if rollback restores the previous healthy version.
+
+Readiness checks each process's availability. UI health does not call the backend; Cucumber and Playwright verify the complete UI-to-backend behavior after both processes are ready. Liveness checks remain independent of external services, following [Spring Boot's probe guidance](https://docs.spring.io/spring-boot/reference/actuator/endpoints.html#actuator.endpoints.kubernetes-probes).
+
 ## Deploy the same build with different values
 
 1. Open the successful pipeline's **configure-deploy** job and use **Retry job with modified values**.

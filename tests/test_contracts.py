@@ -384,6 +384,38 @@ PYTHON
         self.assertEqual(['environment/cluster/local.yaml', 'environment/user/two-replicas.yaml'], values)
         self.assertGreater(args.index('image.digest=sha256:' + 'b' * 64), args.index(values[-1]))
 
+    def test_failed_helm_wait_does_not_publish_success_or_run_post_hook(self):
+        for major in (3, 4):
+            with self.subTest(helm=major), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                h = Harness(root, 'helm-deploy', inputs={
+                    'chart': 'oci://registry.example/charts/app', 'timeout': '25s',
+                    'helm-major': major}, env={
+                    'IMAGE_VERIFY_IMAGE_REF': 'registry.example/app@sha256:' + 'b' * 64,
+                    'KUBE_CONTEXT': 'local'})
+                h.write('bin/helm', '#!/bin/sh\nprintf "%s\\n" "$@" > "$CI_PROJECT_DIR/helm-args"\nexit 1\n')
+                h.hook('post', 'echo post >> "$CI_PROJECT_DIR/events"')
+                self.assertNotEqual(0, h.run().returncode)
+                args = (root / 'helm-args').read_text().splitlines()
+                self.assertEqual('25s', args[args.index('--timeout') + 1])
+                self.assertIn('--wait' if major == 3 else '--wait=watcher', args)
+                self.assertFalse(h.output_file.exists())
+                self.assertEqual([], h.events())
+
+    def test_deployed_integration_suites_wait_for_every_deployable(self):
+        body = interpolate(PARSED[str(ROOT / 'pipelines/java-service.yml')],
+                           {'deployment-timeout': '8m'})
+        for name in ('cucumber-dev', 'cucumber-ui'):
+            needs = {need['job']: need for need in body[name]['needs']}
+            self.assertEqual({'helm-deploy', 'helm-deploy-ui'}, set(needs))
+            self.assertFalse(needs['helm-deploy'].get('optional', False))
+        self.assertTrue(body['cucumber-dev']['needs'][1]['optional'])
+        for include in body['include']:
+            if include['local'] == '/templates/helm-deploy.yml':
+                self.assertEqual('8m', include['inputs']['timeout'])
+            if include['local'] in ('/templates/deployment-select.yml', '/templates/release-reserve.yml'):
+                self.assertIn("deployment-timeout: '8m'", include['inputs']['pipeline-config'])
+
     def test_selection_defaults_emit_settings_and_bind_the_next_pipeline(self):
         h = Harness(self.root, 'deployment-select', inputs={
             'pipeline-config': 'cluster: @CLUSTER@\nuser: @USER_CONFIG@'})
