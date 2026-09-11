@@ -307,6 +307,7 @@ class ComponentContractTests(unittest.TestCase):
         })
         # Runtime GitLab boolean inputs are lowercase strings.
         h.env['BUILD_PLAIN_HTTP'] = 'true'
+        h.env['DOCKER_AUTH_CONFIG'] = json.dumps({'auths': {'base.invalid': {'auth': 'read-only-fixture'}}})
         h.write("password", "test-secret")
         h.write("bin/buildctl-daemonless.sh", """#!/bin/sh
 set -eu
@@ -314,7 +315,9 @@ printf '%s\\n' "$*" > "$CI_PROJECT_DIR/buildkit-args"
 python3 - <<'PYTHON'
 import json, os, pathlib
 config = pathlib.Path(os.environ['DOCKER_CONFIG'])
+assert 'DOCKER_AUTH_CONFIG' not in os.environ
 assert json.loads((config / 'config.json').read_text())['auths']['registry.invalid']['password'] == 'test-secret'
+assert json.loads((config / 'config.json').read_text())['auths']['base.invalid']['auth'] == 'read-only-fixture'
 assert 'http = true' in (config / 'buildkitd.toml').read_text()
 output = pathlib.Path(os.environ['CI_MODULE_OUTPUT_DIR'])
 (output / 'build-metadata.json').write_text(json.dumps({'containerimage.digest': 'sha256:' + 'b' * 64}))
