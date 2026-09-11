@@ -117,7 +117,8 @@ include:
       if not password:
           raise SystemExit('Missing registry credential')
       directory = pathlib.Path(env['DOCKER_CONFIG'])
-      config = {'auths': {env['BUILD_REGISTRY']: {'username': env['BUILD_USERNAME'], 'password': password}}}
+      config = json.loads(env.get('DOCKER_AUTH_CONFIG') or '{}')
+      config.setdefault('auths', {})[env['BUILD_REGISTRY']] = {'username': env['BUILD_USERNAME'], 'password': password}
       (directory / 'config.json').write_text(json.dumps(config))
       if env['BUILD_PLAIN_HTTP'] == 'true':
           (directory / 'buildkitd.toml').write_text('[registry.' + json.dumps(env['BUILD_REGISTRY']) + ']\n  http = true\n')
@@ -125,6 +126,10 @@ include:
       if [ "$BUILD_PLAIN_HTTP" = true ]; then
         export BUILDKITD_FLAGS="$BUILDKITD_FLAGS --config $DOCKER_CONFIG/buildkitd.toml"
       fi
+      # New Docker clients prioritize DOCKER_AUTH_CONFIG over config.json.
+      # The runner uses that read-only account to pull this job image; publish
+      # with the explicit, environment-scoped account in our temporary config.
+      unset DOCKER_AUTH_CONFIG
       set --
       if [ -n "$BUILD_BASE_IMAGE" ]; then set -- --opt "build-arg:BASE_IMAGE=$BUILD_BASE_IMAGE"; fi
       buildctl-daemonless.sh build --frontend dockerfile.v0 \
