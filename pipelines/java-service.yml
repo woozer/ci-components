@@ -31,6 +31,9 @@ spec:
           artifacts: false
     namespace:
       default: '$CI_PROJECT_NAME'
+    deployment-timeout:
+      description: 'Helm readiness timeout per deployable; allow extra job time for rollback'
+      default: 5m
     environment-directory:
       default: environment
     cluster:
@@ -182,6 +185,7 @@ include:
               ui-chart: '$[[ inputs.ui-chart | expand_vars ]]'
               application: '$[[ inputs.application | expand_vars ]]'
               namespace: '$[[ inputs.namespace | expand_vars ]]'
+              deployment-timeout: '$[[ inputs.deployment-timeout ]]'
               environment-directory: '$[[ inputs.environment-directory ]]'
               cluster: '@CLUSTER@'
               user-config: '@USER_CONFIG@'
@@ -219,6 +223,7 @@ include:
               ui-chart: '$[[ inputs.ui-chart | expand_vars ]]'
               chart: '$[[ inputs.chart | expand_vars ]]'
               namespace: '$[[ inputs.namespace | expand_vars ]]'
+              deployment-timeout: '$[[ inputs.deployment-timeout ]]'
               environment-directory: '$[[ inputs.environment-directory ]]'
               cluster: '$SELECTION_CLUSTER'
               user-config: '$SELECTION_USER_CONFIG'
@@ -258,7 +263,7 @@ include:
       namespace: '$[[ inputs.namespace ]]'
       environment: $DEPLOY_ENVIRONMENT
       target-url: $UI_TARGET_URL
-      timeout: 5m
+      timeout: '$[[ inputs.deployment-timeout ]]'
       output-prefix: UI_DEPLOY
   - local: /templates/cucumber-test.yml
     inputs:
@@ -286,7 +291,7 @@ include:
       namespace: '$[[ inputs.namespace ]]'
       environment: $DEPLOY_ENVIRONMENT
       target-url: $DEV_TARGET_URL
-      timeout: 5m
+      timeout: '$[[ inputs.deployment-timeout ]]'
       output-prefix: DEPLOY
   - local: /templates/cucumber-test.yml
     inputs:
@@ -447,9 +452,13 @@ helm-deploy:
 
 cucumber-dev:
   extends: [.deployment, .maven-cache]
+  # Every deployable must be ready before either deployed integration suite starts.
   needs:
     - job: helm-deploy
       artifacts: true
+    - job: helm-deploy-ui
+      optional: true
+      artifacts: false
   environment:
     name: $DEPLOY_ENVIRONMENT
     action: prepare
@@ -576,7 +585,11 @@ helm-deploy-ui:
 
 cucumber-ui:
   extends: [.ui-deployment, .maven-cache]
-  needs: [helm-deploy-ui]
+  needs:
+    - job: helm-deploy-ui
+      artifacts: true
+    - job: helm-deploy
+      artifacts: false
   environment:
     name: $DEPLOY_ENVIRONMENT
     action: prepare
