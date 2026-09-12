@@ -16,7 +16,7 @@ These are ordinary GitLab pipelines assembled from individual modules. The valid
 3. Keep the supplied `library_ref` for the installed version, or enter the exact component commit you are testing.
 4. Select **New pipeline**. Open the child named after the sample to inspect jobs, artifacts and test reports.
 
-A module change also runs all four examples from the component project's `validate-samples` trigger. `strategy: mirror` propagates failures to that pipeline. The trigger supplies the candidate component commit, rather than testing an older published copy. Tests do not silently skip a failing sample.
+A module change also runs all four examples from the component project's `validate-samples` trigger. `strategy: mirror` propagates failures to that pipeline. The trigger supplies the candidate component commit, rather than testing an older published copy. Tests do not silently skip a failing sample. The internal [component validation include](../../tests/samples/component-validation.yml) resolves `CI_COMMIT_SHA` with GitLab's native `expand_vars` before passing it to the downstream input; the sample project accepts only a full commit SHA.
 
 ## Use an example in your project
 
