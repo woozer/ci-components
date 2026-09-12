@@ -2,7 +2,7 @@
 
 For daily use, see the [three actions](../README.md#three-everyday-actions). Build and required tests start immediately. Application CI imports the shared [New pipeline form](../config/pipeline-inputs.yml) and one [central pipeline](../pipelines/java-service.yml), using the same pinned revision. Only `library-ref` and `maven-project` are required static app settings; form values are forwarded without repeating defaults.
 
-Pipeline names use native [`workflow:name`](https://docs.gitlab.com/ci/yaml/#workflowname): **CI — <branch>**, **Dev — deployment en integratietests**, **Release — <version>**. The version is fixed in the release child configuration after reservation. The triggers do not inherit parent variables, so the parent name cannot override the child name.
+Pipeline names use native [`workflow:name`](https://docs.gitlab.com/ci/yaml/#workflowname): `CI — <branch>`, **Dev — deployment en integratietests**, `Release — <version>`. The version is fixed in the release child configuration after reservation. The triggers do not inherit parent variables, so the parent name cannot override the child name.
 
 ## Choose before starting
 
