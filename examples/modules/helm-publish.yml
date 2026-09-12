@@ -1,0 +1,18 @@
+# Minimal module usage. Supply the documented runtime prerequisites.
+spec:
+  inputs:
+    library-ref:
+      description: 'Immutable component commit SHA'
+    library-project:
+      default: root/ci-components
+---
+stages: [package]
+
+include:
+  - component: $CI_SERVER_FQDN/$[[ inputs.library-project ]]/helm-publish@$[[ inputs.library-ref ]]
+    inputs:
+      image: $HELM_CI_IMAGE
+      chart: "helm/hello-world"
+      chart-name: "hello-world"
+      chart-version: "$APP_VERSION"
+      oci-repository: "$CHART_REPOSITORY"

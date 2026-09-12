@@ -1,0 +1,89 @@
+# Build an image/chart, deploy that digest and test the API. See README.md.
+spec:
+  inputs:
+    library-ref:
+      description: 'Immutable component commit SHA'
+    library-project:
+      default: root/ci-components
+    plain-http:
+      description: 'Enable only for the local registry without TLS'
+      type: boolean
+      default: false
+---
+stages: [build, package, deploy, integration]
+
+variables:
+  SAMPLE_VERSION: '0.0.0-dev.$CI_PIPELINE_IID.g$CI_COMMIT_SHORT_SHA'
+
+include:
+  - project: $[[ inputs.library-project ]]
+    ref: $[[ inputs.library-ref ]]
+    file: /shared/helm.yml
+  - component: $CI_SERVER_FQDN/$[[ inputs.library-project ]]/maven-build@$[[ inputs.library-ref ]]
+    inputs:
+      image: $JAVA_CI_IMAGE
+      maven-executable: mvn
+  - component: $CI_SERVER_FQDN/$[[ inputs.library-project ]]/jib-build@$[[ inputs.library-ref ]]
+    inputs:
+      image: $JAVA_CI_IMAGE
+      maven-executable: mvn
+      project-selector: hello-app
+      settings-file: $ARTIFACTORY_MAVEN_SETTINGS
+      image-repository: $OCI_REGISTRY/$OCI_REPOSITORY/$CI_PROJECT_PATH_SLUG/api
+      image-tag: $SAMPLE_VERSION
+      base-image: $JAVA_RUNTIME_IMAGE
+      digest-file: hello-app/target/jib-image.digest
+      allow-insecure-registry: $[[ inputs.plain-http ]]
+  - component: $CI_SERVER_FQDN/$[[ inputs.library-project ]]/helm-publish@$[[ inputs.library-ref ]]
+    inputs:
+      image: $HELM_CI_IMAGE
+      chart: helm/hello-world
+      chart-name: hello-world
+      chart-version: $SAMPLE_VERSION
+      app-version: $SAMPLE_VERSION
+      oci-repository: oci://$OCI_REGISTRY/$OCI_REPOSITORY/$CI_PROJECT_PATH_SLUG/charts
+      plain-http: $[[ inputs.plain-http ]]
+  - component: $CI_SERVER_FQDN/$[[ inputs.library-project ]]/helm-deploy@$[[ inputs.library-ref ]]
+    inputs:
+      image: $HELM_CI_IMAGE
+      stage: deploy
+      image-ref-variable: JIB_BUILD_IMAGE_REF
+      chart-variable: HELM_PUBLISH_REF
+      chart-version-variable: HELM_PUBLISH_VERSION
+      kubeconfig-variable: SAMPLE_KUBECONFIG
+      create-namespace: false
+      plain-http: $[[ inputs.plain-http ]]
+      values-file: environment/cluster/validation-api.yaml
+      release: $CI_PROJECT_NAME-api
+      namespace: $SAMPLE_NAMESPACE
+      environment: samples/api
+      target-url: $API_TARGET_URL
+      timeout: 5m
+  - component: $CI_SERVER_FQDN/$[[ inputs.library-project ]]/cucumber-test@$[[ inputs.library-ref ]]
+    inputs:
+      image: $JAVA_CI_IMAGE
+      maven-executable: mvn
+      tags: 'not @ui and not @ignore'
+
+jib-build:
+  needs: [maven-build]
+
+helm-publish:
+  needs: [maven-build]
+  before_script:
+    - !reference [.helm-login, before_script]
+
+helm-deploy:
+  needs:
+    - job: jib-build
+      artifacts: true
+    - job: helm-publish
+      artifacts: true
+  before_script:
+    - !reference [.helm-login, before_script]
+
+# The default target reads HELM_DEPLOY_URL imported from this producer.
+cucumber-test:
+  needs:
+    - job: helm-deploy
+      artifacts: true

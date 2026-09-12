@@ -1,0 +1,60 @@
+# Validation-only runner settings and assertions; consumer examples own the jobs.
+spec:
+  inputs:
+    sample:
+---
+include:
+  - local: /config/organization.yml
+  - local: /tests/samples/deployment-runtime.yml
+    rules:
+      - if: '"$[[ inputs.sample ]]" == "deploy-and-test" || "$[[ inputs.sample ]]" == "two-deployables"'
+  - local: /tests/samples/ui-runtime.yml
+    rules:
+      - if: '"$[[ inputs.sample ]]" == "two-deployables"'
+
+workflow:
+  name: 'Sample — $[[ inputs.sample ]]'
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "parent_pipeline"'
+
+stages: [build, test, package, deploy, integration, verify, cleanup]
+
+default:
+  tags: [local-docker]
+  cache:
+    key: sample-dependencies
+    paths: [.m2/, .npm/]
+
+variables:
+  MAVEN_OPTS: '-Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository'
+  npm_config_cache: '$CI_PROJECT_DIR/.npm'
+  SAMPLE_NAMESPACE: ci-samples
+  API_TARGET_URL: http://host.docker.internal:8180
+  UI_TARGET_URL: http://host.docker.internal:8190
+
+verify-sample:
+  stage: verify
+  image: $JAVA_CI_IMAGE
+  script:
+    - |
+      set -eu
+      test "$MAVEN_BUILD_STATUS" = passed
+      test "$MAVEN_BUILD_PIPELINE_ID" = "$CI_PIPELINE_ID"
+      test "$MAVEN_BUILD_COMMIT_SHA" = "$CI_COMMIT_SHA"
+      test -s hello-app/target/hello-app-1.0.0-SNAPSHOT.jar
+      case '$[[ inputs.sample ]]' in
+        build-and-test|deploy-and-test|two-deployables)
+          test "$CUCUMBER_TEST_STATUS" = passed ;;
+      esac
+      case '$[[ inputs.sample ]]' in
+        deploy-and-test|two-deployables)
+          test "$HELM_DEPLOY_IMAGE_REF" = "$JIB_BUILD_IMAGE_REF"
+          test "$HELM_PUBLISH_VERSION" = "$SAMPLE_VERSION"
+          test "$CUCUMBER_TEST_TARGET_URL" = "$HELM_DEPLOY_URL" ;;
+      esac
+      if [ '$[[ inputs.sample ]]' = two-deployables ]; then
+        test "$UI_DEPLOY_IMAGE_REF" = "$IMAGE_BUILD_IMAGE_REF"
+        test "$UI_CHART_VERSION" = "$SAMPLE_VERSION"
+        test "$UI_CUCUMBER_TARGET_URL" = "$UI_DEPLOY_URL"
+        test "$NPM_TEST_STATUS" = passed
+      fi

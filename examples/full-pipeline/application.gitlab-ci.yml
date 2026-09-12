@@ -1,4 +1,7 @@
-# Copy to the application's .gitlab-ci.yml and configure docs/setup.md.
+# Future-stack reference: includes modules/todo; not one of the runnable samples.
+# Start with examples/samples/ or the standard pipelines/java-service.yml.
+# This file supplies include inputs, but defines no New pipeline form.
+# For this broader stack, first configure the services described in docs/setup.md.
 # This full delivery example runs on the protected default branch.
 # Add an MR pipeline for builds/tests/scans using appropriately scoped credentials.
 workflow:

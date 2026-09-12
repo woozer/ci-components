@@ -1,0 +1,3 @@
+# Only the Dockerfile sample needs the provisioned rootless BuildKit runner.
+image-build:
+  tags: [local-buildkit]

@@ -1,0 +1,29 @@
+# Resolve the library SHA in this project before the downstream input is validated.
+# This include input is internal to component CI; it adds no pipeline form field.
+spec:
+  inputs:
+    library-ref:
+      default: '$CI_COMMIT_SHA'
+---
+# CI_SAMPLES_PROJECT is provisioned by the platform team, not an app setting.
+validate-samples:
+  stage: integration
+  needs: [validate-components]
+  rules:
+    - if: '$CI_SAMPLES_PROJECT && $CI_PIPELINE_SOURCE == "web"'
+    - if: '$CI_SAMPLES_PROJECT'
+      changes:
+        - templates/**/*
+        - shared/**/*
+        - examples/samples/**/*
+        - tests/samples/**/*
+        - .gitlab-ci.yml
+  inherit:
+    variables: false
+  trigger:
+    project: $CI_SAMPLES_PROJECT
+    branch: main
+    inputs:
+      library_ref: $[[ inputs.library-ref | expand_vars ]]
+      sample: all
+    strategy: mirror

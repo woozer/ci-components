@@ -1,0 +1,178 @@
+# Two deployables: explicit names, prefixes and needs. See README.md.
+spec:
+  inputs:
+    library-ref:
+      description: 'Immutable component commit SHA'
+    library-project:
+      default: root/ci-components
+    plain-http:
+      description: 'Enable only for the local registry without TLS'
+      type: boolean
+      default: false
+---
+stages: [build, test, package, deploy, integration]
+
+variables:
+  SAMPLE_VERSION: '0.0.0-dev.$CI_PIPELINE_IID.g$CI_COMMIT_SHORT_SHA'
+
+include:
+  - project: $[[ inputs.library-project ]]
+    ref: $[[ inputs.library-ref ]]
+    file: /shared/helm.yml
+  - component: $CI_SERVER_FQDN/$[[ inputs.library-project ]]/maven-build@$[[ inputs.library-ref ]]
+    inputs:
+      image: $JAVA_CI_IMAGE
+      maven-executable: mvn
+  - component: $CI_SERVER_FQDN/$[[ inputs.library-project ]]/jib-build@$[[ inputs.library-ref ]]
+    inputs:
+      image: $JAVA_CI_IMAGE
+      maven-executable: mvn
+      project-selector: hello-app
+      settings-file: $ARTIFACTORY_MAVEN_SETTINGS
+      image-repository: $OCI_REGISTRY/$OCI_REPOSITORY/$CI_PROJECT_PATH_SLUG/api
+      image-tag: $SAMPLE_VERSION
+      base-image: $JAVA_RUNTIME_IMAGE
+      digest-file: hello-app/target/jib-image.digest
+      allow-insecure-registry: $[[ inputs.plain-http ]]
+  - component: $CI_SERVER_FQDN/$[[ inputs.library-project ]]/helm-publish@$[[ inputs.library-ref ]]
+    inputs:
+      image: $HELM_CI_IMAGE
+      chart: helm/hello-world
+      chart-name: hello-world
+      chart-version: $SAMPLE_VERSION
+      app-version: $SAMPLE_VERSION
+      oci-repository: oci://$OCI_REGISTRY/$OCI_REPOSITORY/$CI_PROJECT_PATH_SLUG/charts
+      plain-http: $[[ inputs.plain-http ]]
+  - component: $CI_SERVER_FQDN/$[[ inputs.library-project ]]/helm-deploy@$[[ inputs.library-ref ]]
+    inputs:
+      image: $HELM_CI_IMAGE
+      stage: deploy
+      image-ref-variable: JIB_BUILD_IMAGE_REF
+      chart-variable: HELM_PUBLISH_REF
+      chart-version-variable: HELM_PUBLISH_VERSION
+      kubeconfig-variable: SAMPLE_KUBECONFIG
+      create-namespace: false
+      plain-http: $[[ inputs.plain-http ]]
+      values-file: environment/cluster/validation-api.yaml
+      release: $CI_PROJECT_NAME-api
+      namespace: $SAMPLE_NAMESPACE
+      environment: samples/api
+      target-url: $API_TARGET_URL
+      timeout: 5m
+  - component: $CI_SERVER_FQDN/$[[ inputs.library-project ]]/cucumber-test@$[[ inputs.library-ref ]]
+    inputs:
+      image: $JAVA_CI_IMAGE
+      maven-executable: mvn
+      tags: 'not @ui and not @ignore'
+
+  - component: $CI_SERVER_FQDN/$[[ inputs.library-project ]]/npm-build@$[[ inputs.library-ref ]]
+    inputs:
+      image: $NODE_CI_IMAGE
+      working-directory: ui
+  - component: $CI_SERVER_FQDN/$[[ inputs.library-project ]]/npm-test@$[[ inputs.library-ref ]]
+    inputs:
+      image: $NODE_CI_IMAGE
+      working-directory: ui
+  - component: $CI_SERVER_FQDN/$[[ inputs.library-project ]]/image-build@$[[ inputs.library-ref ]]
+    inputs:
+      image: $BUILDKIT_CI_IMAGE
+      working-directory: ui
+      registry: $OCI_REGISTRY
+      registry-username: $ARTIFACTORY_USERNAME
+      registry-password-file: $ARTIFACTORY_PASSWORD_FILE
+      image-repository: $OCI_REGISTRY/$OCI_REPOSITORY/$CI_PROJECT_PATH_SLUG/ui
+      image-tag: $SAMPLE_VERSION
+      base-image: $NGINX_RUNTIME_IMAGE
+      plain-http: $[[ inputs.plain-http ]]
+  - component: $CI_SERVER_FQDN/$[[ inputs.library-project ]]/helm-publish@$[[ inputs.library-ref ]]
+    inputs:
+      job-name: helm-publish-ui
+      output-prefix: UI_CHART
+      image: $HELM_CI_IMAGE
+      chart: helm/hello-world-ui
+      chart-name: hello-world-ui
+      chart-version: $SAMPLE_VERSION
+      app-version: $SAMPLE_VERSION
+      oci-repository: oci://$OCI_REGISTRY/$OCI_REPOSITORY/$CI_PROJECT_PATH_SLUG/charts
+      plain-http: $[[ inputs.plain-http ]]
+  - component: $CI_SERVER_FQDN/$[[ inputs.library-project ]]/helm-deploy@$[[ inputs.library-ref ]]
+    inputs:
+      job-name: helm-deploy-ui
+      output-prefix: UI_DEPLOY
+      image: $HELM_CI_IMAGE
+      stage: deploy
+      image-ref-variable: IMAGE_BUILD_IMAGE_REF
+      chart-variable: UI_CHART_REF
+      chart-version-variable: UI_CHART_VERSION
+      kubeconfig-variable: SAMPLE_KUBECONFIG
+      create-namespace: false
+      plain-http: $[[ inputs.plain-http ]]
+      values-file: environment/cluster/validation-ui.yaml
+      release: $CI_PROJECT_NAME-ui
+      namespace: $SAMPLE_NAMESPACE
+      environment: samples/ui
+      target-url: $UI_TARGET_URL
+      timeout: 5m
+  - component: $CI_SERVER_FQDN/$[[ inputs.library-project ]]/cucumber-test@$[[ inputs.library-ref ]]
+    inputs:
+      job-name: cucumber-ui
+      output-prefix: UI_CUCUMBER
+      image: $BROWSER_CI_IMAGE
+      maven-executable: mvn
+      profile: ui
+      tags: '@ui or @animals'
+      target-url-variable: UI_DEPLOY_URL
+
+jib-build:
+  needs: [maven-build, npm-test]
+
+helm-publish:
+  needs: [maven-build, npm-test]
+  before_script:
+    - !reference [.helm-login, before_script]
+
+helm-deploy:
+  needs:
+    - job: jib-build
+      artifacts: true
+    - job: helm-publish
+      artifacts: true
+  before_script:
+    - !reference [.helm-login, before_script]
+
+# The default target reads HELM_DEPLOY_URL imported from this producer.
+cucumber-test:
+  needs:
+    - job: helm-deploy
+      artifacts: true
+    - job: helm-deploy-ui
+      artifacts: false
+
+npm-test:
+  needs: [npm-build]
+
+image-build:
+  needs: [npm-build, npm-test]
+
+helm-publish-ui:
+  needs: [npm-test]
+  before_script:
+    - !reference [.helm-login, before_script]
+
+helm-deploy-ui:
+  needs:
+    - job: image-build
+      artifacts: true
+    - job: helm-publish-ui
+      artifacts: true
+    - job: helm-deploy
+      artifacts: false
+  before_script:
+    - !reference [.helm-login, before_script]
+
+cucumber-ui:
+  needs:
+    - job: helm-deploy-ui
+      artifacts: true
+    - job: helm-deploy
+      artifacts: false

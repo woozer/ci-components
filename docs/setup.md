@@ -1,5 +1,7 @@
 # Application and platform setup
 
+This advanced setup includes future scanner/signing modules. To consume the active modules, start with the [module guide](modules.md) and [runnable examples](../examples/samples/README.md).
+
 ## Dedicated images
 
 There is no global image and no shared image required across components. Every module's `image` input is mandatory. The optional organization profile supplies separate image-variable defaults and allows explicit input overrides; images may be reused when tool requirements match. Set each variable to your approved image pinned with `@sha256:<64 hexadecimal characters>`. See [defaults and profiles](defaults.md) for configuration ownership. The repository validation job has its own image variable outside that profile.

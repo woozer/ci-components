@@ -1,0 +1,15 @@
+# Minimal module usage. Supply the documented runtime prerequisites.
+spec:
+  inputs:
+    library-ref:
+      description: 'Immutable component commit SHA'
+    library-project:
+      default: root/ci-components
+---
+stages: [build]
+
+include:
+  - component: $CI_SERVER_FQDN/$[[ inputs.library-project ]]/npm-build@$[[ inputs.library-ref ]]
+    inputs:
+      image: $NODE_CI_IMAGE
+      working-directory: "ui"

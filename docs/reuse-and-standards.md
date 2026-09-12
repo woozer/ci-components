@@ -23,6 +23,14 @@ The native GitLab features are documented in [job inputs](https://docs.gitlab.co
 
 Pipeline names use native [`workflow:name`](https://docs.gitlab.com/ci/yaml/#workflowname). Release notes and `assets.links` use the official [Releases API](https://docs.gitlab.com/api/releases/#create-a-release). The API call allows the component to collect its verified artifact outputs in one request; GitLab's `release:` keyword is also a supported alternative. Public Artifactory manifest URLs are storage-specific configuration, kept centrally. See [release assets](releases.md#release-assets).
 
+## Executable consumer examples
+
+We adopt [GitLab's recommendation to test components in CI](https://docs.gitlab.com/ci/components/#test-the-component), including [sample application files](https://docs.gitlab.com/ci/components/#test-a-component-against-sample-files). Consumer examples are committed YAML files and are executed unchanged in real jobs. Test the candidate library SHA, transfer actual artifacts/outputs, and let a failed child fail the component pipeline through `strategy: mirror`. Python contract tests remain useful for refusal paths and hooks; they do not replace these integration runs.
+
+The four samples and the separate local `ci-samples` project are our choices, not a GitLab requirement. Native inputs select one sample or all; native child/multi-project pipelines orchestrate them. Deployment validation uses its own namespace, credentials, registry write scope and cleanup, with a trigger-level resource group spanning the whole test. No application pipeline is split into extra pipelines to support this. See [run the samples](../examples/samples/README.md).
+
+The module API remains the primary way to compose custom pipelines. The Java strategy is an optional recommended composition of the same modules. `helm-deploy` now requires an explicit upstream image-variable name, removing a hidden assumption that the optional verification module was used. This is a contract change: pinned consumers migrate explicitly; the existing Java strategy already passes that input.
+
 ## Available implementations
 
 | Capability | Existing implementation to evaluate | What the organization still owns |
