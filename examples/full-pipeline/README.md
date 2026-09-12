@@ -1,7 +1,7 @@
-# Optional full pipeline example
+# Uitgebreid voorbeeld voor toekomstig gebruik
 
-This future-work example includes modules from `modules/todo/`. It is not part of the active Java demo and needs its scanner/signing services and policies before use.
+Dit voorbeeld gebruikt modules uit `modules/todo/`. Het hoort niet bij de actieve Java-demo. Richt eerst de benodigde scan-/signingdiensten en het bijbehorende beleid in.
 
-This example combines Maven, npm, scanners, signing and production promotion. Start with the [hello-world demo](../../README.md) instead when learning the modules.
+Het voorbeeld combineert Maven, npm, scanners, signing en promotie naar productie. Begin voor het leren gebruiken van modules met de [uitvoerbare samples](../samples/README.md).
 
-`application.gitlab-ci.yml` owns the job graph. `profile.yml` selects the modules and passes defaults. Read [setup](../../docs/setup.md) and [profile configuration](../../docs/organization-profile.md) before adapting it. The extra services and credentials are not configured by the hello-world sample.
+`application.gitlab-ci.yml` bepaalt de jobafhankelijkheden. `profile.yml` kiest de modules en geeft standaardwaarden door. De applicatie-YAML heeft instellingen onder `include:inputs`, maar definieert geen keuzevelden voor **New pipeline**. Lees [inrichting](../../docs/setup.md) en [profielconfiguratie](../../docs/organization-profile.md) voordat je het voorbeeld aanpast. De extra diensten en credentials worden niet door de hello-world-sample ingericht.

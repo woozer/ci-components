@@ -1,20 +1,20 @@
-# Defaults and organization profiles
+# Standaardwaarden en organisatieprofielen
 
-Use two layers of ordinary GitLab YAML:
+Elke laag van de GitLab-configuratie heeft een eigen verantwoordelijkheid:
 
-| Location | Owns |
+| Locatie | Verantwoordelijkheid |
 |---|---|
-| `templates/<module>.yml`, under `spec:inputs` | Module defaults, input types, hooks, output contract, and one job |
-| `examples/full-pipeline/profile.yml` | Optional organization baseline: images, shared retention, timeouts, scanner policy, and application path defaults |
-| Application `.gitlab-ci.yml` | Profile input overrides, stages, dependencies, hook scripts, and promotion rules |
+| `templates/<module>.yml`, onder `spec:inputs` | Standaardwaarden, inputtypen, hooks, outputafspraken en één job |
+| `examples/full-pipeline/profile.yml` | Optionele organisatiebasis: images, bewaartermijnen, timeouts, scanbeleid en standaardpaden |
+| `.gitlab-ci.yml` van de applicatie | Profielinstellingen, stages, afhankelijkheden, hookscripts en regels voor promotie |
 
-Each module still works independently. Its `image` input is required, so a Maven job cannot silently inherit an npm image. There is no global `default:image`, separate per-module defaults file, configuration loader, or YAML generation step.
+Elke module blijft zelfstandig bruikbaar. De input `image` is verplicht, zodat een Maven-job niet onbedoeld een npm-image overneemt. Er is geen globale `default:image`, apart bestand met moduledefaults, configuratieloader of YAML-generatiestap.
 
-This future-work example includes modules from `modules/todo/` and is not used by the Java demo. The organization profile composes the Maven + npm + Kubernetes baseline used by `examples/full-pipeline/application.gitlab-ci.yml`. It includes jobs but deliberately leaves `workflow`, `stages`, and `needs` to that application example. Use individual components for a smaller pipeline or a different architecture. Add extra steps as ordinary jobs with `needs`; see [extension patterns](hooks.md).
+Dit toekomstige voorbeeld gebruikt modules uit `modules/todo/` en wordt niet door de Java-demo ingeladen. Het organisatieprofiel combineert Maven, npm en Kubernetes voor `examples/full-pipeline/application.gitlab-ci.yml`. Het voegt jobs toe; het applicatievoorbeeld bepaalt `workflow`, `stages` en `needs`. Gebruik losse componenten voor een kleinere pipeline of een andere architectuur. Extra stappen zijn gewone jobs met `needs`; zie [uitbreidingen](hooks.md).
 
-## Approved defaults and application overrides
+## Goedgekeurde standaardwaarden aanpassen
 
-The profile currently binds each image input to a separate group/project CI variable, such as `$MAVEN_BUILD_IMAGE`. Configure these with the approved digest-pinned images listed in [setup](setup.md). These bindings do not select or install images automatically. For a versioned organization image catalogue, replace the profile's image defaults with literal approved digest references and release the profile at an immutable commit.
+Het profiel koppelt elke image-input aan een afzonderlijke CI-variabele op groeps- of projectniveau, bijvoorbeeld `$MAVEN_BUILD_IMAGE`. Stel deze variabelen in op goedgekeurde images met een vaste digest, zoals beschreven bij [inrichting](setup.md). De koppelingen installeren geen images. Wil je een versiebeheerbare imagecatalogus voor de organisatie, zet dan de volledige goedgekeurde imagereferenties in het profiel en publiceer het profiel op een vaste commit.
 
 ```yaml
 include:
@@ -32,15 +32,15 @@ include:
       job-timeout: 45m
 ```
 
-These overrides affect this inclusion. Each image has its own input, including separate test and production Helm images. The profile uses 30 minutes for ordinary jobs, one hour for Dependency-Check, and two hours for the Fortify scan. Adjust the longer jobs through `dependency-check-job-timeout` and `fortify-scan-job-timeout`; they do not inherit the ordinary timeout. GitLab Runner's maximum timeout remains an upper limit. Artifact retention defaults to seven days.
+Deze instellingen gelden voor deze opname van het profiel. Elke image heeft een eigen input, ook de afzonderlijke Helm-images voor test en productie. Gewone jobs hebben standaard 30 minuten, Dependency-Check één uur en de Fortify-scan twee uur. Pas langere jobs aan via `dependency-check-job-timeout` en `fortify-scan-job-timeout`; zij nemen de gewone timeout niet over. De maximale timeout van GitLab Runner blijft de bovengrens. Artifacts worden standaard zeven dagen bewaard.
 
-Inputs are scoped to the file declaring them. The profile explicitly passes values to its nested module includes; modules do not read the profile themselves. Nested `include:local` files resolve in the project and revision containing the profile. [GitLab inputs](https://docs.gitlab.com/ci/inputs/), [nested includes](https://docs.gitlab.com/ci/yaml/includes/)
+Inputs zijn alleen beschikbaar in het bestand dat ze declareert. Het profiel geeft waarden expliciet door aan de opgenomen modules; modules lezen het profiel niet zelf. Geneste `include:local`-bestanden worden opgezocht in het project en de commit van het profiel. Zie [GitLab-inputs](https://docs.gitlab.com/ci/inputs/) en [geneste includes](https://docs.gitlab.com/ci/yaml/includes/).
 
-## Hooks and individual modules
+## Hooks en losse modules
 
-When consuming an individual module, pass `pre-hook`, `post-hook`, `cleanup-hook`, and `hook-parameters-json` as component inputs, as shown in [setup](setup.md#extending-a-module).
+Bij een losse module geef je `pre-hook`, `post-hook`, `cleanup-hook` en `hook-parameters-json` mee als componentinputs, zoals bij [een module uitbreiden](setup.md#een-module-uitbreiden).
 
-When using the full profile, application job overlays can set these runtime hook variables without replacing the component scripts:
+Bij het volledige profiel kun je deze hookvariabelen op de applicatiejob instellen, zonder de componentscripts te vervangen:
 
 ```yaml
 maven-build:
@@ -51,6 +51,6 @@ maven-build:
     MODULE_HOOK_PARAMETERS_JSON: '{"label":"candidate"}'
 ```
 
-Scripts live in the consuming repository and receive the same hook context and output contract. Do not redefine `before_script`, `script`, or `after_script` to add a hook: GitLab replaces arrays instead of appending them. Job-level overrides are part of the application's trusted configuration; these defaults do not enforce security policy against an application author who can edit its pipeline. Keep credentials in protected variables or a secret manager, outside inputs and artifacts.
+De scripts staan in de repository van de afnemer en krijgen dezelfde hookcontext en outputafspraken. Vervang `before_script`, `script` of `after_script` niet om een hook toe te voegen: GitLab vervangt lijsten en voegt ze niet samen. Jobinstellingen horen bij de vertrouwde configuratie van de applicatie. Standaardwaarden kunnen geen beveiligingsbeleid afdwingen tegenover iemand die de pipeline mag wijzigen. Bewaar toegangsgegevens in protected variabelen of een secretmanager, buiten inputs en artifacts.
 
-If a standard component replaces an implementation later, preserve the public input/output and documented hook contracts in its adapter. The organization profile is the place to change that component selection; it should not acquire build or deployment scripts.
+Als later een standaardcomponent de implementatie vervangt, behoud dan de openbare input-, output- en hookafspraken in de adapter. Wijzig de componentkeuze in het organisatieprofiel; voeg daar geen build- of deploymentscripts aan toe.

@@ -1,78 +1,78 @@
-# Shared release strategy
+# Gedeelde releasestrategie
 
-Applications import the [pipeline form](../config/pipeline-inputs.yml) and [java-service.yml](../pipelines/java-service.yml) directly. They supply the required app settings (`library-ref` and `maven-project`) and forward the selected cluster, user configuration and pipeline mode. The same central file defines the ordinary pipeline, deployment child and release child, selected by its internal `flow` input. The library owns the jobs, scripts, release button, checks and dev deployment. Applications do not copy or maintain a release pipeline.
+Applicaties nemen het [pipelineformulier](../config/pipeline-inputs.yml) en [java-service.yml](../pipelines/java-service.yml) rechtstreeks op. Ze vullen `library-ref` en `maven-project` in en geven de gekozen cluster-, gebruikers- en modusinstellingen door. Hetzelfde centrale bestand definieert de gewone pipeline, deployment-childpipeline en release-childpipeline. De interne input `flow` bepaalt de variant. De bibliotheek beheert jobs, scripts, releaseknop, controles en dev-deployment. Applicaties hoeven geen releasepipeline te kopiëren of onderhouden.
 
-The application name and namespace default to the GitLab project name; the chart defaults to `helm/<project-name>`. Helm values come from `environment/cluster/<cluster>.yaml`, followed by `environment/user/<user-config>.yaml`. The central configuration selects the cluster credentials, dev URLs and HTTP registry access. Generic components retain secure protocol defaults. Change local infrastructure settings centrally in the configuration. Optional inputs belong in app configuration only when needed; this demo enables its separate UI with `ui-directory: ui`.
+Applicatienaam en namespace zijn standaard gelijk aan de GitLab-projectnaam; het standaardchartpad is `helm/<project-name>`. Helm laadt eerst `environment/cluster/<cluster>.yaml` en daarna `environment/user/<user-config>.yaml`. De centrale configuratie kiest clustercredentials, dev-URL's en HTTP-toegang tot de registry. Generieke componenten houden veilige protocoldefaults. Pas lokale infrastructuurinstellingen centraal aan. Neem optionele inputs alleen op als dat nodig is; deze demo schakelt de aparte UI in met `ui-directory: ui`.
 
-The strategy supports a multi-module Maven reactor with one deployable Java module and an optional separate Angular UI. Libraries and tests build from the root POM. Both deployables share one repository tag and release version. More Java deployables require explicit additional image/chart/deployment jobs with isolated names and outputs; arbitrary fan-out is not implemented.
+De strategie ondersteunt een Maven-reactor met meerdere modules, één Java-deployable en een optionele aparte Angular-UI. Libraries en tests worden vanuit de root-POM gebouwd. Beide deployables delen één repositorytag en releaseversie. Voor meer Java-deployables zijn expliciete extra image-, chart- en deploymentjobs nodig, met eigen namen en outputs. Automatische verdeling over een willekeurig aantal deployables is niet geïmplementeerd.
 
-The Java strategy composes independent Maven, Jib, Helm and release components. Other stacks can reuse the same release components with their own build modules. Organization URLs and task images remain in [organization settings](../config/organization.yml); credentials belong in GitLab variables.
+De Java-strategie combineert onafhankelijke Maven-, Jib-, Helm- en releasecomponenten. Andere technologiestacks kunnen dezelfde releasecomponenten met hun eigen buildmodules gebruiken. Organisatie-URL's en images voor taken staan in de [organisatie-instellingen](../config/organization.yml); toegangsgegevens staan in GitLab-variabelen.
 
-## Start and publish a release
+## Een release starten en publiceren
 
-Daily operation is covered by the [three actions](../README.md#standard-pipeline-for-the-java-sample). After a full, successful protected-main pipeline, **start-release** reserves the version and tag. Its `version: auto` starts at `0.1.0` and increments the highest reserved patch number. Open the job to override it, for example with `1.0.0`. Reduced `validate`/`publish` modes do not qualify for release.
+Voor dagelijks gebruik zijn er [drie handelingen](../README.md#standaardpipeline-voor-de-java-sample). Na een volledige, geslaagde pipeline op protected main reserveert **start-release** een versie en tag. De standaard `version: auto` begint bij `0.1.0` en verhoogt daarna het hoogste gereserveerde patchnummer. Open de job om een versie op te geven, bijvoorbeeld `1.0.0`. De beperkte modi `validate` en `publish` geven geen toegang tot releasepublicatie.
 
-**release-delivery** starts `Release — <version>`. It rebuilds, tests and publishes the reserved version, deploys it to dev and runs API/browser tests. **publish-release** is the last job: it creates the actual GitLab Release after all required validation succeeds. Reserving a tag alone does not create that release record. Existing pinned consumers keep the old job names until they update their library revision.
+**release-delivery** start `Release — <version>`. Deze pipeline bouwt, test en publiceert de gereserveerde versie, deployt die naar dev en voert API-/browsertests uit. De laatste job, **publish-release**, maakt de daadwerkelijke GitLab Release aan zodra alle verplichte validatie slaagt. Alleen een tag reserveren maakt nog geen releasevermelding aan. Afnemers die een oudere bibliotheekcommit gebruiken, behouden de oude jobnamen totdat zij upgraden.
 
-There is no separate tag approval. Clicking **start-release** is the release decision; code review happens before the merge. The local demo has one user, so that user also merges the merge request. In the real organization, require another person's review before merging into protected branches. A manual button alone does not enforce two-person approval.
+Er is geen aparte goedkeuring van de tag. Met **start-release** besluit je de release te starten; de codebeoordeling vindt vóór de merge plaats. De lokale demo heeft één gebruiker, die ook de MR merget. Vereis in de echte organisatie beoordeling door een tweede persoon vóór een merge naar een protected branch. Een handmatige knop alleen dwingt het vierogenprincipe niet af.
 
-A release creates immutable artifacts. Those artifacts may be deployed to dev. Future production deployment through Argo CD must select the existing release image digest and chart version; it must not rebuild the application. Argo CD production delivery is outside this local demo.
+Een release levert onveranderlijke artifacts op. Die mogen naar dev worden gedeployed. Een toekomstige productiedeployment via Argo CD moet de bestaande image-digest en chartversie van de release gebruiken en mag de applicatie niet opnieuw bouwen. Productiedeployment via Argo CD valt buiten deze lokale demo.
 
-## Release assets
+## Release-artifactlinks
 
-**publish-release** uses the supported [GitLab Releases API](https://docs.gitlab.com/api/releases/#create-a-release) to create notes and `assets.links` in one request. The assets contain an image manifest and Helm manifest for each deployable, a Maven package-list link and the validation pipeline. The notes retain exact image digests and OCI chart references for deployment.
+**publish-release** gebruikt de ondersteunde [GitLab Releases API](https://docs.gitlab.com/api/releases/#create-a-release) om in één verzoek toelichting en `assets.links` aan te maken. Per deployable zijn er links naar het image- en Helm-manifest. Daarnaast zijn er links naar de Maven-packagelijst en de validatiepipeline. De toelichting bevat de exacte image-digests en OCI-chartreferenties voor deployment.
 
-GitLab asset URLs must be HTTP(S) or FTP; Docker pull references and `oci://` references are not clickable release assets. In this Artifactory demo, `ARTIFACTORY_PUBLIC_URL` centrally supplies the browser address. Manifest links point to the reserved version directory in the repository that denies overwrite. They describe registry artifacts, not downloadable Docker image archives. Maven's link opens the project's package list, not a single JAR. Registry authentication still applies; links contain no credentials. [GitLab release asset fields](https://docs.gitlab.com/user/project/releases/release_fields/#release-assets).
+GitLab-artifactlinks moeten HTTP(S)- of FTP-URL's zijn. Docker-pullreferenties en `oci://`-referenties zijn geen klikbare release-artifactlinks. In deze Artifactory-demo levert `ARTIFACTORY_PUBLIC_URL` het centrale browseradres. Manifestlinks verwijzen naar de gereserveerde versiemap in de repository die overschrijven weigert. Het zijn verwijzingen naar registry-artifacts, geen downloadbare archieven van Docker-images. De Maven-link opent de packagelijst van het project, niet één JAR. Registry-authenticatie blijft gelden; de links bevatten geen toegangsgegevens. Zie [GitLabs release-artifactvelden](https://docs.gitlab.com/user/project/releases/release_fields/#release-assets).
 
-The standalone module's optional `artifact-base-url` accepts a public Artifactory `/artifactory` root. Without it, links use HTTPS OCI Distribution manifest endpoints (image digest and chart version); some registries require authentication and an OCI `Accept` header for chart manifests. The Artifactory override avoids that browser header requirement. An ordinary module consumer can omit this setting; the demo composition supplies it centrally.
+De optionele input `artifact-base-url` van de losse module accepteert een publieke Artifactory-root onder `/artifactory`. Zonder deze input verwijzen de links naar HTTPS OCI Distribution-manifestendpoints, op basis van image-digest en chartversie. Sommige registries vereisen authenticatie en een OCI-`Accept`-header voor chartmanifests. De Artifactory-instelling vermijdt die vereiste browserheader. Afnemers kunnen de input weglaten; de demo vult hem centraal in.
 
-Assets are links to the existing storage, not another artifact copy. Server permissions enforce immutability; a GitLab Release record alone does not. This change applies to future releases and does not rewrite existing releases.
+De links wijzen naar bestaande opslag en maken geen extra artifactkopie. Serverrechten beschermen tegen wijziging; een GitLab Release-vermelding doet dat op zichzelf niet. Dit geldt voor nieuwe releases en wijzigt geen bestaande releasevermeldingen.
 
-## Versions and repeated attempts
+## Versies en herhaalde pogingen
 
-| Build | Version |
+| Build | Versie |
 |---|---|
-| Standalone `./mvnw verify` | `1.0.0-SNAPSHOT` by default |
-| Development pipeline | `0.0.0-dev.<pipeline-number>.g<commit>` |
-| Official release | `auto`: first `0.1.0`, then next patch; explicit SemVer override supported; Git tag `v<version>` |
+| Zelfstandig `./mvnw verify` | Standaard `1.0.0-SNAPSHOT` |
+| Ontwikkelpipeline | `0.0.0-dev.<pipeline-number>.g<commit>` |
+| Officiële release | `auto`: eerst `0.1.0`, daarna de volgende patch; een expliciete SemVer-versie is mogelijk; Git-tag `v<version>` |
 
-Maven, the image tag and the Helm chart use the same resolved version. A new development pipeline gets a new number. A release number is never reused for another commit or image. Automatic selection reads version-sorted remote `vX.Y.Z` tags while holding the reservation lock. Tags from failed releases still count. A tag lookup failure blocks publication rather than guessing a version. Override the default patch bump when [Semantic Versioning](https://semver.org/) calls for a minor or major release.
+Maven, de imagetag en de Helm-chart gebruiken dezelfde gekozen versie. Elke nieuwe ontwikkelpipeline krijgt een nieuw nummer. Een releasenummer wordt nooit hergebruikt voor een andere commit of image. Onder de reserveringslock leest de automatische versiekeuze de remote `vX.Y.Z`-tags, gesorteerd op versie. Tags van mislukte releases tellen mee. Als tags niet kunnen worden opgehaald, wordt publicatie geblokkeerd. Geef een minor- of majorversie op wanneer [Semantic Versioning](https://semver.org/) dat vereist.
 
-Maven uses `${revision}` and the standard Flatten Maven Plugin. CI supplies the version through `MAVEN_ARGS`; no release commit or release branch is needed. Outside CI, `./mvnw -Drevision=1.2.3 verify` builds and tests that version without publishing anything. [Maven CI Friendly Versions](https://maven.apache.org/guides/mini/guide-maven-ci-friendly.html)
+Maven gebruikt `${revision}` en de standaard Flatten Maven Plugin. CI geeft de versie door via `MAVEN_ARGS`; een releasecommit of releasebranch is niet nodig. Buiten CI bouwt en test `./mvnw -Drevision=1.2.3 verify` die versie zonder iets te publiceren. Zie [Maven CI Friendly Versions](https://maven.apache.org/guides/mini/guide-maven-ci-friendly.html).
 
-The reservation job creates the Git tag atomically on the exact commit of the selected main pipeline, even if main has since advanced. The tag permanently reserves the number. If release creation fails, the tag stays and the number is not recycled. An existing image blocks another release build; deploying the already published digest again remains possible.
+De reserveringsjob maakt de Git-tag atomair aan op de exacte commit van de gekozen main-pipeline, ook als main intussen verder is. De tag reserveert het nummer permanent. Als de release mislukt, blijft de tag bestaan en wordt het nummer niet opnieuw gebruikt. Een bestaande image blokkeert een volgende releasebuild met dezelfde versie. Opnieuw deployen met de al gepubliceerde digest blijft mogelijk.
 
-`release-reserve` only needs Git access: it selects the version and reserves the tag. `release-check` checks Artifactory once, before the release build starts. An unavailable registry or an existing image/chart stops that child pipeline; the tag remains reserved. Registry credentials and artifact paths are therefore inputs to `release-check` only.
+`release-reserve` heeft alleen Git-toegang nodig: de job kiest de versie en reserveert de tag. `release-check` controleert Artifactory één keer, vóór de releasebuild. Een onbereikbare registry of bestaande image/chart stopt de childpipeline; de tag blijft gereserveerd. Alleen `release-check` heeft daarom registry-credentials en artifactpaden als input nodig.
 
-## Where the behavior lives
+## Waar het gedrag is vastgelegd
 
-| File | Responsibility |
+| Bestand | Verantwoordelijkheid |
 |---|---|
-| [organization.yml](../config/organization.yml) | Shared server addresses and task images |
-| [java-service.yml](../pipelines/java-service.yml) | Complete composition: ordinary pipeline, serialized deployment and release |
-| [deployment-select.yml](../templates/deployment-select.yml) | Choose cluster/user values and record the deployment configuration |
-| [release-reserve.yml](../templates/release-reserve.yml) | Select the version and reserve its Git tag; publish version/commit inputs |
-| [release-check.yml](../templates/release-check.yml) | Check tag, commit and existing artifacts before the release build |
-| [gitlab-release.yml](../templates/gitlab-release.yml) | Record the tested artifacts as a GitLab release |
-| [shared/release.yml](../shared/release.yml) | Shared validation functions used by those components |
+| [organization.yml](../config/organization.yml) | Gedeelde serveradressen en images voor taken |
+| [java-service.yml](../pipelines/java-service.yml) | Volledige samenstelling: gewone pipeline, deployment onder een lock en release |
+| [deployment-select.yml](../templates/deployment-select.yml) | Cluster-/gebruikerswaarden kiezen en deploymentconfiguratie vastleggen |
+| [release-reserve.yml](../templates/release-reserve.yml) | Versie kiezen, Git-tag reserveren en versie/commit publiceren als inputs voor vervolgstappen |
+| [release-check.yml](../templates/release-check.yml) | Tag, commit en bestaande artifacts controleren vóór de releasebuild |
+| [gitlab-release.yml](../templates/gitlab-release.yml) | Geteste artifacts vastleggen als GitLab Release |
+| [shared/release.yml](../shared/release.yml) | Gedeelde validatiefuncties voor deze componenten |
 
-The reservation job writes a small child-pipeline configuration artifact. Its central template and application settings are fixed when the parent pipeline is created; the selected version, exact commit and successful deployment choices are resolved at runtime. Job implementations stay in the library. This keeps a later retry tied to the original inputs and pinned library revision.
+De reserveringsjob schrijft een klein configuratieartifact voor de childpipeline. De centrale template en applicatie-instellingen liggen vast bij het aanmaken van de parentpipeline. De gekozen versie, exacte commit en geslaagde deploymentkeuzes worden tijdens de uitvoering ingevuld. Jobimplementaties blijven in de bibliotheek. Zo gebruikt een latere herhaling dezelfde oorspronkelijke inputs en bibliotheekcommit.
 
-## Enforcement in GitLab and Artifactory
+## Afdwingen in GitLab en Artifactory
 
-- Protect `main`: allow merge requests, deny direct pushes and force pushes, including CI identities.
-- Protect `v*`: only the release deploy key can create release tags. Tag pipelines do not publish; the protected branch pipeline owns publication.
-- Restrict release credentials to protected refs and `release/*` environments. The Git deploy key is limited to `release/reserve`. Use typed job inputs and disallow arbitrary pipeline-variable overrides.
-- Publish images and OCI charts to `docker-releases-local` with a dedicated account having Read, Deploy and Annotate, without Delete/Overwrite, Manage or administrator rights. Annotate lets Artifactory record OCI media-type properties; without it, Helm publication can fail with an incorrect manifest Content-Type. It does not grant artifact overwrite. The development publisher has no write access to this repository.
-- Disable Maven duplicate publication in the namespace package settings. Each pipeline receives a unique development version; official versions are reserved by Git tag.
-- Serialize reservation jobs. Serialize the delivery child pipeline through the final dev test, using the same dev lock as ordinary development delivery. Registry permissions remain necessary in addition to pipeline checks.
+- Bescherm `main`: sta merges via MR's toe en weiger directe pushes en force-pushes, ook voor CI-accounts.
+- Bescherm `v*`: alleen de release-deploy-key mag releasetags aanmaken. Tagpipelines publiceren niet; de protected branchpipeline beheert publicatie.
+- Beperk releasecredentials tot protected refs en omgevingen onder `release/*`. Beperk de Git-deploy-key tot `release/reserve`. Gebruik getypeerde jobinputs en verbied willekeurige overrides van pipelinevariabelen.
+- Publiceer images en OCI-charts naar `docker-releases-local` met een apart account met Read, Deploy en Annotate, zonder Delete/Overwrite, Manage of beheerdersrechten. Annotate laat Artifactory OCI-mediatype-eigenschappen vastleggen. Zonder dat recht kan Helm-publicatie falen door een onjuist manifest-Content-Type. Het recht staat overschrijven van artifacts niet toe. De ontwikkelpublisher heeft geen schrijftoegang tot deze repository.
+- Schakel dubbele Maven-publicatie uit in de package-instellingen van de namespace. Elke pipeline krijgt een unieke ontwikkelversie; officiële versies worden met Git-tags gereserveerd.
+- Voer reserveringsjobs na elkaar uit. Houd de delivery-childpipeline tot en met de laatste dev-test onder dezelfde dev-lock als gewone ontwikkeldeployments. Registry-rechten blijven nodig naast pipelinecontroles.
 
-GitLab/Artifactory administrators can change permissions; CI must never use their credentials. Protected tags control tag permissions, not which branch a commit belongs to: the release components also validate branch protection and commit ancestry. [GitLab tags](https://docs.gitlab.com/user/project/protected_tags/), [resource groups](https://docs.gitlab.com/ci/resource_groups/), [Artifactory permissions](https://docs.jfrog.com/administration/docs/permissions).
+GitLab- en Artifactory-beheerders kunnen rechten aanpassen; CI mag hun credentials niet gebruiken. Protected tags regelen wie tags mag wijzigen, maar niet bij welke branch een commit hoort. Daarom controleren de releasecomponenten ook branchbescherming en commitafkomst. Zie [GitLab-tags](https://docs.gitlab.com/user/project/protected_tags/), [resourcegroepen](https://docs.gitlab.com/ci/resource_groups/) en [Artifactory-rechten](https://docs.jfrog.com/administration/docs/permissions).
 
-These components are shared, but including YAML does not configure server permissions. The local setup is applied by `infra/gitlab-runner/configure-releases.py`, outside the application. Provision equivalent permissions for every consuming project and release repository in the organization.
+Deze componenten zijn gedeeld, maar het opnemen van YAML richt geen serverrechten in. De lokale inrichting gebeurt met `infra/gitlab-runner/configure-releases.py`, buiten de applicatie. Richt overeenkomstige rechten in voor elk afnemend project en elke releaserepository in de organisatie.
 
-The local free-edition lab stores Maven packages in GitLab and images/charts in Artifactory JCR. Test reports stay in GitLab. JCR does not support native Maven repositories; moving Maven packages into Artifactory requires an appropriate edition. [JFrog editions](https://docs.jfrog.com/artifactory/docs/jfrog-container-registry)
+De lokale testomgeving met gratis edities bewaart Maven-packages in GitLab en images/charts in Artifactory JCR. Testrapporten blijven in GitLab. JCR ondersteunt geen eigen Maven-repositories; daarvoor is een geschikte Artifactory-editie nodig. Zie [JFrog-edities](https://docs.jfrog.com/artifactory/docs/jfrog-container-registry).
 
-## Repositories with the optional UI
+## Repositories met de optionele UI
 
-With `ui-directory`, a reserved release covers both deployables at the same version. Separate `check-release` and `check-ui-release` jobs reject existing image/chart coordinates before building. Both test suites must pass before publication. The backend uses Jib; the UI uses rootless BuildKit. Both publish to the immutable release repository, deploy to dev, and pass HTTP/browser Cucumber tests before `publish-release` records both image digests and both chart references. Production must promote both recorded images without rebuilding. Helm releases are separate: a failed UI deployment does not automatically roll back an already successful backend deployment; keep API changes backward compatible.
+Met `ui-directory` omvat een gereserveerde release beide deployables met dezelfde versie. De afzonderlijke jobs `check-release` en `check-ui-release` weigeren bestaande image-/chartlocaties vóór het bouwen. Beide testsuites moeten vóór publicatie slagen. De backend gebruikt Jib; de UI gebruikt rootless BuildKit. Beide publiceren naar de onveranderlijke releaserepository, worden naar dev gedeployed en doorlopen HTTP-/browser-Cucumber-tests. Daarna legt `publish-release` beide image-digests en chartreferenties vast. Productie moet deze images promoveren zonder opnieuw te bouwen. De Helm-releases zijn afzonderlijk: een mislukte UI-deployment draait een eerder geslaagde backenddeployment niet automatisch terug. Houd API-wijzigingen daarom achterwaarts compatibel.

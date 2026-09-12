@@ -1,56 +1,56 @@
-# Settings used by the demo
+# Instellingen van de demo
 
-The organization file is [config/organization.yml](../config/organization.yml). It contains shared server addresses and image selections; including it adds no jobs. The application imports [java-service.yml](../pipelines/java-service.yml) directly. That single composition owns modules, job order and project-name defaults.
+Het organisatiebestand [config/organization.yml](../config/organization.yml) bevat gedeelde serveradressen en imagekeuzes. Het voegt geen jobs toe. De applicatie neemt [java-service.yml](../pipelines/java-service.yml) rechtstreeks op. Die samenstelling bepaalt de modules, jobvolgorde en standaardwaarden op basis van de projectnaam.
 
-| Setting | Purpose |
+| Instelling | Doel |
 |---|---|
-| `GITLAB_INTERNAL_URL` | GitLab address reachable from job containers |
-| `ARTIFACTORY_PUBLIC_URL` | Browser address for release asset links; no credentials |
-| `OCI_REGISTRY` | Registry address used by Jib and Helm |
-| `DEV_TARGET_URL`, `DEV_PUBLIC_URL` | Development URL for CI and the GitLab UI |
-| `HELM_REGISTRY_PLAIN_HTTP` | Explicit local-lab HTTP access for Helm registry login |
-| `OCI_REPOSITORY` | Artifactory repository receiving images and charts |
-| `MAVEN_BUILD_IMAGE`, `MAVEN_PUBLISH_IMAGE` | Images for the two Maven tasks |
-| `CUCUMBER_TEST_IMAGE`, `JIB_BUILD_IMAGE` | Images for HTTP tests and Jib |
-| `HELM_PUBLISH_IMAGE`, `HELM_DEPLOY_IMAGE` | Images for chart publishing and deployment |
-| `JIB_BASE_IMAGE` | Java runtime used inside the application image |
+| `GITLAB_INTERNAL_URL` | GitLab-adres dat bereikbaar is vanuit jobcontainers |
+| `ARTIFACTORY_PUBLIC_URL` | Browseradres voor release-artifactlinks, zonder toegangsgegevens |
+| `OCI_REGISTRY` | Registry-adres voor Jib en Helm |
+| `DEV_TARGET_URL`, `DEV_PUBLIC_URL` | Dev-URL voor respectievelijk CI en de GitLab-interface |
+| `HELM_REGISTRY_PLAIN_HTTP` | Bewust ingeschakelde HTTP-toegang voor Helm-login in de lokale testomgeving |
+| `OCI_REPOSITORY` | Artifactory-repository voor images en charts |
+| `MAVEN_BUILD_IMAGE`, `MAVEN_PUBLISH_IMAGE` | Images voor de twee Maven-taken |
+| `CUCUMBER_TEST_IMAGE`, `JIB_BUILD_IMAGE` | Images voor HTTP-tests en Jib |
+| `HELM_PUBLISH_IMAGE`, `HELM_DEPLOY_IMAGE` | Images voor chartpublicatie en deployment |
+| `JIB_BASE_IMAGE` | Java-runtime in de applicatie-image |
 
-Task images use digest-pinned GitLab variables for Java/Maven, Node, BuildKit, Helm and Playwright; runtime variables select Java and Nginx images. They are already configured in this lab. Change a task's mapping to select another approved image, or use a literal digest-pinned image reference. Group/project variables can override YAML defaults.
+GitLab-variabelen selecteren images voor Java/Maven, Node, BuildKit, Helm en Playwright, vastgezet op digest. Andere variabelen kiezen de Java- en Nginx-runtime. Deze zijn al ingesteld in de lokale testomgeving. Pas de koppeling van een taak aan om een andere goedgekeurde image te gebruiken, of vul een volledige imagereferentie met digest in. Groeps- en projectvariabelen kunnen YAML-standaardwaarden overschrijven.
 
-**Credentials and environments** belong in GitLab's CI/CD variable settings:
+**Toegangsgegevens en omgevingen** beheer je via GitLabs CI/CD-variabelen:
 
-| Variable | How it is stored and used |
+| Variabele | Opslag en gebruik |
 |---|---|
-| `LOCAL_KUBECONFIG` | Protected file variable: Kubernetes API URL, CA and deployment credential |
-| `ARTIFACTORY_MAVEN_SETTINGS` | Protected file variable: Maven/Jib registry credentials |
-| `ARTIFACTORY_USERNAME` | Protected variable: registry publisher account |
-| `ARTIFACTORY_PASSWORD_FILE` | Protected, masked file variable: publisher password |
-| `DOCKER_AUTH_CONFIG` | Masked variable: runner registry read/cache credentials |
-| `CI_JOB_TOKEN` | Supplied automatically by GitLab for Maven package publishing |
+| `LOCAL_KUBECONFIG` | Protected bestandsvariabele met Kubernetes-API-URL, CA en deploymentcredentials |
+| `ARTIFACTORY_MAVEN_SETTINGS` | Protected bestandsvariabele met registry-toegangsgegevens voor Maven/Jib |
+| `ARTIFACTORY_USERNAME` | Protected variabele met het registry-account voor publicatie |
+| `ARTIFACTORY_PASSWORD_FILE` | Protected, masked bestandsvariabele met het publicatiewachtwoord |
+| `DOCKER_AUTH_CONFIG` | Masked variabele met lees-/cachetoegang tot de registry voor de runner |
+| `CI_JOB_TOKEN` | Automatisch geleverd door GitLab voor publicatie van Maven-packages |
 
-The sample deploys to local Kubernetes. OpenShift can use the same `helm-deploy` module with an OpenShift kubeconfig. Scope deployment credentials to the matching GitLab environment, such as `local`, `test` or `production`, and grant access to the required namespace. Registry credentials used by publish jobs must also be available to those jobs. Do not put credential values in the organization YAML, hook parameters or output artifacts.
+De sample deployt naar lokaal Kubernetes. Voor OpenShift kun je dezelfde module `helm-deploy` gebruiken met een OpenShift-kubeconfig. Beperk deploymentcredentials tot de bijbehorende GitLab-omgeving, bijvoorbeeld `local`, `test` of `production`, en geef alleen toegang tot de benodigde namespace. Publicatiejobs moeten ook over hun registry-credentials kunnen beschikken. Zet geen toegangsgegevens in de organisatie-YAML, hookparameters of outputartifacts.
 
-**The static app settings are the required central pipeline inputs:** `library-ref` and `maven-project`. The demo enables its separate UI with `ui-directory: ui`. The application also forwards runtime choices from the shared New pipeline form. The profile defaults application name and namespace to `$CI_PROJECT_NAME`, chart path to `helm/$CI_PROJECT_NAME`, and environment directory to `environment/`. Local endpoint URLs, HTTP registry access and the cluster-to-kubeconfig mapping are organization settings in the central configuration. Default values are not repeated in the application. Stages, dependencies and hooks belong to the central strategy.
+**De vaste applicatie-instellingen zijn de verplichte inputs `library-ref` en `maven-project`.** De demo schakelt de aparte UI in met `ui-directory: ui`. Daarnaast geeft de applicatie keuzes uit het gedeelde formulier **New pipeline** door. De standaardpipeline gebruikt `$CI_PROJECT_NAME` als applicatienaam en namespace, `helm/$CI_PROJECT_NAME` als chartpad en `environment/` als configuratiemap. Lokale URL's, HTTP-toegang tot de registry en de koppeling tussen cluster en kubeconfig staan centraal bij de organisatie-instellingen. De applicatie herhaalt geen standaardwaarden. Stages, afhankelijkheden en hooks staan in de centrale strategie.
 
-The `configure-deploy` job selects `cluster` and `user_config` after publication, with a ten-second default delay. `pipeline_mode` is selected before pipeline creation. The optional `test-custom` job accepts a Cucumber tag selection; mandatory tests keep their fixed configuration. See [pipeline choices](pipeline-options.md).
+Na publicatie kiest de job `configure-deploy` de waarden van `cluster` en `user_config`, met standaard tien seconden wachttijd. `pipeline_mode` kies je vóór het aanmaken van de pipeline. De optionele job `test-custom` accepteert een Cucumber-tagselectie; verplichte tests houden hun vaste configuratie. Zie [pipelinekeuzes](pipeline-options.md).
 
-**Module defaults** stay in each module's `spec:inputs`. Consumers can omit these inputs:
+**Standaardwaarden van modules** staan in hun eigen `spec:inputs`. Afnemers kunnen deze inputs weglaten:
 
-| Input | Default for the demo modules |
+| Input | Standaardwaarde voor de demomodules |
 |---|---|
 | `artifact-expire-in` | `7 days` |
 | `job-timeout` | `30m` |
 | `working-directory` | `.` |
-| `output-prefix` | Module-specific, for example `MAVEN_BUILD` |
-| `maven-executable` | `./mvnw` in Maven/Jib/Cucumber modules |
-| `pre-hook`, `post-hook`, `cleanup-hook` | Empty: no hook |
+| `output-prefix` | Modulespecifiek, bijvoorbeeld `MAVEN_BUILD` |
+| `maven-executable` | `./mvnw` in Maven-, Jib- en Cucumber-modules |
+| `pre-hook`, `post-hook`, `cleanup-hook` | Leeg: geen hook |
 | `hook-parameters-json` | `{}` |
-| Cucumber `profile` | Empty: no Maven profile |
+| Cucumber `profile` | Leeg: geen Maven-profiel |
 
-For example, set `artifact-expire-in: 30 days` only when that job needs longer retention. The `image` input remains required so each module explicitly selects its tool image. See [required inputs per module](inputs.md) for the complete overview and runtime prerequisites.
+Stel bijvoorbeeld alleen `artifact-expire-in: 30 days` in als een job een langere bewaartermijn nodig heeft. `image` blijft verplicht, zodat elke module expliciet een image kiest. Zie [verplichte inputs per module](inputs.md) voor het volledige overzicht en de voorwaarden bij uitvoering.
 
-The declarations repeat in each component because inputs are scoped to the declaring file. GitLab's `spec:include` supports shared pipeline input definitions, but not component input definitions. Shared hook code lives in `shared/module.yml`; the typed input contract stays with each module. There is no additional defaults loader or generation step. [GitLab input scope](https://docs.gitlab.com/ci/inputs/), [shared input limitations](https://docs.gitlab.com/ci/inputs/#define-pipeline-inputs-in-external-files).
+Inputdeclaraties staan in elke component, omdat hun bereik beperkt is tot het bestand dat ze declareert. GitLabs `spec:include` ondersteunt gedeelde definities voor pipeline-inputs, maar niet voor component-inputs. De gedeelde hookcode staat in `shared/module.yml`; de getypeerde inputdefinities blijven bij de modules. Er is geen extra loader of generatiestap voor standaardwaarden. Zie [het bereik van inputs](https://docs.gitlab.com/ci/inputs/) en [beperkingen van gedeelde inputs](https://docs.gitlab.com/ci/inputs/#define-pipeline-inputs-in-external-files).
 
-The optional [full pipeline example](../examples/full-pipeline/application.gitlab-ci.yml) and its [profile documentation](organization-profile.md) are reference material for adding scanners and other modules later. They are not included by the demo.
+Het [uitgebreide pipelinevoorbeeld](../examples/full-pipeline/application.gitlab-ci.yml) en de [profielhandleiding](organization-profile.md) dienen als naslag voor scanners en andere toekomstige modules. De demo laadt deze niet in.
 
-For Dockerfile publication, `image-build` copies the runner's pull credentials into a temporary Docker configuration, then overrides the target registry with the explicit publisher credentials. It unsets `DOCKER_AUTH_CONFIG` inside the job before BuildKit runs: newer Docker clients give that environment variable precedence over `config.json`. The runner can still pull the job image with its read-only account; credentials for other base-image registries are preserved. Temporary publisher credentials are removed in `after_script`. [Docker credential selection](https://github.com/docker/cli/blob/master/cli/config/configfile/file.go).
+Bij publicatie vanuit een Dockerfile kopieert `image-build` de leescredentials van de runner naar een tijdelijk Docker-configuratiebestand. Voor de doelregistry gebruikt de job de expliciete publicatiecredentials. Vóór BuildKit start, verwijdert de job `DOCKER_AUTH_CONFIG` uit zijn omgeving: nieuwere Docker-clients geven die variabele voorrang op `config.json`. De runner kan de jobimage blijven ophalen met zijn leesaccount en credentials voor andere basisimage-registries blijven beschikbaar. `after_script` verwijdert de tijdelijke publicatiecredentials. Zie [Docker-credentialselectie](https://github.com/docker/cli/blob/master/cli/config/configfile/file.go).

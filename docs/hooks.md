@@ -1,10 +1,10 @@
-# Extending jobs and pipelines
+# Jobs en pipelines uitbreiden
 
-Use GitLab job dependencies for an extra pipeline step. Use the existing component hooks for small additions inside one job. The Java demo keeps these definitions in the central CI library; no CI scripts need to be added to its application repository.
+Gebruik GitLab-jobafhankelijkheden voor een extra pipelinestap. Gebruik de componenthooks voor kleine aanvullingen binnen één job. De Java-demo beheert deze definities in de centrale CI-bibliotheek; de applicatierepository heeft daarvoor geen CI-scripts nodig.
 
-## Extra step: a normal GitLab job
+## Extra stap: een gewone GitLab-job
 
-The following fragment adds a required check between existing `build` and `publish` jobs. The build publishes `package.jar` as an artifact; `check` is a declared stage. Set `CHECK_IMAGE` to an approved image containing POSIX shell and the tools needed for the real check.
+Dit fragment voegt een verplichte controle toe tussen bestaande jobs `build` en `publish`. De build publiceert `package.jar` als artifact en de stage `check` is gedeclareerd. Stel `CHECK_IMAGE` in op een goedgekeurde image met een POSIX-shell en de tools voor de controle.
 
 ```yaml
 custom-check:
@@ -24,31 +24,31 @@ publish:
       artifacts: false
 ```
 
-GitLab starts `publish` after both required jobs succeed. The check's exit status determines success. Listing `build` directly also supplies its files; artifacts are not automatically forwarded through intermediate jobs. Replace the illustrative non-empty-file check with the required business or technical validation. [GitLab needs](https://docs.gitlab.com/ci/yaml/needs/), [job artifacts](https://docs.gitlab.com/ci/jobs/job_artifacts/).
+GitLab start `publish` nadat beide vereiste jobs zijn geslaagd. De exitcode van de controle bepaalt het resultaat. De directe afhankelijkheid van `build` levert ook de bestanden aan; artifacts worden niet automatisch doorgegeven via tussenliggende jobs. Vervang de voorbeeldcontrole op een niet-leeg bestand door de benodigde functionele of technische controle. Zie [GitLab needs](https://docs.gitlab.com/ci/yaml/needs/) en [jobartifacts](https://docs.gitlab.com/ci/jobs/job_artifacts/).
 
-For additional values, publish an `artifacts:reports:dotenv` file and import that job's artifacts with `needs`. For structured data, publish a JSON artifact. Keep secrets in GitLab's credential mechanisms. A step that changes an artifact must publish the replacement and arrange the required scans and verification for that replacement. [Dotenv variables](https://docs.gitlab.com/ci/variables/dotenv_variables/).
+Publiceer aanvullende waarden in een bestand onder `artifacts:reports:dotenv` en haal de artifacts van die job op met `needs`. Gebruik voor gestructureerde gegevens een JSON-artifact. Beheer geheimen via GitLabs voorzieningen voor toegangsgegevens. Een stap die een artifact wijzigt, moet de nieuwe versie publiceren en de benodigde scans en verificatie voor die versie regelen. Zie [dotenv-variabelen](https://docs.gitlab.com/ci/variables/dotenv_variables/).
 
-## Small addition inside a component
+## Kleine aanvulling binnen een component
 
-These optional component inputs are our library convention over GitLab's native job lifecycle:
+De volgende optionele inputs zijn een afspraak van onze bibliotheek boven op GitLabs joblifecycle:
 
-| Component input | Execution | Failure behavior |
+| Componentinput | Uitvoering | Gevolg bij fouten |
 |---|---|---|
-| `pre-hook` | During `before_script`, after common setup | Fails the job |
-| `post-hook` | At the end of `script`, before outputs are published | Fails the job |
-| `cleanup-hook` | During `after_script`, in a fresh shell | Best effort; cannot turn a successful job into a failure |
+| `pre-hook` | In `before_script`, na de gedeelde voorbereiding | De job faalt |
+| `post-hook` | Aan het einde van `script`, vóór publicatie van outputs | De job faalt |
+| `cleanup-hook` | In `after_script`, in een nieuwe shell | Opruimen naar beste vermogen; maakt een geslaagde job niet alsnog rood |
 
-Required checks belong in `script` or their own required job. `after_script` is for cleanup. Each component references [shared/module.yml](../shared/module.yml) for these phases; its comments explain the YAML references. [GitLab job execution](https://docs.gitlab.com/ci/jobs/job_execution/).
+Verplichte controles horen in `script` of in een eigen verplichte job. `after_script` is bedoeld voor opruimen. Elke component verwijst voor deze fasen naar [shared/module.yml](../shared/module.yml). De opmerkingen in dat bestand leggen de YAML-referenties uit. Zie [GitLabs jobuitvoering](https://docs.gitlab.com/ci/jobs/job_execution/).
 
-Hook paths are relative to the consuming repository and are executed with `sh` in the component's working directory. They run as subprocesses; use files to pass results back. `hook-parameters-json` is written to `CI_MODULE_PARAMETERS_FILE`. Optional outputs go into `CI_MODULE_EXTRA_OUTPUTS` using the component prefix followed by `_CUSTOM_`. Hooks and outputs must not contain secrets. Examples of [pre-build](../examples/hooks/pre-build.sh), [post-build](../examples/hooks/post-build.sh) and [cleanup](../examples/hooks/cleanup.sh) remain available.
+Hookpaden zijn relatief aan de repository van de afnemer. Hooks worden met `sh` uitgevoerd vanuit de werkmap van de component. Ze draaien als subprocessen; geef resultaten terug via bestanden. De inhoud van `hook-parameters-json` komt in `CI_MODULE_PARAMETERS_FILE`. Extra outputs schrijf je naar `CI_MODULE_EXTRA_OUTPUTS`, met de componentprefix gevolgd door `_CUSTOM_`. Zet geen geheimen in hooks of outputs. Er zijn voorbeelden voor [vóór de build](../examples/hooks/pre-build.sh), [na de build](../examples/hooks/post-build.sh) en [opruimen](../examples/hooks/cleanup.sh).
 
-## Migration from the removed callback component
+## Migreren vanaf de verwijderde callbackcomponent
 
-Replace the old continuation component with a normal job:
+Vervang de oude vervolgcomponent door een gewone job:
 
-1. Keep the script's useful processing in that job's `script`, using the same required tool image.
-2. Read upstream values through imported dotenv artifacts; remove the explicit continuation-helper call.
-3. Publish any changed values or files as ordinary artifacts.
-4. Make the next job depend on this job, and on any original producer whose files it still needs.
+1. Plaats de benodigde bewerking in `script` en gebruik de bijbehorende tool-image.
+2. Lees waarden uit eerdere jobs via dotenv-artifacts en verwijder de aanroep van de vervolghelper.
+3. Publiceer gewijzigde waarden of bestanden als gewone artifacts.
+4. Maak de volgende job afhankelijk van deze job en van eventuele eerdere jobs waarvan de bestanden nog nodig zijn.
 
-There is no replacement callback helper. GitLab owns scheduling. Runtime dotenv values cannot change the existing job graph; select jobs through pipeline inputs and `rules`, or use a child pipeline when runtime configuration requires one.
+GitLab plant de uitvoering; er is geen vervangende callbackhelper. Dotenv-waarden uit een draaiende job kunnen de bestaande jobstructuur niet aanpassen. Selecteer jobs met pipeline-inputs en `rules`, of gebruik een childpipeline wanneer de configuratie pas tijdens de uitvoering kan worden bepaald.
