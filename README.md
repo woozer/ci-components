@@ -1,8 +1,22 @@
-# GitLab CI demo
+# GitLab CI modules
 
-Java 25 / Spring Boot backend and a separate Angular UI served by Nginx. Open the [UI](http://localhost:8090) or [backend](http://localhost:8080/hello). Both also build and test [without GitLab](http://localhost:8929/root/hello-world/-/blob/main/README.md).
+Build your own pipeline from independently usable modules, or use the optional Java standard pipeline. Each module owns one operation, selects its own image and publishes named outputs. Your pipeline owns `stages`, `needs`, conditions and additional jobs.
 
-## Three everyday actions
+## Build your own pipeline
+
+1. Choose a module from the [module guide](docs/modules.md).
+2. Copy its minimal example, pin the library commit and provide the required inputs. Optional defaults can be omitted.
+3. Connect jobs with ordinary GitLab `needs` and artifacts/dotenv. Start from a [runnable example](examples/samples/README.md).
+
+| Start small | Add a next step | Repeat modules |
+|---|---|---|
+| [Maven build](examples/samples/maven-build.yml) | [Build → test](examples/samples/build-and-test.yml), [image/chart → deployment → test](examples/samples/deploy-and-test.yml) | [Two deployables](examples/samples/two-deployables.yml) |
+
+Run these in [CI samples → New pipeline](http://localhost:8929/root/ci-samples/-/pipelines/new): choose `sample`, then **New pipeline**. The same YAML files serve consumers and validate module changes in real GitLab jobs. See [how validation works](examples/samples/README.md#test-isolation-and-evidence).
+
+You do not need the Java standard pipeline, organization profile or release process to use one module. Images and service credentials are supplied by your platform; required inputs and runtime prerequisites are documented per module. Shared hook handling is included automatically.
+
+## Standard pipeline for the Java sample
 
 1. **Build:** push a branch or merge a reviewed MR. Required backend and Angular tests run automatically. Protected `main` also publishes development artifacts, deploys both applications and runs API/browser integration tests.
 2. **Use another Helm profile:** retry **configure-deploy** with modified values, wait for success, then select **Run again** on **deploy-dev**. This redeploys the same images/charts and reruns integration tests. On the first run, use **Unschedule** within ten seconds to choose values before deployment; otherwise defaults apply.
@@ -10,14 +24,10 @@ Java 25 / Spring Boot backend and a separate Angular UI served by Nginx. Open th
 
 Pipeline names identify the work: **CI — main** (or the feature branch), **Dev — deployment en integratietests**, and **Release — 1.2.3** (the reserved version). GitLab places child cards on the right. Their position does not determine execution order.
 
-## Adopt or extend
+The optional [java-service.yml](pipelines/java-service.yml) composes these same modules. It supports one Java deployable (including a multi-module Maven reactor) and an optional Angular UI. More Java deployables can use the individual modules; automatic fan-out of arbitrary deployables is not implemented. The [application CI file](http://localhost:8929/root/hello-world/-/blob/main/.gitlab-ci.yml) shows adoption with only app-specific settings and forwarded form selections.
 
-Copy the [application CI file](http://localhost:8929/root/hello-world/-/blob/main/.gitlab-ci.yml), pin a library revision and set the deployable Maven module. Set `ui-directory` only when there is a separate UI. Application name, chart path and namespace default to the project name; optional defaults do not need repeating.
+Reference: [module guide](docs/modules.md), [required inputs](docs/inputs.md), [outputs and advanced reference](docs/reference.md), [hooks and extra jobs](docs/hooks.md), [standard-pipeline choices](docs/pipeline-options.md), [release policy](docs/releases.md).
 
-The shared form and [java-service.yml](pipelines/java-service.yml) contain the complete composition. [Organization settings](config/organization.yml) hold server addresses and task images; credentials stay in GitLab. CI scripts stay in this library.
+We follow GitLab's component testing and reuse guidance. GitLab provides jobs, dependencies, artifacts, inputs and locks; the ten-second deployment selection and automatic patch policy belong to our optional standard pipeline. See [standards and decisions](docs/reuse-and-standards.md).
 
-GitLab provides jobs, `needs`, artifacts, child pipelines, locks, pipeline names and release asset links. Our organization chooses the ten-second deployment selection, manual release moment and automatic patch version. These choices are not industry standards. See [standards and decisions](docs/reuse-and-standards.md).
-
-Reference: [pipeline choices and health timeout](docs/pipeline-options.md), [release policy and assets](docs/releases.md), [required inputs and defaults](docs/inputs.md), [module catalogue](docs/reference.md), [hooks](docs/hooks.md).
-
-The thirteen active modules in `templates/` also work independently, with their own images, inputs, outputs and hooks. Twelve unused modules remain in [modules/todo/](modules/todo/). There is no custom handoff chain; extra steps use ordinary jobs and `needs`.
+Thirteen active modules live in `templates/`; twelve future modules remain in [modules/todo/](modules/todo/). There is no custom handoff chain or YAML generator.

@@ -46,9 +46,8 @@ spec:
       type: 'string'
       default: '{}'
     image-ref-variable:
-      description: 'Name of upstream immutable image reference variable'
+      description: 'Name of the upstream immutable image reference, imported with needs'
       type: 'string'
-      default: 'IMAGE_VERIFY_IMAGE_REF'
       regex: '^[A-Z][A-Z0-9_]*$'
     chart:
       description: 'Local chart directory or OCI reference; alternatively use chart-variable'

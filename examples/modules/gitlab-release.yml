@@ -1,0 +1,21 @@
+# Minimal module usage. Supply the documented runtime prerequisites.
+spec:
+  inputs:
+    library-ref:
+      description: 'Immutable component commit SHA'
+    library-project:
+      default: root/ci-components
+---
+stages: [finish]
+
+include:
+  - component: $CI_SERVER_FQDN/$[[ inputs.library-project ]]/gitlab-release@$[[ inputs.library-ref ]]
+    inputs:
+      image: $JAVA_CI_IMAGE
+      version: "$RELEASE_VERSION"
+      image-ref-variable: "JIB_BUILD_IMAGE_REF"
+      chart-ref-variable: "HELM_PUBLISH_REF"
+      chart-version-variable: "HELM_PUBLISH_VERSION"
+
+gitlab-release:
+  when: manual

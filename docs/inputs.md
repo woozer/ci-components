@@ -8,7 +8,7 @@ The `spec:inputs` header in each module is the source of truth:
 - An input **with `default` is optional**. Supply it only to change the default.
 - Additional runtime files, variables and credentials may still be needed by the operation, as described below.
 
-Every module requires `image`. Other required inputs for the six demo modules are:
+Every module requires `image`. Other required inputs for the thirteen active modules are:
 
 | Module | Additional required inputs |
 |---|---|
@@ -17,7 +17,14 @@ Every module requires `image`. Other required inputs for the six demo modules ar
 | [maven-publish](../templates/maven-publish.yml) | `settings-file`, `repository-url` |
 | [jib-build](../templates/jib-build.yml) | `project-selector`, `settings-file`, `image-repository`, `base-image` |
 | [helm-publish](../templates/helm-publish.yml) | `chart`, `chart-name`, `chart-version`, `oci-repository` |
-| [helm-deploy](../templates/helm-deploy.yml) | `values-file`, `release`, `namespace`, `environment`, `target-url` |
+| [helm-deploy](../templates/helm-deploy.yml) | `image-ref-variable`, `values-file`, `release`, `namespace`, `environment`, `target-url` |
+| [npm-build](../templates/npm-build.yml) | None; repository needs a lockfile and build script |
+| [npm-test](../templates/npm-test.yml) | None; repository needs a lockfile and CI test script |
+| [image-build](../templates/image-build.yml) | None; default target/authentication is GitLab Registry |
+| [deployment-select](../templates/deployment-select.yml) | `pipeline-config`; intended for a pipeline that needs runtime deployment selection |
+| [release-reserve](../templates/release-reserve.yml) | None; protected release branch and Git deploy-key variables required at runtime |
+| [release-check](../templates/release-check.yml) | `image-path`, `version`, `commit`; registry access required |
+| [gitlab-release](../templates/gitlab-release.yml) | `version`; published image/chart outputs and a GitLab job token required |
 
 Common optional inputs:
 
@@ -36,10 +43,11 @@ Common optional inputs:
 **Runtime conditions:**
 
 - Cucumber normally reads the URL from `HELM_DEPLOY_URL`. Provide that variable, select another with `target-url-variable`, or set `target-url-variable: ''` when the suite starts its own application.
+- `helm-deploy` requires `image-ref-variable`: choose your actual producer, for example `JIB_BUILD_IMAGE_REF`. It no longer assumes the optional image-verification module ran. Existing pinned revisions retain their old default; when upgrading, add that explicit input. The standard Java pipeline already does this.
 - Helm deployment needs either `chart` or `chart-variable`. The selected image variable must contain an immutable image reference. Provide a kubeconfig through `kubeconfig-variable` or the documented Kubernetes environment variables. Chart values must support `image.repository` and `image.digest`.
 - Publishing needs authentication for the chosen registry or Maven repository. Use a settings file, GitLab variables or an authentication pre-hook; see [organization settings and credentials](defaults.md).
 
-A single-module pipeline can be this small. Set `MY_MAVEN_IMAGE` to your chosen Maven image; this example uses its installed Maven:
+See the [module guide](modules.md) for a minimal example of every active module. A single-module pipeline can be this small. Set `MY_MAVEN_IMAGE` to your chosen Maven image; this example uses its installed Maven:
 
 ```yaml
 stages: [build]

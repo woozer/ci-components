@@ -1,0 +1,8 @@
+# Parent trigger holds samples-deployment through this cleanup, including failures.
+cleanup-sample:
+  stage: cleanup
+  when: always
+  image: $HELM_CI_IMAGE
+  cache: []
+  script:
+    - helm uninstall "$CI_PROJECT_NAME-ui" "$CI_PROJECT_NAME-api" --namespace "$SAMPLE_NAMESPACE" --kubeconfig "$SAMPLE_KUBECONFIG" --ignore-not-found --wait --timeout 2m

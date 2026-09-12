@@ -18,6 +18,7 @@ YAML.add_domain_type("", "reference") { |_, value| {"$reference" => value} }
 puts JSON.generate(ARGV.to_h { |p| [p, YAML.load_stream(File.read(p))] })'''
 MODULE_FILES = sorted(ROOT.glob("templates/*.yml")) + sorted(ROOT.glob("modules/todo/*.yml"))
 FILES = MODULE_FILES + sorted(ROOT.glob("config/*.yml")) + sorted(ROOT.glob("pipelines/*.yml")) + [ROOT / "examples/full-pipeline/profile.yml"] + sorted(ROOT.glob("shared/*.yml")) + [ROOT / "examples/full-pipeline/application.gitlab-ci.yml", ROOT / ".gitlab-ci.yml"]
+FILES += sorted(ROOT.glob("examples/samples/*.yml")) + sorted(ROOT.glob("examples/modules/*.yml")) + sorted(ROOT.glob("tests/samples/*.yml"))
 PARSED = json.loads(subprocess.check_output(["ruby", "-e", RUBY_YAML, *map(str, FILES)], text=True))
 COMPONENTS = {path.stem: PARSED[str(path)] for path in MODULE_FILES}
 
@@ -240,7 +241,7 @@ class ComponentContractTests(unittest.TestCase):
         self.assertEqual("https://gitlab.example/packages/maven", h.outputs()["MAVEN_PUBLISH_REPOSITORY_URL"])
 
     def test_oci_deployment_uses_published_version_and_scoped_kubeconfig(self):
-        h = Harness(self.root, "helm-deploy", inputs={"chart-variable": "CHART_REF",
+        h = Harness(self.root, "helm-deploy", inputs={"image-ref-variable": "IMAGE_VERIFY_IMAGE_REF", "chart-variable": "CHART_REF",
                     "chart-version-variable": "CHART_VERSION", "kubeconfig-variable": "LOCAL_KUBECONFIG",
                     "create-namespace": False, "plain-http": True},
                     env={"IMAGE_VERIFY_IMAGE_REF": "registry.example/app@sha256:" + "d" * 64,
@@ -357,7 +358,7 @@ PYTHON
 
     def test_deployment_passes_same_digest_and_url_to_next_stage(self):
         image_ref = "registry.example.com/app@sha256:" + "b" * 64
-        h = Harness(self.root, "helm-deploy", inputs={"chart": "helm/app", "values-file": "helm/test.yaml",
+        h = Harness(self.root, "helm-deploy", inputs={"image-ref-variable": "IMAGE_VERIFY_IMAGE_REF", "chart": "helm/app", "values-file": "helm/test.yaml",
                     "namespace": "pipeline-99", "release": "app", "environment": "test/99",
                     "target-url": "https://99.test.example.com", "output-prefix": "TEST_DEPLOY"},
                     env={"IMAGE_VERIFY_IMAGE_REF": image_ref, "KUBE_CONTEXT": "test-agent"})
@@ -373,6 +374,7 @@ PYTHON
     def test_helm_user_values_follow_cluster_values_and_image_digest_stays_final(self):
         image_ref = 'registry.example.com/app@sha256:' + 'b' * 64
         h = Harness(self.root, 'helm-deploy', inputs={
+            'image-ref-variable': 'IMAGE_VERIFY_IMAGE_REF',
             'chart': 'helm/app', 'values-file': 'environment/cluster/local.yaml',
             'override-values-file': 'environment/user/two-replicas.yaml'},
             env={'IMAGE_VERIFY_IMAGE_REF': image_ref, 'KUBE_CONTEXT': 'local'})
@@ -389,6 +391,7 @@ PYTHON
             with self.subTest(helm=major), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
                 h = Harness(root, 'helm-deploy', inputs={
+                    'image-ref-variable': 'IMAGE_VERIFY_IMAGE_REF',
                     'chart': 'oci://registry.example/charts/app', 'timeout': '25s',
                     'helm-major': major}, env={
                     'IMAGE_VERIFY_IMAGE_REF': 'registry.example/app@sha256:' + 'b' * 64,

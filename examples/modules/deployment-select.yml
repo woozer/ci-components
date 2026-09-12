@@ -1,0 +1,20 @@
+# Minimal module usage. Supply the documented runtime prerequisites.
+spec:
+  inputs:
+    library-ref:
+      description: 'Immutable component commit SHA'
+    library-project:
+      default: root/ci-components
+---
+stages: [configure]
+
+include:
+  - component: $CI_SERVER_FQDN/$[[ inputs.library-project ]]/deployment-select@$[[ inputs.library-ref ]]
+    inputs:
+      image: $JAVA_CI_IMAGE
+      pipeline-config: |
+        include:
+          - local: /deploy.yml
+            inputs:
+              cluster: "@CLUSTER@"
+              user-config: "@USER_CONFIG@"

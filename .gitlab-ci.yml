@@ -1,5 +1,5 @@
 # Configure CI_VALIDATION_IMAGE to a digest-pinned image with Python 3 and Ruby.
-stages: [test]
+stages: [test, integration]
 
 validate-components:
   stage: test
@@ -9,3 +9,26 @@ validate-components:
     entrypoint: [""]
   script:
     - python3 -m unittest discover -s tests -p 'test_*.py' -v
+
+# CI_SAMPLES_PROJECT is provisioned by the platform team, not an app setting.
+validate-samples:
+  stage: integration
+  needs: [validate-components]
+  rules:
+    - if: '$CI_SAMPLES_PROJECT && $CI_PIPELINE_SOURCE == "web"'
+    - if: '$CI_SAMPLES_PROJECT'
+      changes:
+        - templates/**/*
+        - shared/**/*
+        - examples/samples/**/*
+        - tests/samples/**/*
+        - .gitlab-ci.yml
+  inherit:
+    variables: false
+  trigger:
+    project: $CI_SAMPLES_PROJECT
+    branch: main
+    inputs:
+      library_ref: $CI_COMMIT_SHA
+      sample: all
+    strategy: mirror

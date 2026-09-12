@@ -1,6 +1,6 @@
 # Full library reference
 
-For the small working demo, start with the [main README](../README.md). This page describes the optional broader library.
+For building your own pipeline, start with the [module guide](modules.md) and [runnable examples](../examples/samples/README.md). This page contains output contracts and advanced reference, including future modules. The Java standard pipeline is optional.
 
 This starter targets GitLab CI. Each component owns one operation, declares its inputs, publishes named output variables and artifacts, and supports pre, post, and cleanup hooks. The application pipeline owns job ordering and environment promotion.
 

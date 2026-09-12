@@ -1,0 +1,97 @@
+# Native sample selection; each child executes the exact consumer example YAML.
+spec:
+  inputs:
+    library-ref:
+      description: 'Exact component commit being tested'
+    sample:
+      default: all
+      options: [all, maven-build, build-and-test, deploy-and-test, two-deployables]
+---
+workflow:
+  name: 'Samples — $[[ inputs.sample ]]'
+
+stages: [test]
+
+maven-build:
+  stage: test
+  rules:
+    - if: '"$[[ inputs.sample ]]" == "all" || "$[[ inputs.sample ]]" == "maven-build"'
+  inherit:
+    variables: false
+  trigger:
+    include:
+      - project: root/ci-components
+        ref: '$[[ inputs.library-ref ]]'
+        file: /examples/samples/maven-build.yml
+        inputs:
+          library-ref: '$[[ inputs.library-ref ]]'
+      - project: root/ci-components
+        ref: '$[[ inputs.library-ref ]]'
+        file: /tests/samples/runtime.yml
+        inputs:
+          sample: maven-build
+    strategy: mirror
+
+build-and-test:
+  stage: test
+  rules:
+    - if: '"$[[ inputs.sample ]]" == "all" || "$[[ inputs.sample ]]" == "build-and-test"'
+  inherit:
+    variables: false
+  trigger:
+    include:
+      - project: root/ci-components
+        ref: '$[[ inputs.library-ref ]]'
+        file: /examples/samples/build-and-test.yml
+        inputs:
+          library-ref: '$[[ inputs.library-ref ]]'
+      - project: root/ci-components
+        ref: '$[[ inputs.library-ref ]]'
+        file: /tests/samples/runtime.yml
+        inputs:
+          sample: build-and-test
+    strategy: mirror
+
+deploy-and-test:
+  stage: test
+  rules:
+    - if: '"$[[ inputs.sample ]]" == "all" || "$[[ inputs.sample ]]" == "deploy-and-test"'
+  inherit:
+    variables: false
+  resource_group: samples-deployment
+  trigger:
+    include:
+      - project: root/ci-components
+        ref: '$[[ inputs.library-ref ]]'
+        file: /examples/samples/deploy-and-test.yml
+        inputs:
+          library-ref: '$[[ inputs.library-ref ]]'
+          plain-http: true
+      - project: root/ci-components
+        ref: '$[[ inputs.library-ref ]]'
+        file: /tests/samples/runtime.yml
+        inputs:
+          sample: deploy-and-test
+    strategy: mirror
+
+two-deployables:
+  stage: test
+  rules:
+    - if: '"$[[ inputs.sample ]]" == "all" || "$[[ inputs.sample ]]" == "two-deployables"'
+  inherit:
+    variables: false
+  resource_group: samples-deployment
+  trigger:
+    include:
+      - project: root/ci-components
+        ref: '$[[ inputs.library-ref ]]'
+        file: /examples/samples/two-deployables.yml
+        inputs:
+          library-ref: '$[[ inputs.library-ref ]]'
+          plain-http: true
+      - project: root/ci-components
+        ref: '$[[ inputs.library-ref ]]'
+        file: /tests/samples/runtime.yml
+        inputs:
+          sample: two-deployables
+    strategy: mirror
