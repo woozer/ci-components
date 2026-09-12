@@ -8,6 +8,7 @@ variables:
   DEV_PUBLIC_URL: http://localhost:8080
   HELM_REGISTRY_PLAIN_HTTP: 'true'
   GITLAB_INTERNAL_URL: http://host.docker.internal:8929
+  ARTIFACTORY_PUBLIC_URL: http://localhost:8082
   OCI_REGISTRY: host.docker.internal:8082
   OCI_REPOSITORY: docker-local
 

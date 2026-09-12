@@ -1,6 +1,8 @@
-# Pipeline choices
+# Pipeline choices (reference)
 
-Build and required tests start immediately. Application CI imports the shared [New pipeline form](../config/pipeline-inputs.yml) and one [central pipeline](../pipelines/java-service.yml), using the same pinned revision. Only `library-ref` and `maven-project` are required static app settings; form values are forwarded without repeating defaults.
+For daily use, see the [three actions](../README.md#three-everyday-actions). Build and required tests start immediately. Application CI imports the shared [New pipeline form](../config/pipeline-inputs.yml) and one [central pipeline](../pipelines/java-service.yml), using the same pinned revision. Only `library-ref` and `maven-project` are required static app settings; form values are forwarded without repeating defaults.
+
+Pipeline names use native [`workflow:name`](https://docs.gitlab.com/ci/yaml/#workflowname): **CI — <branch>**, **Dev — deployment en integratietests**, **Release — <version>**. The version is fixed in the release child configuration after reservation. The triggers do not inherit parent variables, so the parent name cannot override the child name.
 
 ## Choose before starting
 
@@ -14,19 +16,19 @@ On **Build > Pipelines > New pipeline**, select the branch and these inputs. Pus
 
 | Mode | Jobs on protected main |
 |---|---|
-| `validate` | Build, required Cucumber test, optional custom test |
-| `publish` | Also publish Maven packages, Jib image and Helm chart |
-| `deploy` | Also choose deployment settings, run Helm and test the deployment; offer release |
+| `validate` | Backend/UI builds and required tests; optional custom backend test |
+| `publish` | Also publish Maven packages, backend/UI images and Helm charts |
+| `deploy` | Also choose deployment settings, run Helm and test the deployment; offer **start-release** |
 
 Feature branches and merge requests run build/tests only. `pipeline_mode` is fixed when the pipeline is created. This follows GitLab's native configuration-input model; job inputs cannot change `rules` or add stages during execution. [Input scope](https://docs.gitlab.com/ci/inputs/), [job input limitations](https://docs.gitlab.com/ci/jobs/job_inputs/#where-you-can-use-job-inputs).
 
 ## Choose tests during development
 
-Open the **test-custom** job by clicking its name, choose `not @ignore` (the complete suite) or `@smoke`, then select **Run job**. The demo's greeting check is tagged `@smoke`; the complete suite also checks that an unknown endpoint returns 404. Use **Retry job with modified values** to run a different selection. The selected expression is recorded in the job's output artifact as `CUCUMBER_TEST_TAGS`. [Native GitLab job inputs](https://docs.gitlab.com/ci/jobs/job_inputs/).
+Open the **test-custom** job by clicking its name, choose `not @ui and not @ignore` (the complete backend suite) or `@smoke and not @ui`, then select **Run job**. The demo's greeting check is tagged `@smoke`; the backend suite also checks health, animals and that an unknown endpoint returns 404. Use **Retry job with modified values** to run a different selection. The selected expression is recorded in the job's output artifact as `CUCUMBER_TEST_TAGS`. [Native GitLab job inputs](https://docs.gitlab.com/ci/jobs/job_inputs/).
 
-This optional developer job does not qualify a merge or release. The separate mandatory **test** and release tests always run the complete configured suite. A green pipeline can coexist with a failed optional custom test; inspect that job's own status and report.
+This optional developer job does not qualify a merge or release. The separate mandatory **test** and release tests always run their complete configured suite. Browser scenarios run separately in **cucumber-ui** after both deployments are ready. A green pipeline can coexist with a failed optional custom test; inspect that job's own status and report.
 
-This choice selects Cucumber scenarios. It is not a Spring or Maven profile. The standalone Cucumber component still supports its optional Maven `profile` input; add actual application profiles before exposing them as choices. Run the same smoke selection locally with `./mvnw -Dcucumber.filter.tags=@smoke verify`.
+This choice selects Cucumber scenarios. It is not a Spring or Maven profile. The standalone Cucumber component still supports its optional Maven `profile` input; add actual application profiles before exposing them as choices. Run the same smoke selection locally with `./mvnw -Dcucumber.filter.tags="@smoke and not @ui" verify`.
 
 ## Choose deployment after publication
 
