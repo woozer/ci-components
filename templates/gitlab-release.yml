@@ -52,6 +52,9 @@ spec:
       description: 'GitLab API base URL reachable from the job container'
       type: string
       default: '$CI_API_V4_URL'
+    artifact-base-url:
+      description: 'Optional public Artifactory /artifactory URL for browser links; empty uses HTTPS OCI registry manifest URLs'
+      default: ''
     image-ref-variable:
       description: "Upstream immutable image reference variable"
       type: string
@@ -92,6 +95,7 @@ include:
     MODULE_HOOK_PARAMETERS_JSON: '$[[ inputs.hook-parameters-json ]]'
     RELEASE_VERSION: '$[[ inputs.version ]]'
     RELEASE_API_URL: '$[[ inputs.api-url ]]'
+    RELEASE_ARTIFACT_BASE_URL: '$[[ inputs.artifact-base-url ]]'
     RELEASE_IMAGE_VARIABLE: '$[[ inputs.image-ref-variable ]]'
     RELEASE_CHART_VARIABLE: '$[[ inputs.chart-ref-variable ]]'
     RELEASE_CHART_VERSION_VARIABLE: '$[[ inputs.chart-version-variable ]]'
@@ -103,28 +107,54 @@ include:
     - !reference [.ci-release, script]
     - |
       validate_version "$RELEASE_VERSION"
-      image_ref=$(image_input "$RELEASE_IMAGE_VARIABLE")
-      chart_ref=$(runtime_input "$RELEASE_CHART_VARIABLE")
-      chart_version=$(runtime_input "$RELEASE_CHART_VERSION_VARIABLE")
-      [ "$chart_version" = "$RELEASE_VERSION" ] || fail 'Chart and release versions differ.'
+      if [ -n "$RELEASE_ARTIFACT_BASE_URL" ]; then
+        printf '%s\n' "$RELEASE_ARTIFACT_BASE_URL" | LC_ALL=C grep -Eq '^https?://[^@?#[:space:]]+$' ||
+          fail 'Artifact base URL must be a public HTTP(S) URL without credentials or query parameters.'
+      fi
+      artifact_url() {
+        if [ -n "$RELEASE_ARTIFACT_BASE_URL" ]; then
+          # Artifactory browser links use the immutable release version directory.
+          printf '%s/%s/%s/manifest.json' "${RELEASE_ARTIFACT_BASE_URL%/}" "${1#*/}" "$RELEASE_VERSION"
+        else
+          printf 'https://%s/v2/%s/manifests/%s' "${1%%/*}" "${1#*/}" "$2"
+        fi
+      }
       cat > "$CI_MODULE_OUTPUT_DIR/release.md" <<EOF
       Release $RELEASE_VERSION
       
       - Commit: $CI_COMMIT_SHA
-      - Image: \`$image_ref\`
-      - Helm chart: \`$chart_ref\`, version \`$chart_version\`
       - Packages: $CI_PROJECT_URL/-/packages
       - Validation: $CI_PIPELINE_URL
       EOF
-      # Additional deployables share this release version, each with its own digest.
+      # Native release asset links are submitted in the same request as the notes.
+      set -- --data-urlencode "assets[links][][name]=Maven packages" \
+        --data-urlencode "assets[links][][url]=$CI_PROJECT_URL/-/packages" \
+        --data-urlencode "assets[links][][link_type]=package" \
+        --data-urlencode "assets[links][][name]=Validation pipeline" \
+        --data-urlencode "assets[links][][url]=$CI_PIPELINE_URL" \
+        --data-urlencode "assets[links][][link_type]=other"
+      artifact_variables="$RELEASE_IMAGE_VARIABLE:$RELEASE_CHART_VARIABLE:$RELEASE_CHART_VERSION_VARIABLE"
       set -f
       for pair in $RELEASE_ADDITIONAL_ARTIFACT_PREFIXES; do
         printf '%s\n' "$pair" | LC_ALL=C grep -Eq '^[A-Z][A-Z0-9_]*:[A-Z][A-Z0-9_]*$' || fail 'Invalid artifact prefix pair.'
-        extra_image=$(image_input "${pair%:*}_IMAGE_REF")
-        extra_chart=$(runtime_input "${pair#*:}_REF")
-        extra_version=$(runtime_input "${pair#*:}_VERSION")
-        [ "$extra_version" = "$RELEASE_VERSION" ] || fail 'Additional chart and release versions differ.'
-        printf '\n- Image: `%s`\n- Helm chart: `%s`, version `%s`\n' "$extra_image" "$extra_chart" "$extra_version" >> "$CI_MODULE_OUTPUT_DIR/release.md"
+        artifact_variables="$artifact_variables ${pair%:*}_IMAGE_REF:${pair#*:}_REF:${pair#*:}_VERSION"
+      done
+      for artifact in $artifact_variables; do
+        chart_variables=${artifact#*:}
+        image_ref=$(image_input "${artifact%%:*}")
+        chart_ref=$(runtime_input "${chart_variables%:*}")
+        chart_version=$(runtime_input "${chart_variables#*:}")
+        [ "$chart_version" = "$RELEASE_VERSION" ] || fail 'Chart and release versions differ.'
+        case "$chart_ref" in oci://*/*) ;; *) fail 'Expected an OCI chart reference.' ;; esac
+        image_repository=${image_ref%@*}
+        chart_repository=${chart_ref#oci://}
+        printf '\n- Image: `%s`\n- Helm chart: `%s`, version `%s`\n' "$image_ref" "$chart_ref" "$chart_version" >> "$CI_MODULE_OUTPUT_DIR/release.md"
+        set -- "$@" --data-urlencode "assets[links][][name]=Image manifest — ${image_repository#*/}" \
+          --data-urlencode "assets[links][][url]=$(artifact_url "$image_repository" "${image_ref#*@}")" \
+          --data-urlencode "assets[links][][link_type]=package" \
+          --data-urlencode "assets[links][][name]=Helm manifest — ${chart_repository#*/} $chart_version" \
+          --data-urlencode "assets[links][][url]=$(artifact_url "$chart_repository" "$chart_version")" \
+          --data-urlencode "assets[links][][link_type]=package"
       done
       set +f
       if [ -n "$RELEASE_DESCRIPTION" ]; then
@@ -134,6 +164,7 @@ include:
         --header "JOB-TOKEN: $CI_JOB_TOKEN" --request POST \
         --data-urlencode "tag_name=v$RELEASE_VERSION" --data-urlencode "name=Release $RELEASE_VERSION" \
         --data-urlencode "description@$CI_MODULE_OUTPUT_DIR/release.md" \
+        "$@" \
         "${RELEASE_API_URL%/}/projects/$CI_PROJECT_ID/releases" > /dev/null
       emit URL "$CI_PROJECT_URL/-/releases/v$RELEASE_VERSION"
       emit VERSION "$RELEASE_VERSION"

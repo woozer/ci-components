@@ -2,23 +2,31 @@
 
 Applications import the [pipeline form](../config/pipeline-inputs.yml) and [java-service.yml](../pipelines/java-service.yml) directly. They supply the required app settings (`library-ref` and `maven-project`) and forward the selected cluster, user configuration and pipeline mode. The same central file defines the ordinary pipeline, deployment child and release child, selected by its internal `flow` input. The library owns the jobs, scripts, release button, checks and dev deployment. Applications do not copy or maintain a release pipeline.
 
-The application name and namespace default to the GitLab project name; the chart defaults to `helm/<project-name>`. Helm values come from `environment/cluster/<cluster>.yaml`, followed by `environment/user/<user-config>.yaml`. The central configuration selects the cluster credentials, dev URLs and HTTP registry access. Generic components retain secure protocol defaults. Change local infrastructure settings centrally in the configuration. Optional inputs belong in app configuration only when a project deliberately departs from those conventions; the demo sets none.
+The application name and namespace default to the GitLab project name; the chart defaults to `helm/<project-name>`. Helm values come from `environment/cluster/<cluster>.yaml`, followed by `environment/user/<user-config>.yaml`. The central configuration selects the cluster credentials, dev URLs and HTTP registry access. Generic components retain secure protocol defaults. Change local infrastructure settings centrally in the configuration. Optional inputs belong in app configuration only when needed; this demo enables its separate UI with `ui-directory: ui`.
 
-The current strategy supports a multi-module Maven reactor with one deployable module. Libraries and tests are built from the root POM. Multiple deployables would require an explicit module list and separate image/chart/deployment jobs, with names and outputs isolated per deployable. The KISS release policy would keep one repository tag and version across them; this fan-out is not implemented in the current demo.
+The strategy supports a multi-module Maven reactor with one deployable Java module and an optional separate Angular UI. Libraries and tests build from the root POM. Both deployables share one repository tag and release version. More Java deployables require explicit additional image/chart/deployment jobs with isolated names and outputs; arbitrary fan-out is not implemented.
 
 The Java strategy composes independent Maven, Jib, Helm and release components. Other stacks can reuse the same release components with their own build modules. Organization URLs and task images remain in [organization settings](../config/organization.yml); credentials belong in GitLab variables.
 
-## Everyday flow
+## Start and publish a release
 
-1. Push a feature branch and open a merge request. Build and mandatory Cucumber tests run immediately in the main graph. The optional **test-custom** job allows additional scenario selections. See [pipeline choices](pipeline-options.md).
-2. Merge to the protected default branch after review and successful checks. In this demo that branch is `main`.
-3. The main pipeline automatically publishes development artifacts. **configure-deploy** allows ten seconds to stop the timer and choose cluster/user values. **deploy-dev** then runs Helm and Cucumber together.
-4. To create an official release, run **release** in that successful main pipeline. Its default `version: auto` selects `0.1.0` for the first release and increments the highest reserved release's patch number thereafter. To choose a minor or major version, open the job and override `version`, for example with `1.0.0`. The release button is available only after the full `deploy` mode; reduced modes do not qualify for a release.
-5. Follow **release-delivery** to see validation, Maven publication, Jib image publication, Helm publication, dev deployment and the final Cucumber test. A successful run creates the GitLab release with its commit, image digest and chart version.
+Daily operation is covered by the [three actions](../README.md#three-everyday-actions). After a full, successful protected-main pipeline, **start-release** reserves the version and tag. Its `version: auto` starts at `0.1.0` and increments the highest reserved patch number. Open the job to override it, for example with `1.0.0`. Reduced `validate`/`publish` modes do not qualify for release.
 
-There is no separate tag approval. Clicking **release** is the release decision; code review happens before the merge. The local demo has one user, so that user also merges the merge request. In the real organization, require another person's review before merging into protected branches. A manual button alone does not enforce two-person approval.
+**release-delivery** starts **Release — <version>**. It rebuilds, tests and publishes the reserved version, deploys it to dev and runs API/browser tests. **publish-release** is the last job: it creates the actual GitLab Release after all required validation succeeds. Reserving a tag alone does not create that release record. Existing pinned consumers keep the old job names until they update their library revision.
+
+There is no separate tag approval. Clicking **start-release** is the release decision; code review happens before the merge. The local demo has one user, so that user also merges the merge request. In the real organization, require another person's review before merging into protected branches. A manual button alone does not enforce two-person approval.
 
 A release creates immutable artifacts. Those artifacts may be deployed to dev. Future production deployment through Argo CD must select the existing release image digest and chart version; it must not rebuild the application. Argo CD production delivery is outside this local demo.
+
+## Release assets
+
+**publish-release** uses the supported [GitLab Releases API](https://docs.gitlab.com/api/releases/#create-a-release) to create notes and `assets.links` in one request. The assets contain an image manifest and Helm manifest for each deployable, a Maven package-list link and the validation pipeline. The notes retain exact image digests and OCI chart references for deployment.
+
+GitLab asset URLs must be HTTP(S) or FTP; Docker pull references and `oci://` references are not clickable release assets. In this Artifactory demo, `ARTIFACTORY_PUBLIC_URL` centrally supplies the browser address. Manifest links point to the reserved version directory in the repository that denies overwrite. They describe registry artifacts, not downloadable Docker image archives. Maven's link opens the project's package list, not a single JAR. Registry authentication still applies; links contain no credentials. [GitLab release asset fields](https://docs.gitlab.com/user/project/releases/release_fields/#release-assets).
+
+The standalone module's optional `artifact-base-url` accepts a public Artifactory `/artifactory` root. Without it, links use HTTPS OCI Distribution manifest endpoints (image digest and chart version); some registries require authentication and an OCI `Accept` header for chart manifests. The Artifactory override avoids that browser header requirement. An ordinary module consumer can omit this setting; the demo composition supplies it centrally.
+
+Assets are links to the existing storage, not another artifact copy. Server permissions enforce immutability; a GitLab Release record alone does not. This change applies to future releases and does not rewrite existing releases.
 
 ## Versions and repeated attempts
 
@@ -67,4 +75,4 @@ The local free-edition lab stores Maven packages in GitLab and images/charts in 
 
 ## Repositories with the optional UI
 
-With `ui-directory`, a reserved release covers both deployables at the same version. Separate `check-release` and `check-ui-release` jobs reject existing image/chart coordinates before building. Both test suites must pass before publication. The backend uses Jib; the UI uses rootless BuildKit. Both publish to the immutable release repository, deploy to dev, and pass HTTP/browser Cucumber tests before `finish-release` records both image digests and both chart references. Production must promote both recorded images without rebuilding. Helm releases are separate: a failed UI deployment does not automatically roll back an already successful backend deployment; keep API changes backward compatible.
+With `ui-directory`, a reserved release covers both deployables at the same version. Separate `check-release` and `check-ui-release` jobs reject existing image/chart coordinates before building. Both test suites must pass before publication. The backend uses Jib; the UI uses rootless BuildKit. Both publish to the immutable release repository, deploy to dev, and pass HTTP/browser Cucumber tests before `publish-release` records both image digests and both chart references. Production must promote both recorded images without rebuilding. Helm releases are separate: a failed UI deployment does not automatically roll back an already successful backend deployment; keep API changes backward compatible.

@@ -71,6 +71,7 @@ exit "${FAKE_HTTP_EXIT:-0}"
                 h = Harness(self.root, 'gitlab-release', inputs={
                     'version': '1.2.3', 'api-url': 'https://gitlab.invalid/api/v4',
                     'additional-artifact-prefixes': 'UI_IMAGE:UI_CHART',
+                    'artifact-base-url': 'http://public-artifactory/artifactory/',
                 }, env={
                     'JIB_IMAGE_REF': 'registry.invalid/api@sha256:' + 'a' * 64,
                     'CHART_REF': 'oci://registry.invalid/charts/api', 'CHART_VERSION': '1.2.3',
@@ -82,7 +83,7 @@ exit "${FAKE_HTTP_EXIT:-0}"
                 })
                 calls = self.root / 'release-api-called'
                 calls.unlink(missing_ok=True)
-                h.write('bin/curl', '#!/bin/sh\n: > "$CI_PROJECT_DIR/release-api-called"\n')
+                h.write('bin/curl', '#!/bin/sh\nprintf "%s\\n" "$@" > "$CI_PROJECT_DIR/release-api-called"\n')
                 result = h.run()
                 self.assertEqual(expected_success, result.returncode == 0, result.stderr)
                 self.assertEqual(expected_success, calls.exists())
@@ -92,6 +93,18 @@ exit "${FAKE_HTTP_EXIT:-0}"
                     self.assertIn('registry.invalid/api@sha256:' + 'a' * 64, body)
                     self.assertIn('registry.invalid/ui@sha256:' + 'b' * 64, body)
                     self.assertIn('oci://registry.invalid/charts/ui', body)
+                    request = calls.read_text().splitlines()
+                    urls = [arg.split('=', 1)[1] for arg in request if arg.startswith('assets[links][][url]=')]
+                    self.assertEqual([
+                        'https://gitlab.invalid/group/app/-/packages',
+                        'https://gitlab.invalid/group/app/-/pipelines/99',
+                        'http://public-artifactory/artifactory/api/1.2.3/manifest.json',
+                        'http://public-artifactory/artifactory/charts/api/1.2.3/manifest.json',
+                        'http://public-artifactory/artifactory/ui/1.2.3/manifest.json',
+                        'http://public-artifactory/artifactory/charts/ui/1.2.3/manifest.json',
+                    ], urls)
+                    names = [arg for arg in request if arg.startswith('assets[links][][name]=')]
+                    self.assertEqual(6, len(set(names)))
 
     def test_reserve_emits_version_and_binds_child_to_exact_commit(self):
         h = self.harness()
@@ -254,8 +267,20 @@ exit "${FAKE_HTTP_EXIT:-0}"
         self.assertEqual(0, result.returncode, result.stderr)
         request = (self.root / 'release-request').read_text().splitlines()
         self.assertEqual('http://internal-gitlab:8929/api/v4/projects/7/releases', request[-1])
+        self.assertIn('assets[links][][url]=https://registry.invalid/v2/releases/service/manifests/sha256:' + 'b' * 64, request)
+        self.assertIn('assets[links][][url]=https://registry.invalid/v2/charts/service/manifests/1.2.3', request)
         self.assertIn(image, (h.output_file.parent / 'release.md').read_text())
         self.assertEqual('http://public-gitlab/group/service/-/releases/v1.2.3', h.outputs()['GITLAB_RELEASE_URL'])
+
+    def test_release_asset_base_url_cannot_publish_credentials(self):
+        for url in ['https://user:password@registry.invalid/artifactory', 'https://registry.invalid?token=secret']:
+            with self.subTest(url=url):
+                h = Harness(self.root, 'gitlab-release', inputs={
+                    'version': '1.2.3', 'artifact-base-url': url})
+                h.write('bin/curl', '#!/bin/sh\n: > "$CI_PROJECT_DIR/release-api-called"\n')
+                self.assertNotEqual(0, h.run().returncode)
+                self.assertFalse((self.root / 'release-api-called').exists())
+                self.assertFalse(h.output_file.exists())
 
 
 if __name__ == '__main__':
