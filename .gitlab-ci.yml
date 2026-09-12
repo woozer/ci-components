@@ -1,4 +1,11 @@
 # Configure CI_VALIDATION_IMAGE to a digest-pinned image with Python 3 and Ruby.
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS && $CI_PIPELINE_SOURCE == "push"'
+      when: never
+    - when: always
+
 stages: [test, integration]
 
 validate-components:
