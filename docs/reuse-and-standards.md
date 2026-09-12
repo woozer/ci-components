@@ -95,3 +95,11 @@ Dockerfile-images gebruiken [GitLabs beschreven aanpak met rootless BuildKit](ht
 Cucumber-UI-scenario's gebruiken de officiële [Playwright Java API](https://playwright.dev/java/docs/test-runners) met headless Chromium. Ook headless uitvoering vereist een browserengine. De Cucumber-component kiest een [Playwright-browserimage](https://playwright.dev/java/docs/docker), uitgebreid met onze Java 25- en Maven-versies. Gewone backendtests gebruiken de kleinere Java-image. Browser- en Java-dependencyversies moeten overeenkomen. De CI-browser test onze eigen applicatie met de standaardinstellingen van de image; deze inrichting is niet bedoeld om willekeurige onbetrouwbare websites te bezoeken.
 
 Scenario's met `@ui` draaien na beide deployments en zijn verplicht voor afronding van een release. Ze vergelijken de getoonde tabel met het werkelijke API-antwoord in de browser, vernieuwen de lijst en testen een mobiele schermgrootte. Screenshots staan in het Cucumber-rapport; bij fouten worden ook Playwright-traces bewaard. Een eigen Cucumber/Playwright-adapterdienst is niet nodig.
+
+## Een kleine componentcatalogus houden
+
+Ontwerp één component per herkenbare taak voor de afnemer. GitLab staat meerdere jobs binnen één component toe. Een losse technische stap vereist daarom geen eigen publieke module. Splits alleen op bij aantoonbaar zelfstandig gebruik, verschillende rechten of verschillende uitvoeringsmomenten. Dit is onze ontwerpafspraak binnen [GitLabs componentmodel](https://docs.gitlab.com/ci/components/).
+
+Bij de huidige TODO's zijn `sonar-scan` en `sonar-gate` duidelijke kandidaten voor samenvoeging: SonarScanner kan zelf op de gate wachten. Beoordeel Fortify op dezelfde manier zodra de beschikbare integratie is gekozen. `image-scan` en `sbom` gebruiken beide Trivy op dezelfde image; ook daar kan één component met twee rapporten eenvoudiger zijn. Dit zijn beoordelingen voor activering, geen al uitgevoerde samenvoegingen.
+
+Ondertekenen en verifiëren kunnen afzonderlijk nuttig blijven vanwege verschillende rechten en zelfstandig gebruik bij deployment. Release reserveren en publiceren hebben verschillende uitvoeringsmomenten. Een interne releasecontrole hoeft daarentegen niet vanzelf een afzonderlijke publieke module te zijn. Beoordeel de winst voor afnemers vóór uitbreiding van de catalogus.

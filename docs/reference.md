@@ -14,7 +14,7 @@ De [Java 25-sample](http://localhost:8929/root/hello-world) is een zelfstandig S
 
 ## Ontwerpafspraken
 
-- Eén component maakt één job met één hoofdverantwoordelijkheid. Benodigde voorbereiding hoort daarbij; een npm-testjob installeert bijvoorbeeld zijn vastgelegde dependencies.
+- Eén component vertegenwoordigt één herkenbare taak voor de afnemer. De huidige modules maken ieder één job, maar dat is geen verplichting voor toekomstige componenten. Splits alleen op als zelfstandig gebruik, toegangsrechten of uitvoeringsmomenten dat rechtvaardigen. Benodigde voorbereiding hoort bij de taak; een npm-testjob installeert bijvoorbeeld zijn vastgelegde dependencies.
 - Configuratie gebruikt getypeerde `spec:inputs`. Elke component vereist een tool-image. Zet goedgekeurde images bij de organisatie-inrichting vast op digest.
 - Waarden uit jobs worden doorgegeven als dotenv-outputs met een eigen prefix. Bestanden en rapporten zijn gewone artifacts. Een vervolgjob haalt de outputs expliciet op met `needs: {job: ..., artifacts: true}`.
 - Outputs worden gepubliceerd nadat de bewerking en post-hook slagen. Een fout stopt de job en voorkomt succesoutputs. Verplichte scanners en gates falen ook bij toolfouten en timeouts.
