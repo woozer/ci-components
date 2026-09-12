@@ -12,7 +12,7 @@ The Java strategy composes independent Maven, Jib, Helm and release components. 
 
 Daily operation is covered by the [three actions](../README.md#three-everyday-actions). After a full, successful protected-main pipeline, **start-release** reserves the version and tag. Its `version: auto` starts at `0.1.0` and increments the highest reserved patch number. Open the job to override it, for example with `1.0.0`. Reduced `validate`/`publish` modes do not qualify for release.
 
-**release-delivery** starts **Release — <version>**. It rebuilds, tests and publishes the reserved version, deploys it to dev and runs API/browser tests. **publish-release** is the last job: it creates the actual GitLab Release after all required validation succeeds. Reserving a tag alone does not create that release record. Existing pinned consumers keep the old job names until they update their library revision.
+**release-delivery** starts `Release — <version>`. It rebuilds, tests and publishes the reserved version, deploys it to dev and runs API/browser tests. **publish-release** is the last job: it creates the actual GitLab Release after all required validation succeeds. Reserving a tag alone does not create that release record. Existing pinned consumers keep the old job names until they update their library revision.
 
 There is no separate tag approval. Clicking **start-release** is the release decision; code review happens before the merge. The local demo has one user, so that user also merges the merge request. In the real organization, require another person's review before merging into protected branches. A manual button alone does not enforce two-person approval.
 
