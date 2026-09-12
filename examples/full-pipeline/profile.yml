@@ -1,3 +1,5 @@
+# Future-stack reference, including modules/todo; not validated by ci-samples.
+# These are profile inputs, not a New pipeline form in the consuming project.
 # Optional organization defaults for the Maven + npm + Kubernetes baseline.
 # This is ordinary GitLab CI configuration. Applications own stages and needs.
 # Image defaults refer to organization CI variables; replace them with approved
