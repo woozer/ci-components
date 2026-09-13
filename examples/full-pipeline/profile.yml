@@ -42,7 +42,7 @@ spec:
     dependency-check-job-timeout:
       type: string
       default: 1h
-    fortify-scan-job-timeout:
+    fortify-job-timeout:
       type: string
       default: 2h
     artifact-expire-in:
@@ -74,30 +74,21 @@ spec:
     sonar-scanner-image:
       type: string
       default: $SONAR_SCANNER_IMAGE
-    sonar-gate-image:
-      type: string
-      default: $SONAR_GATE_IMAGE
     dependency-check-image:
       type: string
       default: $DEPENDENCY_CHECK_IMAGE
     npm-audit-image:
       type: string
       default: $NPM_AUDIT_IMAGE
-    fortify-scan-image:
+    fortify-image:
       type: string
-      default: $FORTIFY_SCAN_IMAGE
-    fortify-gate-image:
-      type: string
-      default: $FORTIFY_GATE_IMAGE
+      default: $FORTIFY_IMAGE
     image-build-image:
       type: string
       default: $IMAGE_BUILD_IMAGE
     image-scan-image:
       type: string
       default: $IMAGE_SCAN_IMAGE
-    sbom-image:
-      type: string
-      default: $SBOM_IMAGE
     image-sign-image:
       type: string
       default: $IMAGE_SIGN_IMAGE
@@ -157,17 +148,11 @@ include:
       working-directory: $[[ inputs.npm-directory ]]
       job-timeout: $[[ inputs.job-timeout ]]
       artifact-expire-in: $[[ inputs.artifact-expire-in ]]
-  - local: /modules/todo/sonar-scan.yml
+  - local: /modules/todo/sonar.yml
     inputs:
       image: $[[ inputs.sonar-scanner-image ]]
       working-directory: $[[ inputs.maven-directory ]]
       scanner-version: $[[ inputs.sonar-maven-plugin-version ]]
-      job-timeout: $[[ inputs.job-timeout ]]
-      artifact-expire-in: $[[ inputs.artifact-expire-in ]]
-  - local: /modules/todo/sonar-gate.yml
-    inputs:
-      image: $[[ inputs.sonar-gate-image ]]
-      task-file-variable: SONAR_SCAN_TASK_FILE
       job-timeout: $[[ inputs.job-timeout ]]
       artifact-expire-in: $[[ inputs.artifact-expire-in ]]
   - local: /modules/todo/dependency-check.yml
@@ -185,18 +170,12 @@ include:
       audit-level: $[[ inputs.npm-audit-level ]]
       job-timeout: $[[ inputs.job-timeout ]]
       artifact-expire-in: $[[ inputs.artifact-expire-in ]]
-  - local: /modules/todo/fortify-scan.yml
+  - local: /modules/todo/fortify.yml
     inputs:
-      image: $[[ inputs.fortify-scan-image ]]
-      adapter: $[[ inputs.fortify-scan-adapter ]]
-      job-timeout: $[[ inputs.fortify-scan-job-timeout ]]
-      artifact-expire-in: $[[ inputs.artifact-expire-in ]]
-  - local: /modules/todo/fortify-gate.yml
-    inputs:
-      image: $[[ inputs.fortify-gate-image ]]
-      adapter: $[[ inputs.fortify-gate-adapter ]]
-      receipt-variable: FORTIFY_SCAN_RECEIPT
-      job-timeout: $[[ inputs.job-timeout ]]
+      image: $[[ inputs.fortify-image ]]
+      scan-adapter: $[[ inputs.fortify-scan-adapter ]]
+      gate-adapter: $[[ inputs.fortify-gate-adapter ]]
+      job-timeout: $[[ inputs.fortify-job-timeout ]]
       artifact-expire-in: $[[ inputs.artifact-expire-in ]]
   - local: /templates/image-build.yml
     inputs:
@@ -206,12 +185,6 @@ include:
   - local: /modules/todo/image-scan.yml
     inputs:
       image: $[[ inputs.image-scan-image ]]
-      image-ref-variable: IMAGE_BUILD_IMAGE_REF
-      job-timeout: $[[ inputs.job-timeout ]]
-      artifact-expire-in: $[[ inputs.artifact-expire-in ]]
-  - local: /modules/todo/sbom.yml
-    inputs:
-      image: $[[ inputs.sbom-image ]]
       image-ref-variable: IMAGE_BUILD_IMAGE_REF
       job-timeout: $[[ inputs.job-timeout ]]
       artifact-expire-in: $[[ inputs.artifact-expire-in ]]

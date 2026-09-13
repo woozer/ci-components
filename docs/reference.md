@@ -2,7 +2,7 @@
 
 Begin voor een eigen pipeline met de [modulehandleiding](modules.md) en [uitvoerbare voorbeelden](../examples/samples/README.md). Dit naslagwerk beschrijft outputs en geavanceerde mogelijkheden, ook van toekomstige modules. De standaardpipeline voor Java is optioneel.
 
-Deze bibliotheek is bedoeld voor GitLab CI. Elke component voert één bewerking uit, declareert inputs, publiceert benoemde outputvariabelen en artifacts en ondersteunt pre-, post- en cleanup-hooks. De applicatiepipeline bepaalt de jobvolgorde en promotie naar omgevingen.
+Deze bibliotheek is bedoeld voor GitLab CI. Elke component voert één herkenbare taak uit, declareert inputs, publiceert benoemde outputvariabelen en artifacts en ondersteunt pre-, post- en cleanup-hooks. De applicatiepipeline bepaalt de jobvolgorde en promotie naar omgevingen.
 
 Het uitgangspunt is GitLab CI met Helm-deployment naar Kubernetes. Staat de broncode op GitHub, spiegel de componentrepository dan naar de GitLab-instance die de pipeline uitvoert: componentreferenties moeten dezelfde instance gebruiken. Voor GitHub Actions kunnen dezelfde functionele afspraken gelden, maar zijn adapters met `workflow_call`-inputs en joboutputs nodig. Zie [GitLab-componenten](https://docs.gitlab.com/ci/components/).
 
@@ -64,19 +64,16 @@ De centrale Java-pipeline gebruikt de volgende dertien modules uit `templates/`.
 
 ## Modules voor toekomstig gebruik
 
-De volgende twaalf modules staan in [modules/todo/](../modules/todo/) en worden niet door de Java-demo ingeladen. Hun contracttests blijven bestaan. Valideer de echte dienstintegraties voordat een module naar de actieve verzameling verhuist.
+De volgende negen modules staan in [modules/todo/](../modules/todo/) en worden niet door de Java-demo ingeladen. Hun contracttests blijven bestaan. Valideer de echte dienstintegraties voordat een module naar de actieve verzameling verhuist.
 
 | Module | Beoogde verantwoordelijkheid | Aanvullende outputs met standaardprefix |
 |---|---|---|
 | `maven-test` | Surefire-unittests en het ingestelde JaCoCo-rapport | `MAVEN_TEST_REPORT_ROOT` |
-| `sonar-scan` | Maven/Java-analyse en coverage aanbieden | `SONAR_SCAN_TASK_FILE` |
-| `sonar-gate` | Op die analyse wachten en de Sonar-gate afdwingen | `SONAR_GATE_ANALYSIS_ID`, `SONAR_GATE_RESULT` |
+| `sonar` | Maven/Java-analyse uitvoeren en op de quality gate wachten | `SONAR_TASK_FILE` |
 | `dependency-check` | OWASP Dependency-Check op Maven-dependencies uitvoeren | `DEPENDENCY_CHECK_REPORT_DIR` |
 | `npm-audit` | npm-dependencies controleren | `NPM_AUDIT_REPORT` |
-| `fortify-scan` | De scanadapter voor de gekozen Fortify-editie uitvoeren | `FORTIFY_SCAN_RECEIPT` |
-| `fortify-gate` | Beleid toetsen aan precies het aangeleverde scanbewijs | `FORTIFY_GATE_REPORT` |
-| `image-scan` | De kandidaatimage op kwetsbaarheden scannen | `IMAGE_SCAN_REPORT` |
-| `sbom` | De kandidaatimage inventariseren in CycloneDX-formaat | `SBOM_REPORT` |
+| `fortify` | Scannen en beleid toetsen aan precies die scan | `FORTIFY_RECEIPT`, `FORTIFY_REPORT` |
+| `image-scan` | De kandidaatimage scannen, een CycloneDX-SBOM maken en de ernstgrens afdwingen | `IMAGE_SCAN_REPORT`, `IMAGE_SCAN_SBOM` |
 | `image-sign` | De kandidaatdigest met Cosign ondertekenen | `IMAGE_SIGN_IMAGE_REF` |
 | `image-verify` | De handtekening met de goedgekeurde publieke sleutel verifiëren | `IMAGE_VERIFY_IMAGE_REF` |
 | `zap-baseline` | Een passieve ZAP-baselinescan op de deployment uitvoeren | `ZAP_BASELINE_REPORT_DIR`, `ZAP_BASELINE_TARGET_URL` |
@@ -97,18 +94,14 @@ Het onderstaande diagram toont het uitgebreide toekomstige referentievoorbeeld, 
 flowchart TD
   MB[Maven-build] --> MT[Maven-unittests]
   NB[npm-build] --> NT[npm-unittests]
-  MT --> SS[Sonar-analyse]
+  MT --> SS[Sonar-analyse en kwaliteitscontrole]
   NT --> SS
-  SS --> SG[Sonar-kwaliteitscontrole]
-  FS[Fortify-scan] --> FG[Fortify-beleidscontrole]
+  FS[Fortify-scan en beleidscontrole] --> IB
   DC[Dependency-Check] --> IB[Kandidaatimage bouwen]
   NA[npm audit] --> IB
-  SG --> IB
-  FG --> IB
-  IB --> IS[Image op kwetsbaarheden scannen]
-  IB --> SB[SBOM]
+  SS --> IB
+  IB --> IS[Imagescan, SBOM en ernstgrens]
   IS --> SIGN[Image-digest ondertekenen]
-  SB --> SIGN
   SIGN --> VERIFY[Handtekening verifiëren]
   VERIFY --> DEPLOY[Naar aparte testomgeving deployen]
   DEPLOY --> CUC[Cucumber-integratietests]
@@ -150,7 +143,7 @@ Bewerk actieve bestanden `templates/<component-name>.yml` rechtstreeks. Toekomst
 pipelines/java-service.yml   # jobvolgorde en beleid voor Java
 shared/module.yml           # gedeelde joblifecycle
 templates/                  # dertien actieve modules
-modules/todo/               # twaalf modules voor toekomstig gebruik
+modules/todo/               # negen modules voor toekomstig gebruik
 ```
 
 De applicatie gebruikt de openbare componentnaam en de bijbehorende afspraken. Houd bij implementatiewijzigingen inputnamen en -typen, outputnamen en -betekenis, artifactpaden, hookgedrag, imagevereisten en foutafhandeling stabiel. De afnemer bepaalt de jobafhankelijkheden.

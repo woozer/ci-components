@@ -30,4 +30,4 @@ Naslag: [modulehandleiding](docs/modules.md), [verplichte inputs](docs/inputs.md
 
 We volgen GitLabs advies over componenttests en hergebruik. GitLab levert jobs, afhankelijkheden, artifacts, inputs en locks; de keuzetermijn van tien seconden en automatische patchversie zijn afspraken van onze optionele standaardpipeline. Zie [standaarden en keuzes](docs/reuse-and-standards.md).
 
-De dertien actieve modules staan in `templates/`; twaalf toekomstige modules staan in [modules/todo/](modules/todo/). Er is geen eigen handoff-keten of YAML-generator.
+De dertien actieve modules staan in `templates/`; negen toekomstige modules staan in [modules/todo/](modules/todo/). Er is geen eigen handoff-keten of YAML-generator.

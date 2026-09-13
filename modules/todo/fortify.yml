@@ -1,10 +1,10 @@
-# Run an edition-specific Fortify scan adapter and validate its receipt
+# Run an edition-specific Fortify scan and enforce policy for that exact scan
 spec:
   inputs:
     job-name:
       description: 'Unique job name within the consuming pipeline'
       type: 'string'
-      default: 'fortify-scan'
+      default: 'fortify'
     stage:
       description: 'Stage declared by the consuming pipeline'
       type: 'string'
@@ -27,7 +27,7 @@ spec:
     output-prefix:
       description: 'Unique namespace for dotenv outputs'
       type: 'string'
-      default: 'FORTIFY_SCAN'
+      default: 'FORTIFY'
       regex: '^[A-Z][A-Z0-9_]*$'
     pre-hook:
       description: 'Optional repository-relative POSIX shell script before operation'
@@ -45,9 +45,12 @@ spec:
       description: 'Non-secret JSON configuration provided as CI_MODULE_PARAMETERS_FILE'
       type: 'string'
       default: '{}'
-    adapter:
-      description: 'Repository-relative adapter implementing docs/fortify-adapters.md'
+    scan-adapter:
+      description: 'Repository-relative scan adapter implementing docs/fortify-adapters.md'
       type: 'string'
+    gate-adapter:
+      description: 'Repository-relative policy adapter; must fail on policy violation'
+      type: string
 ---
 include:
   - local: /shared/module.yml
@@ -67,23 +70,35 @@ include:
     MODULE_POST_HOOK: '$[[ inputs.post-hook ]]'
     MODULE_CLEANUP_HOOK: '$[[ inputs.cleanup-hook ]]'
     MODULE_HOOK_PARAMETERS_JSON: '$[[ inputs.hook-parameters-json ]]'
-    FORTIFY_ADAPTER: '$[[ inputs.adapter ]]'
+    FORTIFY_SCAN_ADAPTER: '$[[ inputs.scan-adapter ]]'
+    FORTIFY_GATE_ADAPTER: '$[[ inputs.gate-adapter ]]'
   before_script:
     - !reference [.ci-module, before_script]
   script:
     - |
-      sh "$CI_PROJECT_DIR/$FORTIFY_ADAPTER" \
-        --receipt "$CI_MODULE_OUTPUT_DIR/scan.json" \
-        --commit "$CI_COMMIT_SHA" --pipeline-id "$CI_PIPELINE_ID"
       python3 - <<'PY'
-      import json, os, pathlib
-      receipt = json.loads((pathlib.Path(os.environ['CI_MODULE_OUTPUT_DIR']) / 'scan.json').read_text())
-      assert receipt['commit_sha'] == os.environ['CI_COMMIT_SHA'], 'Wrong scanned commit'
-      assert str(receipt['pipeline_id']) == os.environ['CI_PIPELINE_ID'], 'Wrong scanned pipeline'
-      assert receipt['status'] == 'completed', 'Scan has not completed'
-      assert receipt['scan_id'], 'Missing immutable scan ID'
+      import json, os, pathlib, subprocess
+
+      root = pathlib.Path(os.environ['CI_PROJECT_DIR'])
+      output = pathlib.Path(os.environ['CI_MODULE_OUTPUT_DIR'])
+      receipt_path, report_path = output / 'scan.json', output / 'policy.json'
+      subprocess.run(['sh', str(root / os.environ['FORTIFY_SCAN_ADAPTER']),
+                      '--receipt', str(receipt_path), '--commit', os.environ['CI_COMMIT_SHA'],
+                      '--pipeline-id', os.environ['CI_PIPELINE_ID']], check=True)
+      receipt = json.loads(receipt_path.read_text())
+      if (receipt['commit_sha'] != os.environ['CI_COMMIT_SHA']
+              or str(receipt['pipeline_id']) != os.environ['CI_PIPELINE_ID']
+              or receipt['status'] != 'completed' or not receipt['scan_id']):
+          raise SystemExit('Fortify receipt must identify a completed scan of this commit and pipeline')
+      subprocess.run(['sh', str(root / os.environ['FORTIFY_GATE_ADAPTER']),
+                      '--receipt', str(receipt_path), '--report', str(report_path)], check=True)
+      report = json.loads(report_path.read_text())
+      if (report['scan_id'] != receipt['scan_id']
+              or not report['policy_version'] or report['status'] != 'passed'):
+          raise SystemExit('Fortify policy must pass for the exact completed scan')
       PY
       emit RECEIPT ".ci-output/$CI_JOB_NAME/scan.json"
+      emit REPORT ".ci-output/$CI_JOB_NAME/policy.json"
     - !reference [.ci-module, script]
   after_script:
     - !reference [.ci-module, after_script]

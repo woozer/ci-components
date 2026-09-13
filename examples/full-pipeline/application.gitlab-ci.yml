@@ -9,7 +9,7 @@ workflow:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_REF_PROTECTED == "true"'
     - when: never
 
-stages: [build, test, analyze, gate, package, supply-chain, sign, verify, deploy-test, integration, deploy-production]
+stages: [build, test, analyze, package, supply-chain, sign, verify, deploy-test, integration, deploy-production]
 
 include:
   - project: platform/ci-components
@@ -34,7 +34,7 @@ npm-test:
   needs:
     - job: npm-build
       artifacts: false
-sonar-scan:
+sonar:
   needs:
     - job: maven-build
       artifacts: true
@@ -42,23 +42,15 @@ sonar-scan:
       artifacts: true
     - job: npm-test
       artifacts: true
-sonar-gate:
-  needs:
-    - job: sonar-scan
-      artifacts: true
-fortify-gate:
-  needs:
-    - job: fortify-scan
-      artifacts: true
 image-build:
   needs:
     - job: maven-build
       artifacts: true
     - job: npm-build
       artifacts: true
-    - job: sonar-gate
+    - job: sonar
       artifacts: false
-    - job: fortify-gate
+    - job: fortify
       artifacts: false
     - job: dependency-check
       artifacts: false
@@ -68,17 +60,11 @@ image-scan:
   needs:
     - job: image-build
       artifacts: true
-sbom:
-  needs:
-    - job: image-build
-      artifacts: true
 image-sign:
   needs:
     - job: image-build
       artifacts: true
     - job: image-scan
-      artifacts: false
-    - job: sbom
       artifacts: true
 image-verify:
   needs:
