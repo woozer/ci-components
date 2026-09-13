@@ -5,6 +5,9 @@ spec:
       description: 'Released component version or full commit SHA'
     library-project:
       default: root/ci-components
+    plain-http:
+      type: boolean
+      default: false
 ---
 stages: [package]
 
@@ -12,3 +15,11 @@ include:
   - component: $CI_SERVER_FQDN/$[[ inputs.library-project ]]/image-build@$[[ inputs.library-ref ]]
     inputs:
       image: $BUILDKIT_CI_IMAGE
+      working-directory: ui
+      registry: $OCI_REGISTRY
+      registry-username: $ARTIFACTORY_USERNAME
+      registry-password-file: $ARTIFACTORY_PASSWORD_FILE
+      image-repository: $UI_IMAGE_REPOSITORY
+      image-tag: $APP_VERSION
+      base-image: $NGINX_RUNTIME_IMAGE
+      plain-http: $[[ inputs.plain-http ]]

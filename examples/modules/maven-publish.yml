@@ -13,4 +13,4 @@ include:
     inputs:
       image: $JAVA_CI_IMAGE
       settings-file: "$MAVEN_SETTINGS_FILE"
-      repository-url: "$MAVEN_REPOSITORY_URL"
+      repository-url: "$MAVEN_PUBLISH_URL"

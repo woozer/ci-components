@@ -1,0 +1,31 @@
+spec:
+  inputs:
+    library-ref:
+---
+include:
+  - project: root/ci-components
+    ref: $[[ inputs.library-ref ]]
+    file: /examples/modules/jib-build.yml
+    inputs:
+      library-ref: $[[ inputs.library-ref ]]
+      plain-http: true
+      version: '$RELEASE_VERSION'
+  - project: root/ci-components
+    ref: $[[ inputs.library-ref ]]
+    file: /examples/modules/helm-publish.yml
+    inputs:
+      library-ref: $[[ inputs.library-ref ]]
+      plain-http: true
+      version: '$RELEASE_VERSION'
+
+jib-build:
+  variables:
+    IMAGE_REPOSITORY: '$OCI_REGISTRY/$OCI_REPOSITORY/root-ci-samples/module-releases/api'
+
+helm-publish:
+  variables:
+    CHART_REPOSITORY: 'oci://$OCI_REGISTRY/$OCI_REPOSITORY/root-ci-samples/module-releases/charts'
+
+gitlab-release:
+  when: on_success
+  needs: [release-reserve, release-check, jib-build, helm-publish]

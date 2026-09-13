@@ -2,6 +2,8 @@
 
 Neem alleen de modules op die je nodig hebt. Je `.gitlab-ci.yml` bepaalt stages, afhankelijkheden tussen jobs, voorwaarden en extra jobs. Een organisatieprofiel of standaardpipeline voor Java is niet verplicht. Elke module heeft een eigen image en outputs; de gedeelde afhandeling van hooks wordt automatisch ingeladen.
 
+Voer elk actief voorbeeld direct uit via [CI samples → New pipeline](http://localhost:8929/root/ci-samples/-/pipelines/new): kies `main` en bijvoorbeeld `module-sonar`. Zie [alle modulevoorbeelden](../examples/modules/README.md).
+
 ## Een module kiezen
 
 Elk voorbeeld is uitvoerbare YAML met de vereiste stage en één module. Vul de verplichte bibliotheekversie in, lever de image en uitvoeringsvoorwaarden aan en pas de applicatiepaden aan. Alle inputtypen en standaardwaarden staan in `spec:inputs` van de gelinkte module; inputs zonder standaardwaarde zijn verplicht. Zie [verplichte inputs](inputs.md).

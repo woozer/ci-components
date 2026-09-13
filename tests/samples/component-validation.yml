@@ -16,6 +16,7 @@ validate-samples:
         - templates/**/*
         - shared/**/*
         - examples/samples/**/*
+        - examples/modules/**/*
         - tests/samples/**/*
         - .gitlab-ci.yml
   inherit:

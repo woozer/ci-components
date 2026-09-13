@@ -5,6 +5,11 @@ spec:
       description: 'Released component version or full commit SHA'
     library-project:
       default: root/ci-components
+    plain-http:
+      type: boolean
+      default: false
+    version:
+      default: '$APP_VERSION'
 ---
 stages: [package]
 
@@ -15,5 +20,7 @@ include:
       project-selector: "hello-app"
       settings-file: "$ARTIFACTORY_MAVEN_SETTINGS"
       image-repository: "$IMAGE_REPOSITORY"
+      image-tag: '$[[ inputs.version ]]'
       base-image: "$JAVA_RUNTIME_IMAGE"
       digest-file: "hello-app/target/jib-image.digest"
+      allow-insecure-registry: $[[ inputs.plain-http ]]

@@ -1,0 +1,30 @@
+spec:
+  inputs:
+    library-ref:
+    module:
+---
+include:
+  - project: root/ci-components
+    ref: $[[ inputs.library-ref ]]
+    file: /examples/modules/release-reserve.yml
+    inputs:
+      library-ref: $[[ inputs.library-ref ]]
+    rules:
+      - if: '"$[[ inputs.module ]]" != "release-reserve"'
+  - project: root/ci-components
+    ref: $[[ inputs.library-ref ]]
+    file: /examples/modules/release-check.yml
+    inputs:
+      library-ref: $[[ inputs.library-ref ]]
+    rules:
+      - if: '"$[[ inputs.module ]]" == "gitlab-release"'
+  - local: /tests/samples/module-release-publish-runtime.yml
+    inputs:
+      library-ref: $[[ inputs.library-ref ]]
+    rules:
+      - if: '"$[[ inputs.module ]]" == "gitlab-release"'
+
+# These examples deliberately reserve real tags in ci-samples only.
+# The parent lock covers reservation, publication and assertions.
+release-reserve:
+  when: on_success

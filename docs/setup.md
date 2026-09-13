@@ -42,7 +42,7 @@ Gebruik bijpassende Java-/Node-versies voor build en tests. Configureer interne 
 
 ## Afspraken voor Maven en npm
 
-Maven-componenten gebruiken standaard een uitvoerbare Maven Wrapper in de ingestelde werkmap. `maven-build`, `maven-publish`, `jib-build`, `cucumber-test` en `sonar` accepteren ook `maven-executable: mvn` om Maven uit de goedgekeurde image te gebruiken. Commit de versie- en checksumconfiguratie van de wrapper. Zet Surefire-, Failsafe-, JaCoCo- en scanpluginversies vast in de parent-POM of componentinputs.
+Maven-componenten gebruiken standaard een uitvoerbare Maven Wrapper in de ingestelde werkmap. `maven-build`, `maven-publish`, `jib-build`, `cucumber-test` en `sonar` accepteren ook `maven-executable: mvn` om Maven uit de goedgekeurde image te gebruiken. Commit de versie- en checksumconfiguratie van de wrapper. Bij een `only-script` wrapper met een ZIP-distributie en checksum moet de tool-image ook `unzip` bevatten. Zet Surefire-, Failsafe-, JaCoCo- en scanpluginversies vast in de parent-POM of componentinputs.
 
 Het profiel `ci-unit` moet JaCoCo `prepare-agent` vóór de tests activeren en Surefire instellen. De testcomponent voert `test jacoco:report` uit. Maak het XML-rapport beschikbaar voor Sonar. `sonar` behoudt opgehaalde coverage-artifacts en installeert reactorartifacts met overgeslagen tests om afhankelijkheden tussen modules op te lossen. Die voorbereiding kan opnieuw compileren/verpakken; de release-OCI-image wordt nog steeds één keer gebouwd vanuit de buildartifacts.
 

@@ -5,6 +5,10 @@ spec:
       description: 'Released component version or full commit SHA'
     library-project:
       default: root/ci-components
+    api-url:
+      default: '$CI_API_V4_URL'
+    artifact-base-url:
+      default: ''
 ---
 stages: [finish]
 
@@ -16,6 +20,8 @@ include:
       image-ref-variable: "JIB_BUILD_IMAGE_REF"
       chart-ref-variable: "HELM_PUBLISH_REF"
       chart-version-variable: "HELM_PUBLISH_VERSION"
+      api-url: '$[[ inputs.api-url ]]'
+      artifact-base-url: '$[[ inputs.artifact-base-url ]]'
 
 gitlab-release:
   when: manual

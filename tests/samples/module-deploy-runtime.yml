@@ -1,0 +1,32 @@
+spec:
+  inputs:
+    library-ref:
+---
+# Publish genuine, unique prerequisites for the standalone Helm deployment.
+include:
+  - project: root/ci-components
+    ref: $[[ inputs.library-ref ]]
+    file: /examples/modules/jib-build.yml
+    inputs:
+      library-ref: $[[ inputs.library-ref ]]
+      plain-http: true
+  - project: root/ci-components
+    ref: $[[ inputs.library-ref ]]
+    file: /examples/modules/helm-publish.yml
+    inputs:
+      library-ref: $[[ inputs.library-ref ]]
+      plain-http: true
+
+helm-deploy:
+  needs: [jib-build, helm-publish]
+
+cleanup-sample:
+  stage: cleanup
+  when: always
+  image:
+    name: $HELM_CI_IMAGE
+    entrypoint: ['']
+  cache: []
+  dependencies: []
+  script:
+    - helm uninstall "$CI_PROJECT_NAME" --namespace "$TEST_NAMESPACE" --kubeconfig "$SAMPLE_KUBECONFIG" --ignore-not-found --wait --timeout 2m

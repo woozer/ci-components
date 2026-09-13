@@ -5,14 +5,28 @@ spec:
       description: 'Released component version or full commit SHA'
     library-project:
       default: root/ci-components
+    plain-http:
+      type: boolean
+      default: false
+    version:
+      default: '$APP_VERSION'
 ---
 stages: [package]
 
 include:
+  - project: $[[ inputs.library-project ]]
+    ref: $[[ inputs.library-ref ]]
+    file: /shared/helm.yml
   - component: $CI_SERVER_FQDN/$[[ inputs.library-project ]]/helm-publish@$[[ inputs.library-ref ]]
     inputs:
       image: $HELM_CI_IMAGE
       chart: "helm/hello-world"
       chart-name: "hello-world"
-      chart-version: "$APP_VERSION"
+      chart-version: '$[[ inputs.version ]]'
+      app-version: '$[[ inputs.version ]]'
       oci-repository: "$CHART_REPOSITORY"
+      plain-http: $[[ inputs.plain-http ]]
+
+helm-publish:
+  before_script:
+    - !reference [.helm-login, before_script]

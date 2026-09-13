@@ -1,0 +1,9 @@
+spec:
+  inputs:
+    module:
+---
+# Keep the large scanner databases out of unrelated build/test caches.
+'$[[ inputs.module ]]':
+  cache:
+    key: 'sample-$[[ inputs.module ]]'
+    paths: [.m2/, .cache/dependency-check/, .sonar/cache/]
