@@ -1,11 +1,10 @@
 # Native sample selection; each child executes the exact consumer example YAML.
 spec:
+  include:
+    - local: /tests/samples/options.yml
   inputs:
     library-ref:
       description: 'Component release version or full candidate commit SHA'
-    sample:
-      default: all
-      options: [all, maven-build, build-and-test, deploy-and-test, two-deployables]
 ---
 workflow:
   name: 'Samples — $[[ inputs.sample ]]'
@@ -100,3 +99,340 @@ two-deployables:
         inputs:
           sample: two-deployables
     strategy: mirror
+
+module-cucumber-test:
+  stage: test
+  rules:
+    - if: '"$[[ inputs.sample ]]" == "all" || "$[[ inputs.sample ]]" == "module-cucumber-test"'
+  inherit:
+    variables: false
+  trigger:
+    include:
+      - project: root/ci-components
+        ref: '$[[ inputs.library-ref ]]'
+        file: /examples/modules/cucumber-test.yml
+        inputs:
+          library-ref: '$[[ inputs.library-ref ]]'
+      - project: root/ci-components
+        ref: '$[[ inputs.library-ref ]]'
+        file: /tests/samples/module-runtime.yml
+        inputs:
+          library-ref: '$[[ inputs.library-ref ]]'
+          module: cucumber-test
+    strategy: mirror
+
+module-dependency-check:
+  stage: test
+  rules:
+    - if: '"$[[ inputs.sample ]]" == "all" || "$[[ inputs.sample ]]" == "module-dependency-check"'
+  inherit:
+    variables: false
+  trigger:
+    include:
+      - project: root/ci-components
+        ref: '$[[ inputs.library-ref ]]'
+        file: /examples/modules/dependency-check.yml
+        inputs:
+          library-ref: '$[[ inputs.library-ref ]]'
+          nvd-datafeed-url: 'https://dependency-check.github.io/DependencyCheck_Builder/nvd_cache/nvdcve-{0}.json.gz'
+      - project: root/ci-components
+        ref: '$[[ inputs.library-ref ]]'
+        file: /tests/samples/module-runtime.yml
+        inputs:
+          library-ref: '$[[ inputs.library-ref ]]'
+          module: dependency-check
+    strategy: mirror
+
+module-deployment-select:
+  stage: test
+  rules:
+    - if: '"$[[ inputs.sample ]]" == "all" || "$[[ inputs.sample ]]" == "module-deployment-select"'
+  inherit:
+    variables: false
+  trigger:
+    include:
+      - project: root/ci-components
+        ref: '$[[ inputs.library-ref ]]'
+        file: /examples/modules/deployment-select.yml
+        inputs:
+          library-ref: '$[[ inputs.library-ref ]]'
+      - project: root/ci-components
+        ref: '$[[ inputs.library-ref ]]'
+        file: /tests/samples/module-runtime.yml
+        inputs:
+          library-ref: '$[[ inputs.library-ref ]]'
+          module: deployment-select
+    strategy: mirror
+
+module-gitlab-release:
+  stage: test
+  rules:
+    - if: '("$[[ inputs.sample ]]" == "all" || "$[[ inputs.sample ]]" == "module-gitlab-release") && $CI_COMMIT_REF_PROTECTED == "true" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  inherit:
+    variables: false
+  resource_group: samples-release
+  trigger:
+    include:
+      - project: root/ci-components
+        ref: '$[[ inputs.library-ref ]]'
+        file: /examples/modules/gitlab-release.yml
+        inputs:
+          library-ref: '$[[ inputs.library-ref ]]'
+          api-url: http://host.docker.internal:8929/api/v4
+          artifact-base-url: http://localhost:8082/artifactory
+      - project: root/ci-components
+        ref: '$[[ inputs.library-ref ]]'
+        file: /tests/samples/module-runtime.yml
+        inputs:
+          library-ref: '$[[ inputs.library-ref ]]'
+          module: gitlab-release
+    strategy: mirror
+
+module-helm-deploy:
+  stage: test
+  rules:
+    - if: '"$[[ inputs.sample ]]" == "all" || "$[[ inputs.sample ]]" == "module-helm-deploy"'
+  inherit:
+    variables: false
+  resource_group: samples-deployment
+  trigger:
+    include:
+      - project: root/ci-components
+        ref: '$[[ inputs.library-ref ]]'
+        file: /examples/modules/helm-deploy.yml
+        inputs:
+          library-ref: '$[[ inputs.library-ref ]]'
+          plain-http: true
+      - project: root/ci-components
+        ref: '$[[ inputs.library-ref ]]'
+        file: /tests/samples/module-runtime.yml
+        inputs:
+          library-ref: '$[[ inputs.library-ref ]]'
+          module: helm-deploy
+    strategy: mirror
+
+module-helm-publish:
+  stage: test
+  rules:
+    - if: '"$[[ inputs.sample ]]" == "all" || "$[[ inputs.sample ]]" == "module-helm-publish"'
+  inherit:
+    variables: false
+  trigger:
+    include:
+      - project: root/ci-components
+        ref: '$[[ inputs.library-ref ]]'
+        file: /examples/modules/helm-publish.yml
+        inputs:
+          library-ref: '$[[ inputs.library-ref ]]'
+          plain-http: true
+      - project: root/ci-components
+        ref: '$[[ inputs.library-ref ]]'
+        file: /tests/samples/module-runtime.yml
+        inputs:
+          library-ref: '$[[ inputs.library-ref ]]'
+          module: helm-publish
+    strategy: mirror
+
+module-image-build:
+  stage: test
+  rules:
+    - if: '"$[[ inputs.sample ]]" == "all" || "$[[ inputs.sample ]]" == "module-image-build"'
+  inherit:
+    variables: false
+  trigger:
+    include:
+      - project: root/ci-components
+        ref: '$[[ inputs.library-ref ]]'
+        file: /examples/modules/image-build.yml
+        inputs:
+          library-ref: '$[[ inputs.library-ref ]]'
+          plain-http: true
+      - project: root/ci-components
+        ref: '$[[ inputs.library-ref ]]'
+        file: /tests/samples/module-runtime.yml
+        inputs:
+          library-ref: '$[[ inputs.library-ref ]]'
+          module: image-build
+    strategy: mirror
+
+module-jib-build:
+  stage: test
+  rules:
+    - if: '"$[[ inputs.sample ]]" == "all" || "$[[ inputs.sample ]]" == "module-jib-build"'
+  inherit:
+    variables: false
+  trigger:
+    include:
+      - project: root/ci-components
+        ref: '$[[ inputs.library-ref ]]'
+        file: /examples/modules/jib-build.yml
+        inputs:
+          library-ref: '$[[ inputs.library-ref ]]'
+          plain-http: true
+      - project: root/ci-components
+        ref: '$[[ inputs.library-ref ]]'
+        file: /tests/samples/module-runtime.yml
+        inputs:
+          library-ref: '$[[ inputs.library-ref ]]'
+          module: jib-build
+    strategy: mirror
+
+module-maven-build:
+  stage: test
+  rules:
+    - if: '"$[[ inputs.sample ]]" == "all" || "$[[ inputs.sample ]]" == "module-maven-build"'
+  inherit:
+    variables: false
+  trigger:
+    include:
+      - project: root/ci-components
+        ref: '$[[ inputs.library-ref ]]'
+        file: /examples/modules/maven-build.yml
+        inputs:
+          library-ref: '$[[ inputs.library-ref ]]'
+      - project: root/ci-components
+        ref: '$[[ inputs.library-ref ]]'
+        file: /tests/samples/module-runtime.yml
+        inputs:
+          library-ref: '$[[ inputs.library-ref ]]'
+          module: maven-build
+    strategy: mirror
+
+module-maven-publish:
+  stage: test
+  rules:
+    - if: '"$[[ inputs.sample ]]" == "all" || "$[[ inputs.sample ]]" == "module-maven-publish"'
+  inherit:
+    variables: false
+  trigger:
+    include:
+      - project: root/ci-components
+        ref: '$[[ inputs.library-ref ]]'
+        file: /examples/modules/maven-publish.yml
+        inputs:
+          library-ref: '$[[ inputs.library-ref ]]'
+      - project: root/ci-components
+        ref: '$[[ inputs.library-ref ]]'
+        file: /tests/samples/module-runtime.yml
+        inputs:
+          library-ref: '$[[ inputs.library-ref ]]'
+          module: maven-publish
+    strategy: mirror
+
+module-npm-build:
+  stage: test
+  rules:
+    - if: '"$[[ inputs.sample ]]" == "all" || "$[[ inputs.sample ]]" == "module-npm-build"'
+  inherit:
+    variables: false
+  trigger:
+    include:
+      - project: root/ci-components
+        ref: '$[[ inputs.library-ref ]]'
+        file: /examples/modules/npm-build.yml
+        inputs:
+          library-ref: '$[[ inputs.library-ref ]]'
+      - project: root/ci-components
+        ref: '$[[ inputs.library-ref ]]'
+        file: /tests/samples/module-runtime.yml
+        inputs:
+          library-ref: '$[[ inputs.library-ref ]]'
+          module: npm-build
+    strategy: mirror
+
+module-npm-test:
+  stage: test
+  rules:
+    - if: '"$[[ inputs.sample ]]" == "all" || "$[[ inputs.sample ]]" == "module-npm-test"'
+  inherit:
+    variables: false
+  trigger:
+    include:
+      - project: root/ci-components
+        ref: '$[[ inputs.library-ref ]]'
+        file: /examples/modules/npm-test.yml
+        inputs:
+          library-ref: '$[[ inputs.library-ref ]]'
+      - project: root/ci-components
+        ref: '$[[ inputs.library-ref ]]'
+        file: /tests/samples/module-runtime.yml
+        inputs:
+          library-ref: '$[[ inputs.library-ref ]]'
+          module: npm-test
+    strategy: mirror
+
+module-release-check:
+  stage: test
+  rules:
+    - if: '("$[[ inputs.sample ]]" == "all" || "$[[ inputs.sample ]]" == "module-release-check") && $CI_COMMIT_REF_PROTECTED == "true" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  inherit:
+    variables: false
+  resource_group: samples-release
+  trigger:
+    include:
+      - project: root/ci-components
+        ref: '$[[ inputs.library-ref ]]'
+        file: /examples/modules/release-check.yml
+        inputs:
+          library-ref: '$[[ inputs.library-ref ]]'
+      - project: root/ci-components
+        ref: '$[[ inputs.library-ref ]]'
+        file: /tests/samples/module-runtime.yml
+        inputs:
+          library-ref: '$[[ inputs.library-ref ]]'
+          module: release-check
+    strategy: mirror
+
+module-release-reserve:
+  stage: test
+  rules:
+    - if: '("$[[ inputs.sample ]]" == "all" || "$[[ inputs.sample ]]" == "module-release-reserve") && $CI_COMMIT_REF_PROTECTED == "true" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  inherit:
+    variables: false
+  resource_group: samples-release
+  trigger:
+    include:
+      - project: root/ci-components
+        ref: '$[[ inputs.library-ref ]]'
+        file: /examples/modules/release-reserve.yml
+        inputs:
+          library-ref: '$[[ inputs.library-ref ]]'
+      - project: root/ci-components
+        ref: '$[[ inputs.library-ref ]]'
+        file: /tests/samples/module-runtime.yml
+        inputs:
+          library-ref: '$[[ inputs.library-ref ]]'
+          module: release-reserve
+    strategy: mirror
+
+module-sonar:
+  stage: test
+  rules:
+    - if: '("$[[ inputs.sample ]]" == "all" || "$[[ inputs.sample ]]" == "module-sonar") && $CI_COMMIT_REF_PROTECTED == "true" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  inherit:
+    variables: false
+  resource_group: samples-sonar
+  trigger:
+    include:
+      - project: root/ci-components
+        ref: '$[[ inputs.library-ref ]]'
+        file: /examples/modules/sonar.yml
+        inputs:
+          library-ref: '$[[ inputs.library-ref ]]'
+      - project: root/ci-components
+        ref: '$[[ inputs.library-ref ]]'
+        file: /tests/samples/module-runtime.yml
+        inputs:
+          library-ref: '$[[ inputs.library-ref ]]'
+          module: sonar
+    strategy: mirror
+
+require-protected-main:
+  stage: test
+  tags: [local-docker]
+  image: $JAVA_CI_IMAGE
+  rules:
+    - if: '"$[[ inputs.sample ]]" =~ /^module-(sonar|release-reserve|release-check|gitlab-release)$/ && ($CI_COMMIT_REF_PROTECTED != "true" || $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH)'
+  script:
+    - echo 'This sample requires the protected default branch and its scoped test credentials.' >&2
+    - exit 1

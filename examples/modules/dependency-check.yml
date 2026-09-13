@@ -5,6 +5,8 @@ spec:
       description: Released component version or full commit SHA
     library-project:
       default: root/ci-components
+    nvd-datafeed-url:
+      default: 'https://nvd.nist.gov/feeds/json/cve/2.0/nvdcve-2.0-{0}.json.gz'
 ---
 stages: [analyze]
 
@@ -12,3 +14,4 @@ include:
   - component: $CI_SERVER_FQDN/$[[ inputs.library-project ]]/dependency-check@$[[ inputs.library-ref ]]
     inputs:
       image: $DEPENDENCY_CHECK_IMAGE
+      nvd-datafeed-url: '$[[ inputs.nvd-datafeed-url ]]'

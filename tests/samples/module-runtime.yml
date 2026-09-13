@@ -1,0 +1,119 @@
+# Local test prerequisites and assertions; the included example owns the module job.
+spec:
+  inputs:
+    module:
+    library-ref:
+---
+include:
+  - local: /config/organization.yml
+  - local: /tests/samples/module-image-runtime.yml
+    inputs:
+      library-ref: $[[ inputs.library-ref ]]
+    rules:
+      - if: '"$[[ inputs.module ]]" == "image-build"'
+  - local: /tests/samples/module-deploy-runtime.yml
+    inputs:
+      library-ref: $[[ inputs.library-ref ]]
+    rules:
+      - if: '"$[[ inputs.module ]]" == "helm-deploy"'
+  - local: /tests/samples/module-release-runtime.yml
+    inputs:
+      library-ref: $[[ inputs.library-ref ]]
+      module: $[[ inputs.module ]]
+    rules:
+      - if: '"$[[ inputs.module ]]" == "release-reserve" || "$[[ inputs.module ]]" == "release-check" || "$[[ inputs.module ]]" == "gitlab-release"'
+  - local: /tests/samples/module-selection-runtime.yml
+    rules:
+      - if: '"$[[ inputs.module ]]" == "deployment-select"'
+  - local: /tests/samples/module-maven-runtime.yml
+    rules:
+      - if: '"$[[ inputs.module ]]" == "maven-publish"'
+  - local: /tests/samples/module-scan-runtime.yml
+    inputs:
+      module: $[[ inputs.module ]]
+    rules:
+      - if: '"$[[ inputs.module ]]" == "sonar" || "$[[ inputs.module ]]" == "dependency-check"'
+
+workflow:
+  name: 'Modulevoorbeeld — $[[ inputs.module ]]'
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "parent_pipeline"'
+
+stages: [configure, build, test, integration, analyze, release, check, package, publish, deploy-test, finish, verify, cleanup]
+
+default:
+  tags: [local-docker]
+  cache:
+    key: sample-dependencies
+    paths: [.m2/, .npm/]
+
+variables:
+  MAVEN_OPTS: '-Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository'
+  npm_config_cache: '$CI_PROJECT_DIR/.npm'
+  SONAR_USER_HOME: '$CI_PROJECT_DIR/.sonar'
+  APP_VERSION: '0.0.$CI_PIPELINE_ID'
+  IMAGE_REPOSITORY: '$OCI_REGISTRY/$OCI_REPOSITORY/root-ci-samples/module-examples/api'
+  UI_IMAGE_REPOSITORY: '$OCI_REGISTRY/$OCI_REPOSITORY/root-ci-samples/module-examples/ui'
+  CHART_REPOSITORY: 'oci://$OCI_REGISTRY/$OCI_REPOSITORY/root-ci-samples/module-examples/charts'
+  TEST_NAMESPACE: ci-samples
+  TEST_URL: http://host.docker.internal:8180
+  DEPLOY_KUBECONFIG: '$SAMPLE_KUBECONFIG'
+  MAVEN_REPOSITORY_URL: '$GITLAB_INTERNAL_URL/api/v4/projects/$CI_PROJECT_ID/packages/maven'
+  RELEASE_REGISTRY_URL: 'http://host.docker.internal:8082'
+  RELEASE_IMAGE_PATH: 'docker-local/root-ci-samples/module-releases/api'
+  RELEASE_COMMIT: '$CI_COMMIT_SHA'
+
+verify-sample:
+  stage: verify
+  image: $JAVA_CI_IMAGE
+  cache: []
+  script:
+    - |
+      set -eu
+      module='$[[ inputs.module ]]'
+      prefix=$(printf '%s' "$module" | tr 'a-z-' 'A-Z_')
+      case "$module" in release-reserve) prefix=RELEASE ;; deployment-select) prefix=SELECTION ;; esac
+      test "$(printenv "${prefix}_STATUS")" = passed
+      test "$(printenv "${prefix}_COMMIT_SHA")" = "$CI_COMMIT_SHA"
+      test "$(printenv "${prefix}_PIPELINE_ID")" = "$CI_PIPELINE_ID"
+      test -s ".ci-output/$module/outputs.env"
+      case "$module" in
+        maven-build) test -s hello-app/target/hello-app-1.0.0-SNAPSHOT.jar ;;
+        npm-build) test -s "$NPM_BUILD_ARTIFACT_DIR/animals-ui/browser/index.html" ;;
+        npm-test) test -s "$NPM_TEST_REPORT_DIR/junit.xml" ;;
+        cucumber-test) test -s integration-tests/target/failsafe-reports/failsafe-summary.xml ;;
+        sonar) test -s "$SONAR_TASK_FILE"; grep -q '^ceTaskId=' "$SONAR_TASK_FILE" ;;
+        dependency-check) test -s "$DEPENDENCY_CHECK_REPORT_DIR/dependency-check-report.json" ;;
+        jib-build) printf '%s\n' "$JIB_BUILD_IMAGE_REF" | grep -Eq '^.+@sha256:[a-f0-9]{64}$' ;;
+        image-build) printf '%s\n' "$IMAGE_BUILD_IMAGE_REF" | grep -Eq '^.+@sha256:[a-f0-9]{64}$' ;;
+        helm-publish) test "$HELM_PUBLISH_VERSION" = "$APP_VERSION"; test -s ".ci-output/helm-publish/hello-world-$APP_VERSION.tgz" ;;
+        helm-deploy)
+          test "$HELM_DEPLOY_IMAGE_REF" = "$JIB_BUILD_IMAGE_REF"
+          test "$HELM_DEPLOY_URL" = "$TEST_URL"
+          curl --fail --silent --show-error --max-time 15 "$TEST_URL/actuator/health" > health.json ;;
+        deployment-select)
+          test "$SELECTION_CLUSTER" = local; test "$SELECTION_USER_CONFIG" = default
+          test -s .ci-output/deployment-select/pipeline.yml ;;
+        maven-publish)
+          test "$MAVEN_PUBLISH_REPOSITORY_URL" = "$MAVEN_REPOSITORY_URL"
+          curl --fail --silent --show-error --max-time 60 --header "JOB-TOKEN: $CI_JOB_TOKEN" \
+            "$MAVEN_REPOSITORY_URL/com/example/hello-app/$APP_VERSION/hello-app-$APP_VERSION.jar" --output published.jar
+          test -s published.jar ;;
+        release-reserve|release-check|gitlab-release)
+          git fetch origin "refs/tags/v$RELEASE_VERSION"
+          test "$(git rev-parse 'FETCH_HEAD^{commit}')" = "$CI_COMMIT_SHA"
+          if [ "$module" = gitlab-release ]; then
+            test "$HELM_PUBLISH_VERSION" = "$RELEASE_VERSION"
+            test "$GITLAB_RELEASE_VERSION" = "$RELEASE_VERSION"
+            curl --fail --silent --show-error --max-time 30 --header "JOB-TOKEN: $CI_JOB_TOKEN" \
+              "$GITLAB_INTERNAL_URL/api/v4/projects/$CI_PROJECT_ID/releases/v$RELEASE_VERSION" --output release.json
+            python3 - <<'PY'
+      import json, os
+      from pathlib import Path
+      release = json.loads(Path('release.json').read_text())
+      assert release['tag_name'] == 'v' + os.environ['RELEASE_VERSION']
+      assert release['commit']['id'] == os.environ['CI_COMMIT_SHA']
+      assert len(release['assets']['links']) == 4
+      PY
+          fi ;;
+      esac

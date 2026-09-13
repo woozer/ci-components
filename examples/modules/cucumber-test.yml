@@ -13,3 +13,4 @@ include:
     inputs:
       image: $JAVA_CI_IMAGE
       target-url-variable: ""
+      tags: 'not @ui and not @ignore'

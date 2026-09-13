@@ -1,0 +1,9 @@
+# Execute the actual generated child YAML, including its typed profile inputs.
+validate-selection:
+  stage: deploy-test
+  needs: [deployment-select]
+  trigger:
+    include:
+      - artifact: .ci-output/deployment-select/pipeline.yml
+        job: deployment-select
+    strategy: mirror

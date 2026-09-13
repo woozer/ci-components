@@ -5,10 +5,16 @@ spec:
       description: 'Released component version or full commit SHA'
     library-project:
       default: root/ci-components
+    plain-http:
+      type: boolean
+      default: false
 ---
 stages: [deploy-test]
 
 include:
+  - project: $[[ inputs.library-project ]]
+    ref: $[[ inputs.library-ref ]]
+    file: /shared/helm.yml
   - component: $CI_SERVER_FQDN/$[[ inputs.library-project ]]/helm-deploy@$[[ inputs.library-ref ]]
     inputs:
       image: $HELM_CI_IMAGE
@@ -21,3 +27,9 @@ include:
       namespace: "$TEST_NAMESPACE"
       environment: "test"
       target-url: "$TEST_URL"
+      create-namespace: false
+      plain-http: $[[ inputs.plain-http ]]
+
+helm-deploy:
+  before_script:
+    - !reference [.helm-login, before_script]

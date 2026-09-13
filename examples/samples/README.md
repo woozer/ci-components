@@ -12,11 +12,15 @@ Deze voorbeelden zijn gewone GitLab-pipelines, samengesteld uit losse modules. H
 ## Starten in GitLab
 
 1. Open [CI samples → New pipeline](http://localhost:8929/root/ci-samples/-/pipelines/new).
-2. Selecteer `main` en kies bij `sample` een van de vier voorbeelden of `all`.
+2. Selecteer `main` en kies bij `sample` een pipelinevoorbeeld, een los modulevoorbeeld of `all`.
 3. Behoud `library_ref` voor de ingestelde bibliotheekversie, of vul de volledige componentcommit in die je wilt testen.
 4. Kies **New pipeline**. Open de childpipeline met de naam van het voorbeeld om jobs, artifacts en testrapporten te bekijken.
 
-Bij een modulewijziging start de trigger `validate-samples` in het componentproject ook alle vier voorbeelden. Met `strategy: mirror` neemt de componentpipeline hun resultaat over. De trigger geeft de gewijzigde componentcommit door, zodat de nieuwe code wordt getest. Een mislukte sample laat de validatie falen. De interne [include voor componentvalidatie](../../tests/samples/component-validation.yml) vult `CI_COMMIT_SHA` met GitLabs `expand_vars` in voordat de waarde naar de downstream-input gaat. Het sampleproject accepteert een volledige uitgebrachte versie of een volledige commit-SHA voor kandidaatvalidatie.
+Bij een modulewijziging start de trigger `validate-samples` in het componentproject ook alle negentien voorbeelden. Met `strategy: mirror` neemt de componentpipeline hun resultaat over. De trigger geeft de gewijzigde componentcommit door, zodat de nieuwe code wordt getest. Een mislukte sample laat de validatie falen. De interne [include voor componentvalidatie](../../tests/samples/component-validation.yml) vult `CI_COMMIT_SHA` met GitLabs `expand_vars` in voordat de waarde naar de downstream-input gaat. Het sampleproject accepteert een volledige uitgebrachte versie of een volledige commit-SHA voor kandidaatvalidatie.
+
+De keuzelijst bevat de vier bovenstaande pipelines en alle vijftien actieve [modulevoorbeelden](../modules/README.md). Losse modules herken je aan `module-`, bijvoorbeeld `module-sonar` of `module-npm-test`. `all` voert op de beschermde `main` alle negentien voorbeelden uit.
+
+Sonar en de drie releasevoorbeelden vereisen de beschermde `main`. Daarom voert `all` in een merge request van het sampleproject de overige vijftien voorbeelden uit. Een expliciete keuze voor een beschermd voorbeeld op een andere branch geeft een foutmelding. Componentwijzigingen worden wel met alle negentien voorbeelden getest: de downstream-pipeline draait op de beschermde `main` van het sampleproject met de kandidaatversie van de componenten.
 
 ## Een voorbeeld in je eigen project gebruiken
 
@@ -53,7 +57,7 @@ Het lokale project `ci-samples` bevat een vaste kopie van de Java/Angular-applic
 
 `verify-sample` controleert de gebouwde artifacts, de broncommit en pipeline, en de image-, chart- en URL-outputs die volgende jobs gebruiken. Cucumber en Playwright testen de werkelijk gedeployde applicaties. GitLabs YAML-controle en de bestaande Python-contracttests vullen deze uitvoeringen aan. Alleen CI Lint kan niet aantonen dat een build of deployment werkt.
 
-We volgen hiermee [GitLabs advies voor componenttests](https://docs.gitlab.com/ci/components/#test-the-component) en [tests met samplebestanden](https://docs.gitlab.com/ci/components/#test-a-component-against-sample-files). Het aparte project, de vier voorbeelden en de isolatie-instellingen zijn onze keuzes. Voor selectie en aansturing gebruiken we GitLabs [pipeline-inputs](https://docs.gitlab.com/ci/inputs/#for-a-pipeline), [downstream-pipelines](https://docs.gitlab.com/ci/pipelines/downstream_pipelines/) en [resourcegroepen](https://docs.gitlab.com/ci/resource_groups/).
+We volgen hiermee [GitLabs advies voor componenttests](https://docs.gitlab.com/ci/components/#test-the-component) en [tests met samplebestanden](https://docs.gitlab.com/ci/components/#test-a-component-against-sample-files). Het aparte project, de voorbeeldkeuze en de isolatie-instellingen zijn onze keuzes. Voor selectie en aansturing gebruiken we GitLabs [pipeline-inputs](https://docs.gitlab.com/ci/inputs/#for-a-pipeline), [downstream-pipelines](https://docs.gitlab.com/ci/pipelines/downstream_pipelines/) en [resourcegroepen](https://docs.gitlab.com/ci/resource_groups/).
 
 ## Bestanden en verantwoordelijkheden
 
@@ -61,9 +65,11 @@ Alle voorbeeld- en validatiebestanden staan in de componentbibliotheek `ci-compo
 
 | Map of bestand | Verantwoordelijkheid |
 |---|---|
-| [`examples/modules/`](../modules/) | Een minimaal gebruiksvoorbeeld per module |
+| [`examples/modules/`](../modules/) | Een minimaal, uitvoerbaar gebruiksvoorbeeld per actieve module |
 | [`examples/samples/`](./) | Complete pipelines die afnemers kunnen overnemen |
 | [`tests/samples/launcher.yml`](../../tests/samples/launcher.yml) | De samplekeuze afhandelen en de gekozen voorbeelden als childpipelines starten |
+| [`tests/samples/options.yml`](../../tests/samples/options.yml) | Eén gedeelde keuzelijst voor het startformulier en de launcher |
+| [`tests/samples/module-runtime.yml`](../../tests/samples/module-runtime.yml) | Lokale voorwaarden en outputcontroles voor losse modules |
 | [`tests/samples/runtime.yml`](../../tests/samples/runtime.yml) | De testomgeving instellen en outputs controleren |
 | [`tests/samples/deployment-runtime.yml`](../../tests/samples/deployment-runtime.yml) | Tijdelijke Helm-deployments opruimen |
 

@@ -1,0 +1,4 @@
+# Unique versions also work with the namespace's duplicate-package prohibition.
+maven-publish:
+  variables:
+    MAVEN_ARGS: '-Drevision=$APP_VERSION'

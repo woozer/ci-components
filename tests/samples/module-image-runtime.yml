@@ -1,0 +1,15 @@
+spec:
+  inputs:
+    library-ref:
+---
+# Build real UI assets before exercising the standalone image example.
+include:
+  - project: root/ci-components
+    ref: $[[ inputs.library-ref ]]
+    file: /examples/modules/npm-build.yml
+    inputs:
+      library-ref: $[[ inputs.library-ref ]]
+
+image-build:
+  tags: [local-buildkit]
+  needs: [npm-build]
