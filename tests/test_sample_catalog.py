@@ -6,7 +6,7 @@ from test_contracts import PARSED, ROOT
 class SampleCatalogTests(unittest.TestCase):
     def test_every_active_example_has_a_selectable_executable_child(self):
         launcher = PARSED[str(ROOT / 'tests/samples/launcher.yml')][1]
-        options = PARSED[str(ROOT / 'tests/samples/options.yml')][0]['spec']['inputs']['sample']['options']
+        options = PARSED[str(ROOT / 'tests/samples/options.yml')][0]['inputs']['sample']['options']
         examples = {'module-' + path.stem: path for path in (ROOT / 'examples/modules').glob('*.yml')}
         examples.update({path.stem: path for path in (ROOT / 'examples/samples').glob('*.yml')})
         self.assertEqual({'all', *examples}, set(options))

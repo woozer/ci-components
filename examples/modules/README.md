@@ -42,7 +42,7 @@ include:
       library-ref: *library
 ```
 
-Het voorbeeld bepaalt de stage en de component. Je eigen project levert de broncode, runner, tool-image en serververbinding. Het Sonar-voorbeeld verwacht `SONAR_IMAGE`, `SONAR_HOST_URL`, `SONAR_PROJECT_KEY` en een beperkt, gemaskeerd `SONAR_TOKEN`. De standaard Maven Wrapper is `./mvnw`.
+Het voorbeeld bepaalt de stage en de component. Je eigen project levert de broncode, runner, tool-image en serververbinding. Het Sonar-voorbeeld verwacht `SONAR_IMAGE`, `SONAR_HOST_URL`, `SONAR_PROJECT_KEY` en een beperkt, gemaskeerd `SONAR_TOKEN`. De standaard Maven Wrapper is `./mvnw`. Die moet uitvoerbaar zijn; onze tool-image bevat ook `unzip` voor de ZIP-distributie met checksumcontrole.
 
 Voor publicatievoorbeelden stel je de registry, bestemmingspaden, versie en toegangsgegevens in. De Helm-voorbeelden gebruiken de gedeelde `.helm-login`. `image-build` verwacht gebouwde UI-assets in `ui/dist/`; `helm-deploy` verwacht image- en chartoutputs van eerdere jobs. Geef die door met `needs`, zoals de [samengestelde voorbeelden](../samples/README.md) laten zien. `plain-http` staat standaard uit; onze lokale testomgeving zet die expliciet aan. Alle vereisten staan in de [modulehandleiding](../../docs/modules.md).
 

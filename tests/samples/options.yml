@@ -1,27 +1,26 @@
 # Central native input declaration for the sample start form.
-spec:
-  inputs:
-    sample:
-      description: 'Choose one executable example, or all available examples'
-      default: all
-      options:
-        - all
-        - maven-build
-        - build-and-test
-        - deploy-and-test
-        - two-deployables
-        - module-cucumber-test
-        - module-dependency-check
-        - module-deployment-select
-        - module-gitlab-release
-        - module-helm-deploy
-        - module-helm-publish
-        - module-image-build
-        - module-jib-build
-        - module-maven-build
-        - module-maven-publish
-        - module-npm-build
-        - module-npm-test
-        - module-release-check
-        - module-release-reserve
-        - module-sonar
+inputs:
+  sample:
+    description: 'Choose one executable example, or all available examples'
+    default: all
+    options:
+      - all
+      - maven-build
+      - build-and-test
+      - deploy-and-test
+      - two-deployables
+      - module-cucumber-test
+      - module-dependency-check
+      - module-deployment-select
+      - module-gitlab-release
+      - module-helm-deploy
+      - module-helm-publish
+      - module-image-build
+      - module-jib-build
+      - module-maven-build
+      - module-maven-publish
+      - module-npm-build
+      - module-npm-test
+      - module-release-check
+      - module-release-reserve
+      - module-sonar
