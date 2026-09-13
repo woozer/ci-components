@@ -1,33 +1,33 @@
-# GitLab CI modules
+# GitLab CI-modules
 
-Build your own pipeline from independently usable modules, or use the optional Java standard pipeline. Each module owns one operation, selects its own image and publishes named outputs. Your pipeline owns `stages`, `needs`, conditions and additional jobs.
+Stel zelf een pipeline samen met zelfstandig bruikbare modules, of gebruik de optionele standaardpipeline voor Java. Elke module voert één herkenbare taak uit, kiest een eigen image en publiceert benoemde outputs. Je pipeline bepaalt `stages`, `needs`, voorwaarden en aanvullende jobs.
 
-## Build your own pipeline
+## Zelf een pipeline samenstellen
 
-1. Choose a module from the [module guide](docs/modules.md).
-2. Copy its minimal example, pin the library commit and provide the required inputs. Optional defaults can be omitted.
-3. Connect jobs with ordinary GitLab `needs` and artifacts/dotenv. Start from a [runnable example](examples/samples/README.md).
+1. Kies een module uit de [modulehandleiding](docs/modules.md).
+2. Neem het minimale voorbeeld over, zet de bibliotheek vast op een commit en vul de verplichte inputs in. Optionele standaardwaarden kun je weglaten.
+3. Verbind jobs met GitLabs `needs` en artifacts/dotenv. Begin met een [uitvoerbaar voorbeeld](examples/samples/README.md).
 
-| Start small | Add a next step | Repeat modules |
+| Klein beginnen | Een volgende stap toevoegen | Modules herhalen |
 |---|---|---|
-| [Maven build](examples/samples/maven-build.yml) | [Build → test](examples/samples/build-and-test.yml), [image/chart → deployment → test](examples/samples/deploy-and-test.yml) | [Two deployables](examples/samples/two-deployables.yml) |
+| [Maven-build](examples/samples/maven-build.yml) | [Bouwen → testen](examples/samples/build-and-test.yml), [image/chart → deployment → testen](examples/samples/deploy-and-test.yml) | [Twee deployables](examples/samples/two-deployables.yml) |
 
-Run these in [CI samples → New pipeline](http://localhost:8929/root/ci-samples/-/pipelines/new): choose `sample`, then **New pipeline**. The same YAML files serve consumers and validate module changes in real GitLab jobs. See [how validation works](examples/samples/README.md#test-isolation-and-evidence).
+Start deze via [CI samples → New pipeline](http://localhost:8929/root/ci-samples/-/pipelines/new): kies `sample` en daarna **New pipeline**. Dezelfde YAML-bestanden dienen als voorbeeld voor afnemers en valideren modulewijzigingen in echte GitLab-jobs. Lees [hoe de validatie werkt](examples/samples/README.md#testisolatie-en-bewijs).
 
-You do not need the Java standard pipeline, organization profile or release process to use one module. Images and service credentials are supplied by your platform; required inputs and runtime prerequisites are documented per module. Shared hook handling is included automatically.
+Voor één module heb je geen standaardpipeline, organisatieprofiel of releaseproces nodig. Je platform levert de images en toegangsgegevens voor diensten; de verplichte inputs en uitvoeringsvoorwaarden staan per module beschreven. De gedeelde afhandeling van hooks wordt automatisch ingeladen.
 
-## Standard pipeline for the Java sample
+## Standaardpipeline voor de Java-sample
 
-1. **Build:** push a branch or merge a reviewed MR. Required backend and Angular tests run automatically. Protected `main` also publishes development artifacts, deploys both applications and runs API/browser integration tests.
-2. **Use another Helm profile:** retry **configure-deploy** with modified values, wait for success, then select **Run again** on **deploy-dev**. This redeploys the same images/charts and reruns integration tests. On the first run, use **Unschedule** within ten seconds to choose values before deployment; otherwise defaults apply.
-3. **Release:** after green dev validation, run **start-release**. It reserves the next patch version; open the job to override it for a minor/major release. Follow **release-delivery**. The last job, **publish-release**, creates the GitLab Release with notes and asset links after the release artifacts pass dev validation.
+1. **Bouwen:** push een branch of merge een beoordeelde MR. Verplichte backend- en Angular-tests starten automatisch. Op protected `main` worden ook ontwikkelartifacts gepubliceerd, beide applicaties gedeployed en API-/browserintegratietests uitgevoerd.
+2. **Ander Helm-profiel:** start **configure-deploy** opnieuw met gewijzigde waarden, wacht op succes en kies daarna **Run again** bij **deploy-dev**. Dit deployt dezelfde images/charts opnieuw en herhaalt de integratietests. Gebruik bij de eerste uitvoering binnen tien seconden **Unschedule** om vóór de deployment waarden te kiezen; anders gelden de standaardwaarden.
+3. **Release:** start **start-release** na geslaagde dev-validatie. Deze job reserveert de volgende patchversie; open de job om voor een minor- of majorrelease een andere versie in te vullen. Volg **release-delivery**. De laatste job, **publish-release**, maakt de GitLab Release met toelichting en artifactlinks zodra de releaseartifacts de dev-validatie hebben doorstaan.
 
-Pipeline names identify the work: **CI — main** (or the feature branch), **Dev — deployment en integratietests**, and **Release — 1.2.3** (the reserved version). GitLab places child cards on the right. Their position does not determine execution order.
+De pipelinenamen tonen wat er gebeurt: **CI — main** (of de featurebranch), **Dev — deployment en integratietests** en **Release — 1.2.3** (de gereserveerde versie). GitLab toont childpipelines als kaarten aan de rechterkant. Hun plaats bepaalt niet de uitvoeringsvolgorde.
 
-The optional [java-service.yml](pipelines/java-service.yml) composes these same modules. It supports one Java deployable (including a multi-module Maven reactor) and an optional Angular UI. More Java deployables can use the individual modules; automatic fan-out of arbitrary deployables is not implemented. The [application CI file](http://localhost:8929/root/hello-world/-/blob/main/.gitlab-ci.yml) shows adoption with only app-specific settings and forwarded form selections.
+De optionele [java-service.yml](pipelines/java-service.yml) stelt een pipeline samen met dezelfde modules. Deze ondersteunt één Java-deployable, ook binnen een Maven-reactor met meerdere modules, en een optionele Angular-UI. Voor meer Java-deployables kun je de losse modules gebruiken; automatische verdeling over een willekeurig aantal deployables is niet geïmplementeerd. Het [CI-bestand van de applicatie](http://localhost:8929/root/hello-world/-/blob/main/.gitlab-ci.yml) toont het gebruik met alleen applicatiespecifieke instellingen en doorgegeven formulierkeuzes.
 
-Reference: [module guide](docs/modules.md), [required inputs](docs/inputs.md), [outputs and advanced reference](docs/reference.md), [hooks and extra jobs](docs/hooks.md), [standard-pipeline choices](docs/pipeline-options.md), [release policy](docs/releases.md).
+Naslag: [modulehandleiding](docs/modules.md), [verplichte inputs](docs/inputs.md), [outputs en uitgebreid naslagwerk](docs/reference.md), [hooks en extra jobs](docs/hooks.md), [keuzes in de standaardpipeline](docs/pipeline-options.md), [releasebeleid](docs/releases.md).
 
-We follow GitLab's component testing and reuse guidance. GitLab provides jobs, dependencies, artifacts, inputs and locks; the ten-second deployment selection and automatic patch policy belong to our optional standard pipeline. See [standards and decisions](docs/reuse-and-standards.md).
+We volgen GitLabs advies over componenttests en hergebruik. GitLab levert jobs, afhankelijkheden, artifacts, inputs en locks; de keuzetermijn van tien seconden en automatische patchversie zijn afspraken van onze optionele standaardpipeline. Zie [standaarden en keuzes](docs/reuse-and-standards.md).
 
-Thirteen active modules live in `templates/`; twelve future modules remain in [modules/todo/](modules/todo/). There is no custom handoff chain or YAML generator.
+De dertien actieve modules staan in `templates/`; twaalf toekomstige modules staan in [modules/todo/](modules/todo/). Er is geen eigen handoff-keten of YAML-generator.

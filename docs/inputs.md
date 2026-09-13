@@ -1,53 +1,53 @@
-# Inputs: required or optional?
+# Inputs: verplicht of optioneel?
 
-Pass values under `include:inputs`. The `MODULE_*` variables inside a component are internal mappings used by its scripts; consumers do not need to set them.
+Geef instellingen mee via `include:inputs`. De `MODULE_*`-variabelen binnen een component verbinden deze inputs met de scripts. Afnemers hoeven die interne variabelen niet zelf in te stellen.
 
-The `spec:inputs` header in each module is the source of truth:
+In `spec:inputs` van elke module staat wat je moet invullen:
 
-- An input **without `default` is required**. GitLab rejects the pipeline if it is missing.
-- An input **with `default` is optional**. Supply it only to change the default.
-- Additional runtime files, variables and credentials may still be needed by the operation, as described below.
+- **Zonder `default`: verplicht.** GitLab weigert de pipeline als de input ontbreekt.
+- **Met `default`: optioneel.** Vul de input alleen in als je van de standaardwaarde wilt afwijken.
+- Bij uitvoering kunnen daarnaast bestanden, variabelen en toegangsgegevens nodig zijn. Die voorwaarden staan hieronder.
 
-Every module requires `image`. Other required inputs for the thirteen active modules are:
+Elke module vereist `image`. Voor de dertien actieve modules gelden daarnaast de volgende verplichte inputs:
 
-| Module | Additional required inputs |
+| Module | Aanvullende verplichte inputs |
 |---|---|
-| [maven-build](../templates/maven-build.yml) | None |
-| [cucumber-test](../templates/cucumber-test.yml) | None; see the target URL condition below |
+| [maven-build](../templates/maven-build.yml) | Geen |
+| [cucumber-test](../templates/cucumber-test.yml) | Geen; zie hieronder de voorwaarde voor de doel-URL |
 | [maven-publish](../templates/maven-publish.yml) | `settings-file`, `repository-url` |
 | [jib-build](../templates/jib-build.yml) | `project-selector`, `settings-file`, `image-repository`, `base-image` |
 | [helm-publish](../templates/helm-publish.yml) | `chart`, `chart-name`, `chart-version`, `oci-repository` |
 | [helm-deploy](../templates/helm-deploy.yml) | `image-ref-variable`, `values-file`, `release`, `namespace`, `environment`, `target-url` |
-| [npm-build](../templates/npm-build.yml) | None; repository needs a lockfile and build script |
-| [npm-test](../templates/npm-test.yml) | None; repository needs a lockfile and CI test script |
-| [image-build](../templates/image-build.yml) | None; default target/authentication is GitLab Registry |
-| [deployment-select](../templates/deployment-select.yml) | `pipeline-config`; intended for a pipeline that needs runtime deployment selection |
-| [release-reserve](../templates/release-reserve.yml) | None; protected release branch and Git deploy-key variables required at runtime |
-| [release-check](../templates/release-check.yml) | `image-path`, `version`, `commit`; registry access required |
-| [gitlab-release](../templates/gitlab-release.yml) | `version`; published image/chart outputs and a GitLab job token required |
+| [npm-build](../templates/npm-build.yml) | Geen; de repository moet een lockfile en buildscript bevatten |
+| [npm-test](../templates/npm-test.yml) | Geen; de repository moet een lockfile en CI-testscript bevatten |
+| [image-build](../templates/image-build.yml) | Geen; gebruikt standaard GitLab Registry voor publicatie en authenticatie |
+| [deployment-select](../templates/deployment-select.yml) | `pipeline-config`; voor pipelines waarin gebruikers tijdens de uitvoering een deploymentprofiel kunnen kiezen |
+| [release-reserve](../templates/release-reserve.yml) | Geen; vereist bij uitvoering een protected releasebranch en variabelen voor de Git-deploy-key |
+| [release-check](../templates/release-check.yml) | `image-path`, `version`, `commit`; toegang tot de registry is nodig |
+| [gitlab-release](../templates/gitlab-release.yml) | `version`; gepubliceerde image-/chartoutputs en een GitLab-jobtoken zijn nodig |
 
-Common optional inputs:
+Veelgebruikte optionele inputs:
 
-| Input | Default |
+| Input | Standaardwaarde |
 |---|---|
-| `job-name`, `stage` | Defined by the chosen module |
+| `job-name`, `stage` | Afhankelijk van de gekozen module |
 | `working-directory` | `.` |
-| `output-prefix` | Module-specific, for example `MAVEN_BUILD` |
-| `pre-hook`, `post-hook`, `cleanup-hook` | Empty: no hook |
+| `output-prefix` | Modulespecifiek, bijvoorbeeld `MAVEN_BUILD` |
+| `pre-hook`, `post-hook`, `cleanup-hook` | Leeg: geen hook |
 | `hook-parameters-json` | `{}` |
-| `job-timeout` | `30m` for the demo modules |
+| `job-timeout` | `30m` voor de demomodules |
 | `artifact-expire-in` | `7 days` |
-| `maven-executable` | `./mvnw` in the Maven/Jib/Cucumber modules |
-| Cucumber `profile` | Empty: no Maven profile |
+| `maven-executable` | `./mvnw` in de Maven-, Jib- en Cucumber-modules |
+| Cucumber `profile` | Leeg: geen Maven-profiel |
 
-**Runtime conditions:**
+**Voorwaarden bij uitvoering:**
 
-- Cucumber normally reads the URL from `HELM_DEPLOY_URL`. Provide that variable, select another with `target-url-variable`, or set `target-url-variable: ''` when the suite starts its own application.
-- `helm-deploy` requires `image-ref-variable`: choose your actual producer, for example `JIB_BUILD_IMAGE_REF`. It no longer assumes the optional image-verification module ran. Existing pinned revisions retain their old default; when upgrading, add that explicit input. The standard Java pipeline already does this.
-- Helm deployment needs either `chart` or `chart-variable`. The selected image variable must contain an immutable image reference. Provide a kubeconfig through `kubeconfig-variable` or the documented Kubernetes environment variables. Chart values must support `image.repository` and `image.digest`.
-- Publishing needs authentication for the chosen registry or Maven repository. Use a settings file, GitLab variables or an authentication pre-hook; see [organization settings and credentials](defaults.md).
+- Cucumber leest de URL standaard uit `HELM_DEPLOY_URL`. Lever die variabele aan, kies een andere met `target-url-variable` of stel `target-url-variable: ''` in als de tests zelf de applicatie starten.
+- Geef bij `helm-deploy` expliciet `image-ref-variable` mee, bijvoorbeeld `JIB_BUILD_IMAGE_REF`. De module veronderstelt niet langer dat de optionele imageverificatiemodule is uitgevoerd. Bestaande pipelines die op een oudere bibliotheekversie zijn vastgezet, houden hun oude standaardwaarde. Voeg deze input toe bij een upgrade; de standaardpipeline voor Java doet dit al.
+- Helm heeft `chart` of `chart-variable` nodig. De gekozen imagevariabele moet een onveranderlijke imagereferentie bevatten. Lever een kubeconfig aan via `kubeconfig-variable` of de beschreven Kubernetes-omgevingsvariabelen. De chart moet `image.repository` en `image.digest` ondersteunen.
+- Publiceren vereist authenticatie voor de gekozen registry of Maven-repository. Gebruik een settingsbestand, GitLab-variabelen of een pre-hook voor authenticatie. Zie [organisatie-instellingen en toegangsgegevens](defaults.md).
 
-See the [module guide](modules.md) for a minimal example of every active module. A single-module pipeline can be this small. Set `MY_MAVEN_IMAGE` to your chosen Maven image; this example uses its installed Maven:
+De [modulehandleiding](modules.md) bevat voor elke actieve module een minimaal voorbeeld. Een pipeline met één module kan zo klein zijn. Stel `MY_MAVEN_IMAGE` in op de gewenste Maven-image; dit voorbeeld gebruikt de daarin geïnstalleerde Maven:
 
 ```yaml
 stages: [build]
@@ -59,4 +59,4 @@ include:
       maven-executable: mvn
 ```
 
-This creates one job. It uses the default working directory, timeout and retention, with no custom hooks. Shared hook handling is included automatically. No organization settings file or other modules are required. The pipeline must declare the selected stage, and its runner must be able to use the chosen image.
+Dit maakt één job aan met de standaardwerkmap, timeout en bewaartermijn, zonder eigen hooks. De gedeelde hookafhandeling wordt automatisch ingeladen. Er is geen organisatiebestand of andere module nodig. Declareer de gekozen stage in je pipeline en gebruik een runner die de gekozen image kan uitvoeren.

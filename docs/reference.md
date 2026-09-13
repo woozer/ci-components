@@ -1,158 +1,160 @@
-# Full library reference
+# Uitgebreid naslagwerk van de bibliotheek
 
-For building your own pipeline, start with the [module guide](modules.md) and [runnable examples](../examples/samples/README.md). This page contains output contracts and advanced reference, including future modules. The Java standard pipeline is optional.
+Begin voor een eigen pipeline met de [modulehandleiding](modules.md) en [uitvoerbare voorbeelden](../examples/samples/README.md). Dit naslagwerk beschrijft outputs en geavanceerde mogelijkheden, ook van toekomstige modules. De standaardpipeline voor Java is optioneel.
 
-This starter targets GitLab CI. Each component owns one operation, declares its inputs, publishes named output variables and artifacts, and supports pre, post, and cleanup hooks. The application pipeline owns job ordering and environment promotion.
+Deze bibliotheek is bedoeld voor GitLab CI. Elke component voert één bewerking uit, declareert inputs, publiceert benoemde outputvariabelen en artifacts en ondersteunt pre-, post- en cleanup-hooks. De applicatiepipeline bepaalt de jobvolgorde en promotie naar omgevingen.
 
-The working assumptions are GitLab CI and Helm deployment to Kubernetes. If GitHub is the source host, mirror the component repository into the GitLab instance running the pipeline: GitLab component references must use the same instance. If GitHub Actions is the intended execution platform, the contracts below still apply, but its adapters must use `workflow_call` inputs and job outputs instead of GitLab YAML. [GitLab components](https://docs.gitlab.com/ci/components/)
+Het uitgangspunt is GitLab CI met Helm-deployment naar Kubernetes. Staat de broncode op GitHub, spiegel de componentrepository dan naar de GitLab-instance die de pipeline uitvoert: componentreferenties moeten dezelfde instance gebruiken. Voor GitHub Actions kunnen dezelfde functionele afspraken gelden, maar zijn adapters met `workflow_call`-inputs en joboutputs nodig. Zie [GitLab-componenten](https://docs.gitlab.com/ci/components/).
 
-This is a starter, not an installed organization policy. Tool images, service credentials, application configuration, Fortify adapters, and deployment targets require organization-specific configuration. The local GitLab CE and runner setup is maintained separately in the workspace’s `infra/` directory.
+De bibliotheek is een startpunt, geen volledig ingericht organisatiebeleid. Images, toegangsgegevens, applicatieconfiguratie, Fortify-adapters en deploymentdoelen vereisen eigen instellingen. De lokale GitLab CE- en runnerinrichting wordt apart beheerd in `infra/` in de werkmap.
 
-The [Java 25 sample application](http://localhost:8929/root/hello-world) is a standalone multi-module Spring Boot project with Cucumber HTTP tests, Jib image builds, and a Helm chart. Its Maven build works independently of these CI components. The local Artifactory registry reproduces container publishing locally.
+De [Java 25-sample](http://localhost:8929/root/hello-world) is een zelfstandig Spring Boot-project met meerdere Maven-modules, Cucumber-HTTP-tests, Jib-imagebuilds en een Helm-chart. De Maven-build werkt ook zonder deze CI-componenten. De lokale Artifactory-registry bootst imagepublicatie na.
 
-**Current decision: use our own components.** Active components are maintained as individual YAML files in `templates/`. Unused modules are retained in `modules/todo/` for future evaluation. Standard vendor/GitLab components remain an option for future replacements; see [the reuse and standards assessment](reuse-and-standards.md). Use [native job dependencies and small component hooks](hooks.md) for extensions.
+**Huidige keuze: eigen componenten gebruiken.** Actieve componenten staan als afzonderlijke YAML-bestanden in `templates/`. Ongebruikte modules staan in `modules/todo/` voor latere beoordeling. Standaardcomponenten van GitLab of leveranciers blijven een optie; zie [hergebruik en standaarden](reuse-and-standards.md). Gebruik voor uitbreidingen [GitLab-jobafhankelijkheden en kleine componenthooks](hooks.md).
 
-## Design contract
+## Ontwerpafspraken
 
-- One component creates one job with one primary responsibility. Preparation needed for that operation stays with it; for example, an npm test job installs its locked dependencies.
-- Configuration uses typed `spec:inputs`. Each component requires a tool image; pin the approved image to a digest when configuring your organization.
-- Runtime values use namespaced dotenv outputs. Files and reports use normal artifacts. A downstream job explicitly imports its producers using `needs: {job: ..., artifacts: true}`.
-- A successful operation and successful post hook publish outputs. Failure stops the job and prevents success outputs. Required scanners and gates fail on scanner errors and timeouts.
-- Hooks are repository-relative POSIX shell scripts executed with `sh`, without `eval`. They run in subprocesses: use files to communicate; exports and directory changes do not propagate to the component shell.
-- Each component includes its common lifecycle from `shared/module.yml` in the same repository revision. GitLab resolves this YAML without checking out library scripts. Hook and adapter paths refer to the **consuming application repository**.
-- Job names and output prefixes are configurable so a component can be used more than once. Keep prefixes unique within a pipeline.
+- Eén component vertegenwoordigt één herkenbare taak voor de afnemer. De huidige modules maken ieder één job, maar dat is geen verplichting voor toekomstige componenten. Splits alleen op als zelfstandig gebruik, toegangsrechten of uitvoeringsmomenten dat rechtvaardigen. Benodigde voorbereiding hoort bij de taak; een npm-testjob installeert bijvoorbeeld zijn vastgelegde dependencies.
+- Configuratie gebruikt getypeerde `spec:inputs`. Elke component vereist een tool-image. Zet goedgekeurde images bij de organisatie-inrichting vast op digest.
+- Waarden uit jobs worden doorgegeven als dotenv-outputs met een eigen prefix. Bestanden en rapporten zijn gewone artifacts. Een vervolgjob haalt de outputs expliciet op met `needs: {job: ..., artifacts: true}`.
+- Outputs worden gepubliceerd nadat de bewerking en post-hook slagen. Een fout stopt de job en voorkomt succesoutputs. Verplichte scanners en gates falen ook bij toolfouten en timeouts.
+- Hooks zijn POSIX-shellscripts met een pad relatief aan de repository. Ze worden met `sh` uitgevoerd, zonder `eval`. Ze draaien als subprocessen: gebruik bestanden voor overdracht. Exports en wijzigingen van de werkmap worden niet overgenomen door de componentshell.
+- Elke component laadt de gedeelde lifecycle uit `shared/module.yml` van dezelfde bibliotheekcommit. GitLab verwerkt deze YAML zonder bibliotheekscripts uit te checken. Hook- en adapterpaden verwijzen naar de **repository van de afnemende applicatie**.
+- Jobnamen en outputprefixen zijn instelbaar, zodat een component vaker kan worden gebruikt. Houd prefixen uniek binnen een pipeline.
 
-## Inputs, outputs, and hooks
+## Inputs, outputs en hooks
 
-Every component accepts `job-name`, `stage`, `image`, `job-timeout`, `artifact-expire-in`, `working-directory`, `output-prefix`, `pre-hook`, `post-hook`, `cleanup-hook`, and `hook-parameters-json`, plus its operation-specific inputs. Defaults and types are in its `spec:inputs` header. JSON parameters are exposed through `CI_MODULE_PARAMETERS_FILE`.
+Elke component accepteert `job-name`, `stage`, `image`, `job-timeout`, `artifact-expire-in`, `working-directory`, `output-prefix`, `pre-hook`, `post-hook`, `cleanup-hook` en `hook-parameters-json`, plus taakspecifieke inputs. Standaardwaarden en typen staan in `spec:inputs`. JSON-parameters zijn beschikbaar via `CI_MODULE_PARAMETERS_FILE`.
 
-The optional [organization profile](../examples/full-pipeline/profile.yml) supplies a separate image for each job and common operational defaults through those inputs. Applications can override the profile's inputs or consume individual modules directly. See [defaults and profiles](organization-profile.md) for the ownership and override rules.
+Het optionele [organisatieprofiel](../examples/full-pipeline/profile.yml) geeft elke job een aparte image en gedeelde uitvoeringsinstellingen. Applicaties kunnen profielinputs aanpassen of losse modules gebruiken. Zie [standaardwaarden en profielen](organization-profile.md) voor verantwoordelijkheden en overrides.
 
-Every component exports `<PREFIX>_STATUS=passed`, `<PREFIX>_COMMIT_SHA`, and `<PREFIX>_PIPELINE_ID`, followed by operation-specific outputs. Outputs are stored under `.ci-output/<job-name>/outputs.env` and declared as `artifacts:reports:dotenv`.
+Elke component publiceert `<PREFIX>_STATUS=passed`, `<PREFIX>_COMMIT_SHA` en `<PREFIX>_PIPELINE_ID`, gevolgd door taakspecifieke outputs. Deze staan in `.ci-output/<job-name>/outputs.env`, gedeclareerd als `artifacts:reports:dotenv`.
 
-| Hook | Execution | Failure behavior |
+| Hook | Uitvoering | Gevolg bij fouten |
 |---|---|---|
-| `pre-hook` | Before the operation | Fails the job; operation does not run |
-| `post-hook` | After a successful operation, before outputs are published | Fails the job |
-| `cleanup-hook` | GitLab `after_script`, including supported failure/cancellation cases | Best effort; cannot change a successful job to failed |
+| `pre-hook` | Vóór de bewerking | De job faalt; de bewerking start niet |
+| `post-hook` | Na een geslaagde bewerking, vóór publicatie van outputs | De job faalt |
+| `cleanup-hook` | In GitLabs `after_script`, ook bij ondersteunde fouten en annuleringen | Opruimen naar beste vermogen; maakt een geslaagde job niet alsnog rood |
 
-Cleanup runs in a fresh shell. It is not guaranteed after runner termination or every timeout, so essential cleanup needs an external expiry/reconciliation mechanism. A mandatory check belongs in a component or post hook. [GitLab `after_script`](https://docs.gitlab.com/ci/yaml/#after_script)
+Cleanup draait in een nieuwe shell. Uitvoering is niet gegarandeerd na het stoppen van een runner of bij iedere timeout. Essentieel opruimen vereist daarom ook een extern mechanisme voor verloop of herstel. Een verplichte controle hoort in een component of post-hook. Zie [GitLab after_script](https://docs.gitlab.com/ci/yaml/#after_script).
 
-Dotenv outputs exist at **job runtime**. They cannot drive `include`, `spec:inputs` validation, job names, stages, or `rules`, which are evaluated earlier. Inputs ending in `-variable` contain the **name** of an upstream runtime variable, which the component reads when it runs. Do not put secrets in dotenv artifacts. Reserve output names: project/group/pipeline variables can override dotenv values. [GitLab dotenv variables](https://docs.gitlab.com/ci/variables/dotenv_variables/)
+Dotenv-outputs ontstaan **tijdens de jobuitvoering**. Ze kunnen geen `include`, `spec:inputs`-validatie, jobnamen, stages of `rules` bepalen; die worden eerder verwerkt. Inputs die eindigen op `-variable` bevatten de **naam** van een aangeleverde variabele, die de component tijdens uitvoering leest. Zet geen geheimen in dotenv-artifacts. Reserveer de outputnamen: project-, groeps- en pipelinevariabelen kunnen dotenv-waarden overschrijven. Zie [dotenv-variabelen](https://docs.gitlab.com/ci/variables/dotenv_variables/).
 
-Hooks are trusted application code, not a security boundary. Protect the component repository, consumer CI/hook files, protected runners, credentials, and deployment environments. Required organization policy must be enforced through platform settings or centrally managed pipeline policies as appropriate for your GitLab edition.
+Hooks zijn vertrouwde applicatiecode en vormen geen beveiligingsgrens. Bescherm de componentrepository, CI-/hookbestanden van afnemers, runners, toegangsgegevens en deploymentomgevingen. Dwing verplicht organisatiebeleid af via platforminstellingen of centraal beheerde pipelinepolicies die bij de GitLab-editie passen.
 
-## Active component catalogue
+## Actieve componenten
 
-These thirteen modules are used by the central Java pipeline and live in `templates/`.
+De centrale Java-pipeline gebruikt de volgende dertien modules uit `templates/`.
 
-| Component | Responsibility | Additional outputs with default prefix |
+| Component | Verantwoordelijkheid | Aanvullende outputs met standaardprefix |
 |---|---|---|
-| `maven-build` | Package Java artifacts | `MAVEN_BUILD_ARTIFACT_ROOT` |
-| `maven-publish` | Publish reactor artifacts to a Maven repository | `MAVEN_PUBLISH_REPOSITORY_URL` |
-| `jib-build` | Build and publish a Java OCI image using Jib | `JIB_BUILD_IMAGE_REF`, `JIB_BUILD_IMAGE_REPOSITORY`, `JIB_BUILD_IMAGE_DIGEST` |
-| `helm-publish` | Package and publish a versioned OCI Helm chart | `HELM_PUBLISH_REF`, `HELM_PUBLISH_VERSION` |
-| `helm-deploy` | Deploy a verified digest into one environment | `HELM_DEPLOY_URL`, `HELM_DEPLOY_IMAGE_REF`, `HELM_DEPLOY_RELEASE`, `HELM_DEPLOY_NAMESPACE` |
-| `cucumber-test` | Run Failsafe/Cucumber locally or against a deployed URL | `CUCUMBER_TEST_REPORT_ROOT`, `CUCUMBER_TEST_TARGET_URL` |
-| `npm-build` | Build locked npm project | `NPM_BUILD_ARTIFACT_DIR` |
-| `npm-test` | Run the application's CI unit-test script | `NPM_TEST_REPORT_DIR` |
-| `image-build` | Build and push one Dockerfile OCI image | `IMAGE_BUILD_IMAGE_REF`, `IMAGE_BUILD_DIGEST` |
-| `deployment-select` | Record cluster/user choices for deployment | `SELECTION_CLUSTER`, `SELECTION_USER_CONFIG` |
-| `release-reserve` | Reserve a unique version with a Git tag | `RELEASE_VERSION`, `RELEASE_TAG` |
-| `release-check` | Validate reserved tag, commit and unused artifact coordinates | `RELEASE_CHECK_VERSION`, `RELEASE_CHECK_TAG` |
-| `gitlab-release` | Record validated artifacts as a GitLab release | `GITLAB_RELEASE_URL` |
+| `maven-build` | Java-artifacts bouwen | `MAVEN_BUILD_ARTIFACT_ROOT` |
+| `maven-publish` | Reactorartifacts naar een Maven-repository publiceren | `MAVEN_PUBLISH_REPOSITORY_URL` |
+| `jib-build` | Een Java-OCI-image met Jib bouwen en publiceren | `JIB_BUILD_IMAGE_REF`, `JIB_BUILD_IMAGE_REPOSITORY`, `JIB_BUILD_IMAGE_DIGEST` |
+| `helm-publish` | Een OCI-Helm-chart met versie verpakken en publiceren | `HELM_PUBLISH_REF`, `HELM_PUBLISH_VERSION` |
+| `helm-deploy` | Een vastgelegde image-digest naar één omgeving deployen | `HELM_DEPLOY_URL`, `HELM_DEPLOY_IMAGE_REF`, `HELM_DEPLOY_RELEASE`, `HELM_DEPLOY_NAMESPACE` |
+| `cucumber-test` | Failsafe/Cucumber lokaal of tegen een gedeployde URL uitvoeren | `CUCUMBER_TEST_REPORT_ROOT`, `CUCUMBER_TEST_TARGET_URL` |
+| `npm-build` | Een npm-project met vastgelegde dependencies bouwen | `NPM_BUILD_ARTIFACT_DIR` |
+| `npm-test` | Het CI-unittestscript van de applicatie uitvoeren | `NPM_TEST_REPORT_DIR` |
+| `image-build` | Eén OCI-image vanuit een Dockerfile bouwen en publiceren | `IMAGE_BUILD_IMAGE_REF`, `IMAGE_BUILD_DIGEST` |
+| `deployment-select` | Cluster-/gebruikerskeuzes voor deployment vastleggen | `SELECTION_CLUSTER`, `SELECTION_USER_CONFIG` |
+| `release-reserve` | Een unieke versie met een Git-tag reserveren | `RELEASE_VERSION`, `RELEASE_TAG` |
+| `release-check` | Gereserveerde tag, commit en nog vrije artifactlocaties controleren | `RELEASE_CHECK_VERSION`, `RELEASE_CHECK_TAG` |
+| `gitlab-release` | Gevalideerde artifacts vastleggen als GitLab Release | `GITLAB_RELEASE_URL` |
 
-## Modules for future work
+## Modules voor toekomstig gebruik
 
-These twelve modules live in [modules/todo/](../modules/todo/). They are not included by the Java demo. Their contract tests remain, but service integrations must be validated before promoting a module to the active catalogue.
+De volgende twaalf modules staan in [modules/todo/](../modules/todo/) en worden niet door de Java-demo ingeladen. Hun contracttests blijven bestaan. Valideer de echte dienstintegraties voordat een module naar de actieve verzameling verhuist.
 
-| Module | Intended responsibility | Additional outputs with default prefix |
+| Module | Beoogde verantwoordelijkheid | Aanvullende outputs met standaardprefix |
 |---|---|---|
-| `maven-test` | Surefire unit tests and configured JaCoCo report | `MAVEN_TEST_REPORT_ROOT` |
-| `sonar-scan` | Submit Maven/Java analysis and coverage | `SONAR_SCAN_TASK_FILE` |
-| `sonar-gate` | Await that analysis and enforce its Sonar gate | `SONAR_GATE_ANALYSIS_ID`, `SONAR_GATE_RESULT` |
-| `dependency-check` | OWASP Dependency-Check for Maven dependencies | `DEPENDENCY_CHECK_REPORT_DIR` |
-| `npm-audit` | Audit npm dependencies | `NPM_AUDIT_REPORT` |
-| `fortify-scan` | Run the selected Fortify edition's scan adapter | `FORTIFY_SCAN_RECEIPT` |
-| `fortify-gate` | Enforce policy on that exact scan receipt | `FORTIFY_GATE_REPORT` |
-| `image-scan` | Scan the candidate image for vulnerabilities | `IMAGE_SCAN_REPORT` |
-| `sbom` | Inventory the candidate image in CycloneDX format | `SBOM_REPORT` |
-| `image-sign` | Sign the candidate digest using Cosign | `IMAGE_SIGN_IMAGE_REF` |
-| `image-verify` | Verify its signature using the approved public key | `IMAGE_VERIFY_IMAGE_REF` |
-| `zap-baseline` | Run a ZAP passive baseline scan of the deployment | `ZAP_BASELINE_REPORT_DIR`, `ZAP_BASELINE_TARGET_URL` |
+| `maven-test` | Surefire-unittests en het ingestelde JaCoCo-rapport | `MAVEN_TEST_REPORT_ROOT` |
+| `sonar-scan` | Maven/Java-analyse en coverage aanbieden | `SONAR_SCAN_TASK_FILE` |
+| `sonar-gate` | Op die analyse wachten en de Sonar-gate afdwingen | `SONAR_GATE_ANALYSIS_ID`, `SONAR_GATE_RESULT` |
+| `dependency-check` | OWASP Dependency-Check op Maven-dependencies uitvoeren | `DEPENDENCY_CHECK_REPORT_DIR` |
+| `npm-audit` | npm-dependencies controleren | `NPM_AUDIT_REPORT` |
+| `fortify-scan` | De scanadapter voor de gekozen Fortify-editie uitvoeren | `FORTIFY_SCAN_RECEIPT` |
+| `fortify-gate` | Beleid toetsen aan precies het aangeleverde scanbewijs | `FORTIFY_GATE_REPORT` |
+| `image-scan` | De kandidaatimage op kwetsbaarheden scannen | `IMAGE_SCAN_REPORT` |
+| `sbom` | De kandidaatimage inventariseren in CycloneDX-formaat | `SBOM_REPORT` |
+| `image-sign` | De kandidaatdigest met Cosign ondertekenen | `IMAGE_SIGN_IMAGE_REF` |
+| `image-verify` | De handtekening met de goedgekeurde publieke sleutel verifiëren | `IMAGE_VERIFY_IMAGE_REF` |
+| `zap-baseline` | Een passieve ZAP-baselinescan op de deployment uitvoeren | `ZAP_BASELINE_REPORT_DIR`, `ZAP_BASELINE_TARGET_URL` |
 
-Each component's `STATUS` is informational. The GitLab job exit status and required dependency graph enforce the workflow. Do not implement promotion by checking a caller-supplied `STATUS=passed` variable.
+De output `STATUS` is informatief. GitLabs exitcodes en verplichte jobafhankelijkheden bepalen het verloop. Gebruik een door de aanroeper ingestelde variabele `STATUS=passed` niet als basis voor promotie.
 
-## Local application integration
+## Koppeling met de lokale applicatie
 
-The [hello-world pipeline](http://localhost:8929/root/hello-world/-/blob/main/.gitlab-ci.yml) imports the shared input form and one central [java-service.yml](../pipelines/java-service.yml) at an immutable commit. The central file composes build, required tests, optional developer tests, publication, deployment and release. It also defines the child flows; there is no separate organization-profile or delivery wrapper.
+De [hello-world-pipeline](http://localhost:8929/root/hello-world/-/blob/main/.gitlab-ci.yml) neemt het gedeelde inputformulier en één centrale [java-service.yml](../pipelines/java-service.yml) op met een vaste commit. Het centrale bestand combineert build, verplichte tests, optionele ontwikkeltests, publicatie, deployment en release. Ook de childvarianten staan daar; er is geen apart organisatieprofiel of delivery-omhulsel nodig.
 
-The application supplies its deployable module and declarative Helm values. CI scripts, job order, hooks and release policy remain in the library. Modules can still be consumed individually by other projects. The broader scanner/signing examples require their services and policies before adoption.
+De applicatie geeft de deploybare module en declaratieve Helm-values op. CI-scripts, jobvolgorde, hooks en releasebeleid blijven in de bibliotheek. Andere projecten kunnen de modules afzonderlijk gebruiken. De uitgebreidere scan-/signingvoorbeelden vereisen eerst hun diensten en beleid.
 
-## Pipeline composition
+## Een pipeline samenstellen
+
+Het onderstaande diagram toont het uitgebreide toekomstige referentievoorbeeld, inclusief modules uit `modules/todo/`. De actieve Java-demo voert deze volledige beveiligingsketen nog niet uit.
 
 ```mermaid
 flowchart TD
-  MB[Maven build] --> MT[Maven unit tests]
-  NB[npm build] --> NT[npm unit tests]
-  MT --> SS[Sonar analysis]
+  MB[Maven-build] --> MT[Maven-unittests]
+  NB[npm-build] --> NT[npm-unittests]
+  MT --> SS[Sonar-analyse]
   NT --> SS
-  SS --> SG[Sonar quality gate]
-  FS[Fortify scan] --> FG[Fortify policy gate]
-  DC[Dependency-Check] --> IB[Build candidate image]
+  SS --> SG[Sonar-kwaliteitscontrole]
+  FS[Fortify-scan] --> FG[Fortify-beleidscontrole]
+  DC[Dependency-Check] --> IB[Kandidaatimage bouwen]
   NA[npm audit] --> IB
   SG --> IB
   FG --> IB
-  IB --> IS[Image vulnerability scan]
+  IB --> IS[Image op kwetsbaarheden scannen]
   IB --> SB[SBOM]
-  IS --> SIGN[Sign image digest]
+  IS --> SIGN[Image-digest ondertekenen]
   SB --> SIGN
-  SIGN --> VERIFY[Verify signature]
-  VERIFY --> DEPLOY[Deploy isolated test environment]
-  DEPLOY --> CUC[Cucumber integration tests]
-  DEPLOY --> ZAP[ZAP baseline]
-  CUC --> PROD[Approve and deploy same digest to production]
+  SIGN --> VERIFY[Handtekening verifiëren]
+  VERIFY --> DEPLOY[Naar aparte testomgeving deployen]
+  DEPLOY --> CUC[Cucumber-integratietests]
+  DEPLOY --> ZAP[ZAP-baseline]
+  CUC --> PROD[Dezelfde digest goedkeuren en naar productie deployen]
   ZAP --> PROD
 ```
 
-The consumer example in `examples/full-pipeline/application.gitlab-ci.yml` includes the organization profile and shows explicit job dependencies and output handoffs. It assumes a Maven service at `backend/`, an npm project at `frontend/`, a Dockerfile that copies their build artifacts, and a chart at `helm/application/`. Adapt these paths through profile inputs. For independent services use separate pipelines or repeat components with unique names/prefixes.
+Het voorbeeld `examples/full-pipeline/application.gitlab-ci.yml` neemt het organisatieprofiel op en toont expliciete afhankelijkheden en overdracht van outputs. Het verwacht een Maven-service in `backend/`, een npm-project in `frontend/`, een Dockerfile die hun buildartifacts kopieert en een chart in `helm/application/`. Pas deze paden aan via profielinputs. Gebruik voor onafhankelijke services aparte pipelines of herhaal componenten met unieke namen en prefixen.
 
-Build the candidate image once, then scan, sign, verify, and promote the **same digest**. The initial registry push is a candidate upload, not permission to release. Production must depend on both Cucumber and ZAP success; a Helm readiness check alone does not establish application correctness.
+Bouw de kandidaatimage één keer. Scan, onderteken, verifieer en promoveer daarna **dezelfde digest**. De eerste registry-push biedt een kandidaat aan en geeft nog geen toestemming voor een release. Productie moet wachten op geslaagde Cucumber- én ZAP-controles. Alleen wachten op Helm-readiness toont niet aan dat de applicatie correct werkt.
 
-## Organization baseline
+## Basisafspraken voor de organisatie
 
-1. Version component contracts with semantic versions and consume immutable commit SHAs. Review changes with platform/security ownership. Test a candidate component against representative Java, npm, and deployment repositories before releasing it.
-2. Commit the Maven Wrapper and its distribution checksum, pin plugins and dependencies, and use approved artifact repositories. Use `npm ci` with the committed lockfile. Cache downloaded dependencies only as an optimization; transfer required build outputs as artifacts. [npm CI](https://docs.npmjs.com/cli/v11/commands/npm-ci/)
-3. Configure Surefire for unit tests, JaCoCo for coverage, and Failsafe for integration tests. Run Failsafe's `verify` phase so test failures fail CI. Configure test discovery to fail when an expected suite contains no tests. [Maven Failsafe](https://maven.apache.org/surefire/maven-failsafe-plugin/)
-4. Set the Sonar quality gate centrally. A suggested starting policy is at least 80% coverage on new code, no new blocker/critical issues, and reviewed security hotspots; tailor it to application risk. These numbers are organization policy suggestions, not universal industry requirements.
-5. Fail dependency/image checks at the agreed severity (the starter uses high/critical or CVSS 7). Maintain reviewed, time-limited exceptions with an owner and remediation date. Cache/mirror vulnerability feeds with a defined freshness requirement. Dependency-Check's default threshold otherwise does not block vulnerabilities, so set it explicitly. [Dependency-Check configuration](https://dependency-check.github.io/DependencyCheck/dependency-check-maven/check-mojo.html)
-6. Use Fortify for SAST and a defined security policy, alongside Sonar's maintainability/quality controls. Select SSC/ScanCentral or Fortify on Demand before writing the adapter; their authentication and scan APIs differ. Fortify's bundled `check-policy` action is a sample to tailor, not a universal policy. [Fortify actions](https://fortify.github.io/fcli/latest/ssc-actions.html)
-7. Generate an SBOM, sign the immutable image, and verify its signature before deployment. Use KMS-backed signing or an approved OIDC trust setup. Configure cluster admission enforcement too; a CI verification job alone cannot prevent out-of-band deployment. [Cosign KMS signing](https://docs.sigstore.dev/cosign/key_management/overview/)
-8. Use isolated test namespaces, minimal cluster RBAC, a Helm timeout and rollback behavior, protected production environments, authorized approvers, and deployment serialization. Credentials should be short-lived and scoped by job/environment. Keep untrusted merge-request jobs away from release credentials and protected deployment runners.
-9. Treat OWASP as guidance and verification requirements. Dependency-Check covers known vulnerable dependencies; ZAP baseline covers a limited passive runtime scan. Add authenticated active/API DAST where appropriate, plus secrets scanning, IaC checks, license policy, and threat modeling. A passing scan does not establish OWASP ASVS compliance. [OWASP ASVS](https://owasp.org/www-project-application-security-verification-standard/), [NIST SSDF](https://csrc.nist.gov/pubs/sp/800/218/final)
+1. Geef componentafspraken semantische versies en neem componenten op via vaste commit-SHA's. Laat platform-/beveiligingsverantwoordelijken wijzigingen beoordelen. Test een kandidaatcomponent met representatieve Java-, npm- en deploymentrepositories vóór publicatie.
+2. Commit de Maven Wrapper met distributiechecksum, zet plugins en dependencies vast en gebruik goedgekeurde artifactrepositories. Gebruik `npm ci` met de gecommitteerde lockfile. Caches versnellen downloads; vereiste buildoutputs worden als artifacts doorgegeven. Zie [npm ci](https://docs.npmjs.com/cli/v11/commands/npm-ci/).
+3. Configureer Surefire voor unittests, JaCoCo voor coverage en Failsafe voor integratietests. Voer de Failsafe-fase `verify` uit, zodat testfouten CI laten falen. Laat een verwachte maar lege testsuite falen. Zie [Maven Failsafe](https://maven.apache.org/surefire/maven-failsafe-plugin/).
+4. Stel de Sonar-quality-gate centraal in. Een mogelijk startbeleid is minstens 80% dekking op nieuwe code, geen nieuwe blocker-/critical-bevindingen en beoordeelde security hotspots. Stem dit af op het applicatierisico. Deze grenzen zijn beleidsvoorstellen, geen universele industrie-eisen.
+5. Laat dependency-/imagecontroles blokkeren bij de afgesproken ernst; dit startpunt gebruikt high/critical of CVSS 7. Beheer beoordeelde, tijdelijke uitzonderingen met eigenaar en oplosdatum. Stel eisen aan de actualiteit van gecachete of gespiegelde kwetsbaarheidsfeeds. Dependency-Check blokkeert met zijn standaardgrens niet vanzelf op kwetsbaarheden; stel de grens expliciet in. Zie [Dependency-Check-configuratie](https://dependency-check.github.io/DependencyCheck/dependency-check-maven/check-mojo.html).
+6. Gebruik Fortify voor SAST met vastgelegd beveiligingsbeleid, naast Sonars onderhoudbaarheids- en kwaliteitscontroles. Kies SSC/ScanCentral of Fortify on Demand vóór het schrijven van een adapter: authenticatie en scan-API's verschillen. Fortify's meegeleverde `check-policy` is een aan te passen voorbeeld. Zie [Fortify-acties](https://fortify.github.io/fcli/latest/ssc-actions.html).
+7. Genereer een SBOM, onderteken de onveranderlijke image en verifieer de handtekening vóór deployment. Gebruik KMS-signing of goedgekeurd OIDC-vertrouwen. Dwing dit ook af bij toelating in het cluster; een CI-verificatiejob blokkeert geen deployments buiten CI. Zie [Cosign KMS-signing](https://docs.sigstore.dev/cosign/key_management/overview/).
+8. Gebruik aparte testnamespaces, minimale cluster-RBAC, Helm-timeouts en rollback, protected productieomgevingen, bevoegde goedkeurders en deploymentlocks. Geef credentials een korte geldigheid en beperk ze tot job/omgeving. Houd onbetrouwbare MR-jobs gescheiden van releasecredentials en protected deploymentrunners.
+9. Gebruik OWASP als richtlijn en bron van verificatie-eisen. Dependency-Check zoekt bekende kwetsbare dependencies; ZAP baseline doet een beperkte passieve runtimescan. Voeg waar nodig geauthenticeerde actieve/API-DAST, geheimenscans, IaC-controles, licentiebeleid en dreigingsmodellering toe. Geslaagde scans bewijzen geen OWASP ASVS-conformiteit. Zie [OWASP ASVS](https://owasp.org/www-project-application-security-verification-standard/) en [NIST SSDF](https://csrc.nist.gov/pubs/sp/800/218/final).
 
-## Configure before running
+## Inrichten vóór uitvoering
 
-- Publish this repository to your GitLab instance, then replace example `platform/ci-components` references and `REPLACE_WITH_COMMIT_SHA` with the actual project and immutable revision.
-- Supply digest-pinned image variables listed in `docs/setup.md`. Images need POSIX `sh` plus the named tools. Components intentionally do not download tooling during the job.
-- Configure Maven test/coverage profiles, npm CI test reporters, a chart that supports image digests, and the Fortify adapters described in `docs/fortify-adapters.md`.
-- Add secrets through your secret manager or appropriately protected GitLab variables, never through component inputs or output artifacts.
-- Configure GitLab merge/deployment protections and run GitLab CI Lint on the fully resolved consumer pipeline in your own instance.
-- Run `python3 -m unittest discover -s tests -p 'test_*.py'` locally. The tests read the component YAML directly and require Python 3 and Ruby's standard YAML library. These checks do not replace live scanner, runner, registry, and Kubernetes validation.
+- Publiceer de repository op je GitLab-instance. Vervang `platform/ci-components` en `REPLACE_WITH_COMMIT_SHA` in voorbeelden door het echte project en de vaste commit.
+- Stel de imagevariabelen uit `docs/setup.md` in op vaste digests. Images hebben POSIX `sh` en de genoemde tools nodig. Componenten downloaden tijdens een job geen tooling.
+- Configureer Maven-test-/coverageprofielen, npm-CI-rapportage, een chart met ondersteuning voor image-digests en de Fortify-adapters uit `docs/fortify-adapters.md`.
+- Beheer geheimen via een secretmanager of passend beschermde GitLab-variabelen, nooit via componentinputs of outputartifacts.
+- Richt merge- en deploymentbescherming in. Voer GitLab CI Lint uit op de volledig samengevoegde pipeline van de afnemer in de eigen instance.
+- Voer lokaal `python3 -m unittest discover -s tests -p 'test_*.py'` uit. De tests lezen de component-YAML rechtstreeks en vereisen Python 3 en Ruby's standaard YAML-library. Ze vervangen geen echte validatie van scanners, runners, registries en Kubernetes.
 
-## Maintaining and replacing components
+## Componenten onderhouden en vervangen
 
-Edit active `templates/<component-name>.yml` files directly. Future modules are in `modules/todo/`; move one into `templates/` only when a real consumer and the required integration validation are ready. Each file contains its own input declarations, job image, operation, and output artifacts. Shared setup, post-hook/output validation, and cleanup live once in [`shared/module.yml`](../shared/module.yml). There is no generation step. For example:
+Bewerk actieve bestanden `templates/<component-name>.yml` rechtstreeks. Toekomstige modules staan in `modules/todo/`. Verplaats een module pas naar `templates/` als er een concrete afnemer is en de integratievalidatie klaar is. Elk bestand bevat zijn eigen inputdefinities, jobimage, bewerking en artifacts. Voorbereiding, post-hook-/outputcontrole en cleanup staan gedeeld in [`shared/module.yml`](../shared/module.yml). Een generatiestap is niet nodig.
 
 ```text
-pipelines/java-service.yml   # all Java job order and policy
-shared/module.yml           # common job lifecycle
-templates/                  # thirteen active modules
-modules/todo/               # twelve unused modules for future work
+pipelines/java-service.yml   # jobvolgorde en beleid voor Java
+shared/module.yml           # gedeelde joblifecycle
+templates/                  # dertien actieve modules
+modules/todo/               # twaalf modules voor toekomstig gebruik
 ```
 
-The application pipeline consumes the public component name and contract. Keep input names/types, output names and meanings, artifact paths, hook behavior, image requirements, and failure behavior stable when changing an implementation. The consumer owns the dependency graph.
+De applicatie gebruikt de openbare componentnaam en de bijbehorende afspraken. Houd bij implementatiewijzigingen inputnamen en -typen, outputnamen en -betekenis, artifactpaden, hookgedrag, imagevereisten en foutafhandeling stabiel. De afnemer bepaalt de jobafhankelijkheden.
 
-Components load the shared file with `include:local` and select its three sections with `!reference`. The post-hook remains at the end of `script`, where failure fails the job; `after_script` is reserved for cleanup. `image-build` removes its temporary registry credential before calling shared cleanup. Application `extends` configurations remain available for job defaults. Consume one component-library revision per pipeline because the shared hidden job name is common to all modules. [GitLab YAML references](https://docs.gitlab.com/ci/yaml/yaml_optimization/#reference-tags), [local includes](https://docs.gitlab.com/ci/yaml/#includelocal).
+Componenten laden het gedeelde bestand met `include:local` en kiezen de drie onderdelen met `!reference`. De post-hook blijft aan het einde van `script`, waar een fout de job laat falen. `after_script` is voor cleanup. `image-build` verwijdert eerst zijn tijdelijke registry-credentials en roept daarna de gedeelde cleanup aan. Applicaties kunnen `extends` gebruiken voor jobdefaults. Gebruik één bibliotheekcommit per pipeline, omdat alle modules dezelfde verborgen job delen. Zie [GitLab-YAML-referenties](https://docs.gitlab.com/ci/yaml/yaml_optimization/#reference-tags) en [lokale includes](https://docs.gitlab.com/ci/yaml/#includelocal).
 
-If we adopt a standard component later, use its supported extension points or a small adapter to preserve this contract. Validate the replacement against the existing contract checks and representative applications. Any incompatible contract change requires a new major version and an explicit consumer migration; upstream components are not assumed to be interchangeable automatically.
+Als we later een standaardcomponent overnemen, gebruik dan de ondersteunde uitbreidingspunten of een kleine adapter om de afspraken te behouden. Test de vervanging met bestaande contracttests en representatieve applicaties. Onverenigbare wijzigingen vereisen een nieuwe majorversie en expliciete migratie van afnemers. Componenten van verschillende aanbieders zijn niet vanzelf uitwisselbaar.

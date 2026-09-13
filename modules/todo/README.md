@@ -1,7 +1,7 @@
-# Modules for future work
+# Modules voor toekomstig gebruik
 
-These modules are not used by the current Java demo. They are retained for future evaluation; scanner services, policies and other integrations may still need implementation or live validation.
+De huidige Java-demo gebruikt deze modules niet. Ze blijven beschikbaar voor latere beoordeling. Scandiensten, beleid en andere integraties kunnen nog implementatie of echte validatie vereisen.
 
-The active modules are in [templates/](../../templates/). The [broader pipeline example](../../examples/full-pipeline/) explicitly references these TODO files for illustration. Contract checks continue to cover their YAML and scripts, but do not establish production readiness.
+De actieve modules staan in [templates/](../../templates/). Het [uitgebreide pipelinevoorbeeld](../../examples/full-pipeline/) verwijst ter illustratie expliciet naar deze TODO-bestanden. Contracttests blijven de YAML en scripts controleren, maar tonen geen geschiktheid voor productie aan.
 
-Before activating one, identify a real consumer, evaluate supported GitLab/vendor implementations, validate its service integration and then move the selected implementation into `templates/`. Keep the public inputs, outputs and failure behavior explicit. See [reuse and standards](../../docs/reuse-and-standards.md).
+Bepaal vóór activering wie de module nodig heeft, beoordeel ondersteunde GitLab-/leveranciersimplementaties en valideer de echte dienstintegratie. Verplaats daarna de gekozen implementatie naar `templates/`. Houd inputs, outputs en foutafhandeling expliciet. Zie [hergebruik en standaarden](../../docs/reuse-and-standards.md).

@@ -1,26 +1,26 @@
-# Runnable module examples
+# Uitvoerbare modulevoorbeelden
 
-These are ordinary GitLab pipelines assembled from individual modules. The validation project executes these exact files; the Java application's normal pipeline remains independent.
+Deze voorbeelden zijn gewone GitLab-pipelines, samengesteld uit losse modules. Het validatieproject voert precies deze bestanden uit. De normale pipeline van de Java-applicatie staat daar los van.
 
-| Sample | Jobs demonstrated |
+| Sample | Wat het voorbeeld laat zien |
 |---|---|
-| [maven-build](maven-build.yml) | One Maven build, with no other module required |
-| [build-and-test](build-and-test.yml) | Maven build artifacts imported by a Cucumber/Failsafe job |
-| [deploy-and-test](deploy-and-test.yml) | Jib image and OCI Helm chart → Helm readiness → API tests |
-| [two-deployables](two-deployables.yml) | Backend and UI, repeated Helm/Cucumber modules with distinct names and outputs |
+| [maven-build](maven-build.yml) | Eén Maven-build, zonder andere modules |
+| [build-and-test](build-and-test.yml) | Een Cucumber/Failsafe-job die artifacts van de Maven-build ophaalt |
+| [deploy-and-test](deploy-and-test.yml) | Jib-image en OCI-Helm-chart → Helm-deployment en gereedheidscontrole → API-tests |
+| [two-deployables](two-deployables.yml) | Backend en UI, met aparte namen en outputs voor herhaalde Helm- en Cucumber-modules |
 
-## Run in GitLab
+## Starten in GitLab
 
 1. Open [CI samples → New pipeline](http://localhost:8929/root/ci-samples/-/pipelines/new).
-2. Select `main` and choose `sample`: one of the four names above, or `all`.
-3. Keep the supplied `library_ref` for the installed version, or enter the exact component commit you are testing.
-4. Select **New pipeline**. Open the child named after the sample to inspect jobs, artifacts and test reports.
+2. Selecteer `main` en kies bij `sample` een van de vier voorbeelden of `all`.
+3. Behoud `library_ref` voor de ingestelde bibliotheekversie, of vul de volledige componentcommit in die je wilt testen.
+4. Kies **New pipeline**. Open de childpipeline met de naam van het voorbeeld om jobs, artifacts en testrapporten te bekijken.
 
-A module change also runs all four examples from the component project's `validate-samples` trigger. `strategy: mirror` propagates failures to that pipeline. The trigger supplies the candidate component commit, rather than testing an older published copy. Tests do not silently skip a failing sample. The internal [component validation include](../../tests/samples/component-validation.yml) resolves `CI_COMMIT_SHA` with GitLab's native `expand_vars` before passing it to the downstream input; the sample project accepts only a full commit SHA.
+Bij een modulewijziging start de trigger `validate-samples` in het componentproject ook alle vier voorbeelden. Met `strategy: mirror` neemt de componentpipeline hun resultaat over. De trigger geeft de gewijzigde componentcommit door, zodat de nieuwe code wordt getest. Een mislukte sample laat de validatie falen. De interne [include voor componentvalidatie](../../tests/samples/component-validation.yml) vult `CI_COMMIT_SHA` met GitLabs `expand_vars` in voordat de waarde naar de downstream-input gaat. Het sampleproject accepteert alleen een volledige commit-SHA.
 
-## Use an example in your project
+## Een voorbeeld in je eigen project gebruiken
 
-Include the selected file at an immutable library revision, passing the same revision as `library-ref`. For example:
+Neem het gekozen bestand op met een vaste bibliotheekcommit en geef dezelfde commit mee als `library-ref`:
 
 ```yaml
 include:
@@ -31,26 +31,42 @@ include:
       library-ref: *library
 ```
 
-Alternatively copy the example and adapt its component includes. Keep job order in your pipeline with `stages` and `needs`. Optional module defaults remain omitted. Supply approved tool images as GitLab group/project variables. Our runtime settings under `tests/samples/` configure only the validation lab and assertions; they are not required when using the modules.
+Je kunt het voorbeeld ook kopiëren en de component-includes aanpassen. Bepaal de jobvolgorde met `stages` en `needs`. Laat optionele module-inputs weg als de standaardwaarden voldoen. Stel goedgekeurde images in via GitLab-groeps- of projectvariabelen. De bestanden onder `tests/samples/` bevatten alleen instellingen en controles voor onze testopstelling; afnemers hoeven ze niet over te nemen.
 
-The build examples need `JAVA_CI_IMAGE`, Java 25, Maven and a repository POM. The configured CI image provides `mvn`; standalone applications can instead use the module's default `./mvnw`. The test example expects Cucumber/Failsafe to start its own backend. Adapt that test configuration to your application.
+De buildvoorbeelden vereisen `JAVA_CI_IMAGE`, Java 25, Maven en een POM in de repository. De ingestelde CI-image levert `mvn`; een eigen applicatie kan ook de standaard `./mvnw` van de module gebruiken. Het testvoorbeeld verwacht dat Cucumber/Failsafe zelf de backend start. Pas die testconfiguratie aan je applicatie aan.
 
-The deployment examples use the sample's `hello-app`, `helm/hello-world`, `ui` and `helm/hello-world-ui` directories. These paths are explicit, so it is clear what to change for your application. Set:
+De deploymentvoorbeelden gebruiken de mappen `hello-app`, `helm/hello-world`, `ui` en `helm/hello-world-ui` van de sample. De paden staan expliciet in de YAML, zodat je ziet wat je voor je eigen applicatie moet aanpassen. Stel daarnaast het volgende in:
 
-| Configuration | Purpose |
+| Instelling | Doel |
 |---|---|
-| `JAVA_CI_IMAGE`, `HELM_CI_IMAGE`, `JAVA_RUNTIME_IMAGE` | Approved Java/Maven, Helm and Java runtime images |
-| `OCI_REGISTRY`, `OCI_REPOSITORY` | Registry and publication repository |
-| `ARTIFACTORY_USERNAME`, `ARTIFACTORY_PASSWORD_FILE`, `ARTIFACTORY_MAVEN_SETTINGS` | Scoped registry credentials; password/settings are file variables |
-| `SAMPLE_KUBECONFIG`, `SAMPLE_NAMESPACE`, `API_TARGET_URL` | Pre-provisioned test namespace, scoped kubeconfig file and reachable API URL |
-| `NODE_CI_IMAGE`, `BUILDKIT_CI_IMAGE`, `BROWSER_CI_IMAGE`, `NGINX_RUNTIME_IMAGE`, `UI_TARGET_URL` | Additional tools/runtime and URL for the UI example |
+| `JAVA_CI_IMAGE`, `HELM_CI_IMAGE`, `JAVA_RUNTIME_IMAGE` | Goedgekeurde images voor Java/Maven, Helm en de Java-runtime |
+| `OCI_REGISTRY`, `OCI_REPOSITORY` | Registry en repository voor publicatie |
+| `ARTIFACTORY_USERNAME`, `ARTIFACTORY_PASSWORD_FILE`, `ARTIFACTORY_MAVEN_SETTINGS` | Registry-toegangsgegevens met beperkte rechten; wachtwoord en settings zijn bestandsvariabelen |
+| `SAMPLE_KUBECONFIG`, `SAMPLE_NAMESPACE`, `API_TARGET_URL` | Vooraf ingerichte testnamespace, kubeconfig met beperkte rechten en bereikbare API-URL |
+| `NODE_CI_IMAGE`, `BUILDKIT_CI_IMAGE`, `BROWSER_CI_IMAGE`, `NGINX_RUNTIME_IMAGE`, `UI_TARGET_URL` | Extra images en de URL voor het UI-voorbeeld |
 
-Commit `environment/cluster/validation-api.yaml` and, for the UI example, `validation-ui.yaml`. They set service routing, image-pull secret and the UI backend URL for your environment. Registry login uses the shared `.helm-login` YAML; set `HELM_REGISTRY_PLAIN_HTTP` only for an explicit HTTP lab. `plain-http` defaults to false in the examples.
+Commit `environment/cluster/validation-api.yaml` en voor de UI ook `validation-ui.yaml`. Daarin staan de servicerouting, het image-pull-secret en de backend-URL voor de UI. De registry-login gebruikt de gedeelde YAML `.helm-login`. Stel `HELM_REGISTRY_PLAIN_HTTP` alleen in voor een testomgeving die bewust HTTP gebruikt. De input `plain-http` staat in de voorbeelden standaard op `false`.
 
-## Test isolation and evidence
+## Testisolatie en bewijs
 
-The local `ci-samples` project contains a pinned snapshot of the Java/Angular application; its README records the source commit. It has its own namespace, Helm releases and registry write scope. Backend/UI test ports are 8180/8190; ordinary dev remains on 8080/8090. A native resource group on each deployment trigger holds the test-environment lock through deployment, tests and cleanup. The `cleanup-sample` job uninstalls test releases even when tests fail. A canceled pipeline can require manual cleanup; the credentials cannot operate in the normal application's namespace.
+Het lokale project `ci-samples` bevat een vaste kopie van de Java/Angular-applicatie. De README vermeldt de broncommit. Het project heeft een eigen namespace, Helm-releases en beperkte schrijfrechten in de registry. De backend- en UI-tests gebruiken poorten 8180 en 8190; de gewone dev-omgeving gebruikt 8080 en 8090. Een GitLab-resourcegroep op elke deploymenttrigger houdt de testomgeving bezet tijdens deployment, tests en opruimen. De job `cleanup-sample` verwijdert de testreleases ook als tests falen. Na annulering kan handmatig opruimen nodig zijn. De testcredentials hebben geen rechten in de namespace van de gewone applicatie.
 
-`verify-sample` checks real build artifacts, the producing commit/pipeline and the image/chart/URL outputs consumed downstream. Cucumber and Playwright validate actual deployed behavior. GitLab's compilation and existing Python contract tests complement those real executions; CI Lint alone cannot establish that a build or deployment works.
+`verify-sample` controleert de gebouwde artifacts, de broncommit en pipeline, en de image-, chart- en URL-outputs die volgende jobs gebruiken. Cucumber en Playwright testen de werkelijk gedeployde applicaties. GitLabs YAML-controle en de bestaande Python-contracttests vullen deze uitvoeringen aan. Alleen CI Lint kan niet aantonen dat een build of deployment werkt.
 
-This adopts [GitLab's component testing advice](https://docs.gitlab.com/ci/components/#test-the-component) and [testing with sample files](https://docs.gitlab.com/ci/components/#test-a-component-against-sample-files). The separate project, four examples and local isolation settings are our implementation choices. Selection and orchestration use native [pipeline inputs](https://docs.gitlab.com/ci/inputs/#for-a-pipeline), [downstream pipelines](https://docs.gitlab.com/ci/pipelines/downstream_pipelines/) and [resource groups](https://docs.gitlab.com/ci/resource_groups/).
+We volgen hiermee [GitLabs advies voor componenttests](https://docs.gitlab.com/ci/components/#test-the-component) en [tests met samplebestanden](https://docs.gitlab.com/ci/components/#test-a-component-against-sample-files). Het aparte project, de vier voorbeelden en de isolatie-instellingen zijn onze keuzes. Voor selectie en aansturing gebruiken we GitLabs [pipeline-inputs](https://docs.gitlab.com/ci/inputs/#for-a-pipeline), [downstream-pipelines](https://docs.gitlab.com/ci/pipelines/downstream_pipelines/) en [resourcegroepen](https://docs.gitlab.com/ci/resource_groups/).
+
+## Bestanden en verantwoordelijkheden
+
+Alle voorbeeld- en validatiebestanden staan in de componentbibliotheek `ci-components`:
+
+| Map of bestand | Verantwoordelijkheid |
+|---|---|
+| [`examples/modules/`](../modules/) | Een minimaal gebruiksvoorbeeld per module |
+| [`examples/samples/`](./) | Complete pipelines die afnemers kunnen overnemen |
+| [`tests/samples/launcher.yml`](../../tests/samples/launcher.yml) | De samplekeuze afhandelen en de gekozen voorbeelden als childpipelines starten |
+| [`tests/samples/runtime.yml`](../../tests/samples/runtime.yml) | De testomgeving instellen en outputs controleren |
+| [`tests/samples/deployment-runtime.yml`](../../tests/samples/deployment-runtime.yml) | Tijdelijke Helm-deployments opruimen |
+
+Het aparte project `ci-samples` bevat de testapplicatie en de `.gitlab-ci.yml` met het startformulier. Dat bestand laadt `tests/samples/launcher.yml` uit `ci-components` via `include: project`. De launcher staat onder `tests/` omdat hij onze validatie organiseert. Dit is onze mappenindeling; GitLab schrijft die niet voor.
+
+`include:inputs` geeft instellingen door aan een opgenomen bestand. Keuzevelden op **New pipeline** komen uit `spec:inputs` van de hoofdconfiguratie, eventueel via `spec:include`. Daarom krijgt een afnemer de samplekeuzelijst niet automatisch wanneer die alleen een module of voorbeeld opneemt.

@@ -1,88 +1,88 @@
-# Application and platform setup
+# Applicatie en platform inrichten
 
-This advanced setup includes future scanner/signing modules. To consume the active modules, start with the [module guide](modules.md) and [runnable examples](../examples/samples/README.md).
+Deze uitgebreide handleiding behandelt ook toekomstige scan-/signingmodules. Begin voor de actieve modules met de [modulehandleiding](modules.md) en [uitvoerbare voorbeelden](../examples/samples/README.md).
 
-## Dedicated images
+## Eigen images per taak
 
-There is no global image and no shared image required across components. Every module's `image` input is mandatory. The optional organization profile supplies separate image-variable defaults and allows explicit input overrides; images may be reused when tool requirements match. Set each variable to your approved image pinned with `@sha256:<64 hexadecimal characters>`. See [defaults and profiles](defaults.md) for configuration ownership. The repository validation job has its own image variable outside that profile.
+Elke module vereist de input `image`. Er is geen globale image of verplicht gedeelde image. Het optionele organisatieprofiel biedt per taak een imagevariabele die je kunt aanpassen. Taken mogen dezelfde image gebruiken als hun toolvereisten overeenkomen. Zet goedgekeurde images vast met `@sha256:<64 hexadecimal characters>`. Zie [standaardwaarden en profielen](defaults.md) voor de verdeling van configuratie. De validatiejob van de componentrepository heeft een eigen imagevariabele buiten dat profiel.
 
-| Example variable | Required contents |
+| Voorbeeldvariabele | Benodigde inhoud |
 |---|---|
-| `MAVEN_BUILD_IMAGE` | Approved JDK, Maven Wrapper prerequisites, `sh` |
-| `MAVEN_TEST_IMAGE` | Matching JDK and Maven Wrapper prerequisites, `sh` |
-| `NPM_BUILD_IMAGE` | Approved Node.js and npm, `sh` |
-| `NPM_TEST_IMAGE` | Node/npm and browser libraries if the selected test runner needs them |
-| `SONAR_SCANNER_IMAGE` | JDK, Maven Wrapper prerequisites, Git; Node if required by your JS/TS analysis setup |
-| `SONAR_GATE_IMAGE` | Python 3, CA certificates, `sh` |
-| `DEPENDENCY_CHECK_IMAGE` | JDK compatible with the approved plugin, Maven Wrapper prerequisites |
+| `MAVEN_BUILD_IMAGE` | Goedgekeurde JDK, vereisten voor Maven Wrapper, `sh` |
+| `MAVEN_TEST_IMAGE` | Bijpassende JDK, vereisten voor Maven Wrapper, `sh` |
+| `NPM_BUILD_IMAGE` | Goedgekeurde Node.js en npm, `sh` |
+| `NPM_TEST_IMAGE` | Node/npm en browserlibraries als de testrunner die nodig heeft |
+| `SONAR_SCANNER_IMAGE` | JDK, Maven Wrapper-vereisten, Git en eventueel Node voor JS/TS-analyse |
+| `SONAR_GATE_IMAGE` | Python 3, CA-certificaten, `sh` |
+| `DEPENDENCY_CHECK_IMAGE` | JDK die bij de goedgekeurde plugin past en Maven Wrapper-vereisten |
 | `NPM_AUDIT_IMAGE` | Node/npm, `sh` |
-| `FORTIFY_SCAN_IMAGE` | Licensed scanner/client for your Fortify edition, language prerequisites, Python 3, `sh` |
-| `FORTIFY_GATE_IMAGE` | Fortify policy client, Python 3, `sh` |
-| `IMAGE_BUILD_IMAGE` | Rootless BuildKit including `buildctl-daemonless.sh`, Python 3, `sh` |
-| `IMAGE_SCAN_IMAGE` | Trivy, CA certificates, `sh` |
-| `SBOM_IMAGE` | Trivy, CA certificates, `sh` |
-| `IMAGE_SIGN_IMAGE` | Cosign, KMS authentication support, CA certificates, `sh` |
-| `IMAGE_VERIFY_IMAGE` | Cosign, CA certificates, `sh` |
-| `HELM_TEST_IMAGE` | Selected Helm major version, kubectl, CA certificates, `sh` |
-| `HELM_PRODUCTION_IMAGE` | Selected Helm major version, kubectl, CA certificates, `sh` |
-| `CUCUMBER_IMAGE` | JDK, Maven Wrapper prerequisites, browser libraries if the suite requires them |
-| `ZAP_IMAGE` | ZAP's packaged `zap-baseline.py`, writable `/zap/wrk`, `sh` |
-| `CI_VALIDATION_IMAGE` | Python 3, Ruby with standard YAML library, `sh`; used only by this component repository |
+| `FORTIFY_SCAN_IMAGE` | Gelicentieerde scanner/client voor de gekozen Fortify-editie, taalvereisten, Python 3, `sh` |
+| `FORTIFY_GATE_IMAGE` | Fortify-client voor beleidscontrole, Python 3, `sh` |
+| `IMAGE_BUILD_IMAGE` | Rootless BuildKit met `buildctl-daemonless.sh`, Python 3, `sh` |
+| `IMAGE_SCAN_IMAGE` | Trivy, CA-certificaten, `sh` |
+| `SBOM_IMAGE` | Trivy, CA-certificaten, `sh` |
+| `IMAGE_SIGN_IMAGE` | Cosign, KMS-authenticatie, CA-certificaten, `sh` |
+| `IMAGE_VERIFY_IMAGE` | Cosign, CA-certificaten, `sh` |
+| `HELM_TEST_IMAGE` | Gekozen Helm-majorversie, kubectl, CA-certificaten, `sh` |
+| `HELM_PRODUCTION_IMAGE` | Gekozen Helm-majorversie, kubectl, CA-certificaten, `sh` |
+| `CUCUMBER_IMAGE` | JDK, Maven Wrapper-vereisten en eventueel browserlibraries |
+| `ZAP_IMAGE` | Meegeleverde `zap-baseline.py` van ZAP, schrijfbare `/zap/wrk`, `sh` |
+| `CI_VALIDATION_IMAGE` | Python 3, Ruby met standaard YAML-library, `sh`; alleen voor deze componentrepository |
 
-All images also need basic POSIX utilities (`awk`, `grep`, `wc`, `printenv`, `cat`, `cp`, `mv`, `rm`, `mkdir`). Minimal/distroless upstream images may need a small internal wrapper image to add the shell. No image needs tools for unrelated building blocks. Bake tools into maintained images instead of downloading arbitrary binaries in hooks.
+Alle images hebben ook POSIX-basistools nodig: `awk`, `grep`, `wc`, `printenv`, `cat`, `cp`, `mv`, `rm` en `mkdir`. Minimale of distroless images kunnen een kleine interne uitbreiding nodig hebben om de shell toe te voegen. Een image hoeft geen tools voor andere bouwblokken te bevatten. Neem tools op in beheerde images en download geen willekeurige binaries via hooks.
 
-Use matching Java/Node versions across build and test images. Configure internal CA certificates, registry access, and proxies. Rootless BuildKit still needs a runner permitting its required user namespace/mount system calls; validate that with your runner team. [GitLab BuildKit setup](https://docs.gitlab.com/ci/docker/using_buildkit/)
+Gebruik bijpassende Java-/Node-versies voor build en tests. Configureer interne CA-certificaten, registry-toegang en proxies. Ook rootless BuildKit vereist een runner die de benodigde user-namespace- en mount-systeemaanroepen toestaat. Valideer dit met het runnerteam. Zie [GitLab BuildKit-inrichting](https://docs.gitlab.com/ci/docker/using_buildkit/).
 
-## Service configuration
+## Diensten instellen
 
-- Set `SONAR_HOST_URL` to HTTPS, `SONAR_PROJECT_KEY`, and a scoped `SONAR_TOKEN`; select an exact `SONAR_MAVEN_PLUGIN_VERSION`. The scan job exports its CE task metadata. The gate waits on that task and queries the resulting analysis ID, not the latest project analysis. [Sonar analysis and quality gates](https://docs.sonarsource.com/sonarqube-cloud/advanced-setup/ci-based-analysis/gitlab-ci)
-- Select an exact `DEPENDENCY_CHECK_PLUGIN_VERSION` and provide `NVD_API_KEY` securely. The plugin reads the key by environment-variable name. Configure your central feed cache, freshness checks, and suppression policy before scaling to many concurrent projects.
-- Configure Fortify through the adapters in `fortify-adapters.md`; the scan and gate credentials should have only their required privileges.
-- Enable the GitLab container registry. Configure registry authentication for Trivy/Cosign through their supported credentials or a pre-hook. The BuildKit component creates its own ephemeral registry config using the GitLab job credential and removes it in `after_script`; it is outside the artifact directory.
-- Set `COSIGN_KEY_URI` to the approved KMS URI and obtain short-lived KMS credentials for the sign job. Set `COSIGN_PUBLIC_KEY` to an approved public-key file or verification URI. Configure the transparency log/trust arrangement appropriate for the organization. The starter signs images; Maven repository publishing may also require a separate detached GPG signing/publish component, depending on the repository's contract.
-- Set `KUBE_CONTEXT` using environment-scoped variables for test and production. Use the GitLab Kubernetes agent or a pre-hook that obtains a short-lived kubeconfig. Configure namespace-scoped RBAC. A platform controller can pre-create namespaces when application jobs should not have that permission; set the `helm-deploy` input `create-namespace: false`. A file variable can be selected with `kubeconfig-variable`, without requiring a context override.
-- Configure protected environments, approvals, and authorized production deployers. The example's manual job is a pipeline pause; actual approval/authorization policies are GitLab settings and depend on your edition.
+- Stel `SONAR_HOST_URL` in op HTTPS en configureer `SONAR_PROJECT_KEY`, een beperkt `SONAR_TOKEN` en een vaste `SONAR_MAVEN_PLUGIN_VERSION`. De scanjob publiceert CE-taakmetadata. De gate wacht op die taak en controleert het bijbehorende analyse-ID. Zie [Sonar-analyse en quality gates](https://docs.sonarsource.com/sonarqube-cloud/advanced-setup/ci-based-analysis/gitlab-ci).
+- Kies een vaste `DEPENDENCY_CHECK_PLUGIN_VERSION` en lever `NVD_API_KEY` veilig aan. De plugin leest de sleutel via de naam van de omgevingsvariabele. Regel feedcache, actualiteitscontroles en uitzonderingsbeleid voordat veel projecten tegelijk scannen.
+- Richt Fortify in met de adapters uit `fortify-adapters.md`. Geef scan- en gatecredentials alleen de benodigde rechten.
+- Schakel de GitLab-containerregistry in. Configureer Trivy-/Cosign-authenticatie via hun ondersteunde credentials of een pre-hook. De BuildKit-component maakt standaard een tijdelijke registry-configuratie met het GitLab-jobtoken en verwijdert die in `after_script`. Dit bestand staat buiten de artifactmap.
+- Stel `COSIGN_KEY_URI` in op de goedgekeurde KMS-URI en gebruik kort geldige KMS-credentials voor de signingjob. Stel `COSIGN_PUBLIC_KEY` in op een goedgekeurd sleutelbestand of verificatie-URI. Regel passende vertrouwens- en transparantieloginstellingen. Dit startpunt ondertekent images. Maven-publicatie kan, afhankelijk van de repositoryafspraken, een aparte component voor GPG-ondertekening/publicatie vereisen.
+- Stel `KUBE_CONTEXT` per test-/productieomgeving in. Gebruik de GitLab Kubernetes-agent of een pre-hook die een kort geldige kubeconfig ophaalt. Beperk RBAC tot de namespace. Als applicatiejobs geen namespaces mogen maken, laat het platform dat doen en stel `create-namespace: false` in op `helm-deploy`. Via `kubeconfig-variable` kun je een bestandsvariabele kiezen zonder de context te overschrijven.
+- Configureer protected omgevingen, goedkeuringen en bevoegde productiedeployers. De handmatige voorbeeldjob pauzeert de pipeline. Werkelijke goedkeuring en autorisatie zijn GitLab-instellingen en hangen af van de editie.
 
-## Maven and npm contracts
+## Afspraken voor Maven en npm
 
-By default, Maven components use an executable Maven Wrapper in the configured working directory. `maven-build`, `maven-publish`, `jib-build`, and `cucumber-test` also accept `maven-executable: mvn` to use Maven installed in the approved image. Commit its version and checksum configuration. Pin Surefire, Failsafe, JaCoCo, and scanner plugin versions in your parent POM or component inputs.
+Maven-componenten gebruiken standaard een uitvoerbare Maven Wrapper in de ingestelde werkmap. `maven-build`, `maven-publish`, `jib-build` en `cucumber-test` accepteren ook `maven-executable: mvn` om Maven uit de goedgekeurde image te gebruiken. Commit de versie- en checksumconfiguratie van de wrapper. Zet Surefire-, Failsafe-, JaCoCo- en scanpluginversies vast in de parent-POM of componentinputs.
 
-`ci-unit` must activate JaCoCo's `prepare-agent` before tests and configure Surefire. The test component runs `test jacoco:report`; make the report XML available to Sonar. `sonar-scan` preserves imported coverage artifacts and installs reactor artifacts with tests skipped to resolve multi-module dependencies. These preparation phases may compile/package again; the release OCI image is still built only once from the build jobs' artifacts.
+Het profiel `ci-unit` moet JaCoCo `prepare-agent` vóór de tests activeren en Surefire instellen. De testcomponent voert `test jacoco:report` uit. Maak het XML-rapport beschikbaar voor Sonar. `sonar-scan` behoudt opgehaalde coverage-artifacts en installeert reactorartifacts met overgeslagen tests om afhankelijkheden tussen modules op te lossen. Die voorbereiding kan opnieuw compileren/verpakken; de release-OCI-image wordt nog steeds één keer gebouwd vanuit de buildartifacts.
 
-Configure the POM to bind Failsafe's `integration-test` and `verify` goals, discover a real Cucumber test suite, write JUnit XML to `target/failsafe-reports`, and read `cucumber.base-url` in application test code. Configure Surefire's `skipTests` from a custom `skipUnitTests` property; do not set global `skipTests` for Cucumber because that can skip Failsafe too. Fail the suite if its configured tag filter selects no scenarios. Java multi-module projects with intentionally testless modules need a reviewed per-module discovery configuration. [Cucumber with Failsafe](https://maven.apache.org/components/surefire/maven-failsafe-plugin/examples/cucumber.html)
+Koppel in de POM de Failsafe-doelen `integration-test` en `verify`, laat een echte Cucumber-suite ontdekken en schrijf JUnit XML naar `target/failsafe-reports`. De testcode leest `cucumber.base-url`. Stuur Surefires `skipTests` aan via een eigen property `skipUnitTests`. Gebruik geen globale `skipTests` voor Cucumber, omdat daarmee ook Failsafe kan worden overgeslagen. Laat de suite falen als het ingestelde tagfilter geen scenario's selecteert. Modules die bewust geen tests bevatten, hebben een beoordeelde afzonderlijke discoveryconfiguratie nodig. Zie [Cucumber met Failsafe](https://maven.apache.org/components/surefire/maven-failsafe-plugin/examples/cucumber.html).
 
-Cucumber activates no Maven profile by default. If Failsafe is configured in a profile, pass its name explicitly, for example `profile: cucumber-ci`. The optional full pipeline example selects that profile explicitly. Set `target-url-variable: ""` when the test suite starts its own application; otherwise pass the name of a URL output from an upstream deployment.
+Cucumber activeert standaard geen Maven-profiel. Staat Failsafe in een profiel, geef de naam dan expliciet mee, bijvoorbeeld `profile: cucumber-ci`. Het uitgebreide pipelinevoorbeeld doet dat. Gebruik `target-url-variable: ""` wanneer de tests zelf de applicatie starten. Geef anders de naam door van de URL-output van een eerdere deploymentjob.
 
-`package-lock.json` and the approved npm configuration must be committed. `build` must write the configured output directory (`dist` by default). `test:ci` must run non-interactively, fail when no tests are discovered, produce `reports/junit.xml`, and write `coverage/lcov.info` if Sonar consumes JavaScript/TypeScript coverage. The npm build, test, and audit components each install their own dependencies from the same lockfile.
+Commit `package-lock.json` en de goedgekeurde npm-configuratie. `build` schrijft naar de ingestelde uitvoermap, standaard `dist`. `test:ci` draait zonder interactie, faalt als er geen tests zijn en maakt `reports/junit.xml` aan. Schrijf ook `coverage/lcov.info` als Sonar JS/TS-coverage gebruikt. De npm-build-, test- en auditcomponenten installeren ieder hun dependencies vanuit dezelfde lockfile.
 
-The Sonar scan in this starter uses the Maven scanner. Configure the application's POM/Sonar project to include the frontend sources and imported LCOV if Java and npm are one analyzed project. For independently analyzed frontend projects, use a dedicated Sonar CLI component with the same output contract and give its gate a unique task-variable input and output prefix.
+De Sonar-component gebruikt de Maven-scanner. Analyseer je Java en npm als één project, neem dan frontendbronnen en LCOV op in de POM-/Sonar-configuratie. Gebruik voor een afzonderlijk frontendproject een eigen Sonar-CLI-component met overeenkomstige outputs. Geef de gate een unieke taakvariabele en outputprefix.
 
-## Deployment contract
+## Afspraken voor deployment
 
-For Java applications using Jib, select `jib-build`, supply a digest-pinned base image and registry Maven settings, and consume its `IMAGE_REF` output. The component uses Jib’s standard `jib.to.image` and `jib.from.image` properties; it does not require application-specific image properties in the POM. Registry HTTP requires an explicit opt-in for the local lab. `maven-publish` handles Maven repository deployment independently.
+Gebruik voor Java `jib-build`, een basisimage met vaste digest en Maven-settings voor de registry. Geef de `IMAGE_REF`-output door. De component gebruikt Jibs standaardproperties `jib.to.image` en `jib.from.image`; applicatiespecifieke imageproperties in de POM zijn niet nodig. HTTP-toegang tot de registry vereist een expliciete keuze voor de lokale testomgeving. `maven-publish` verzorgt publicatie naar Maven-repositories afzonderlijk.
 
-When using the general `image-build` component, the Dockerfile should copy `backend/**/target` artifacts and `frontend/dist` from the producer jobs instead of fetching unversioned build outputs. Pin base images. Put downloaded caches, credentials, and unrelated files in `.dockerignore`.
+Bij de generieke component `image-build` kopieert de Dockerfile artifacts uit `backend/**/target` en `frontend/dist` van de producerende jobs. Haal geen buildoutputs zonder vaste versie op. Zet basisimages vast en sluit caches, credentials en ongerelateerde bestanden uit via `.dockerignore`.
 
-`helm-publish` packages a versioned chart and publishes it to an OCI repository. Pass its `REF` and `VERSION` outputs to `helm-deploy` through `chart-variable` and `chart-version-variable`. A registry login hook runs in each Helm job that needs authentication. `plain-http` defaults to false.
+`helm-publish` verpakt een chart met versie en publiceert die naar een OCI-repository. Geef de outputs `REF` en `VERSION` door aan `helm-deploy` via `chart-variable` en `chart-version-variable`. Elke Helm-job die authenticatie nodig heeft, voert een registry-loginhook uit. `plain-http` is standaard `false`.
 
-Commit `Chart.lock` for dependency reproducibility. The chart must render the exact repository and digest passed by the component:
+Commit `Chart.lock` om chartdependencies vast te leggen. De chart moet precies de aangeleverde repository en digest gebruiken:
 
 ```yaml
 # Helm template fragment inside the chart's container definition
 image: "{{ .Values.image.repository }}@{{ required \"image.digest is required\" .Values.image.digest }}"
 ```
 
-Supply values files that configure the ingress host to match `target-url`; the component cannot infer a chart-specific ingress field. Configure readiness probes and service dependencies. The default Helm major is 4; set `helm-major: 3` for a Helm 3 image. The flags differ: Helm 4 uses `--rollback-on-failure`, while Helm 3 uses `--atomic`. [Helm 4 upgrade](https://docs.helm.sh/docs/helm/helm_upgrade/), [Helm 3 upgrade](https://docs.helm.sh/docs/v3/helm/helm_upgrade/)
+Laat values-bestanden de ingress-host op de `target-url` afstemmen. De component kan geen chartspecifiek ingress-veld afleiden. Configureer readiness-probes en dienstafhankelijkheden. Helm-majorversie 4 is standaard; kies `helm-major: 3` voor een Helm 3-image. De opties verschillen: Helm 4 gebruikt `--rollback-on-failure`, Helm 3 `--atomic`. Zie [Helm 4 upgrade](https://docs.helm.sh/docs/helm/helm_upgrade/) en [Helm 3 upgrade](https://docs.helm.sh/docs/v3/helm/helm_upgrade/).
 
-The consumer example uses a unique test namespace and URL per pipeline so another deployment cannot replace the application while Cucumber and ZAP run. Install an expiry controller or schedule cleanup for these namespaces. A job-level `resource_group` only serializes individual deployments; it does not protect a shared environment across subsequent test jobs.
+Het uitgebreide voorbeeld gebruikt een unieke testnamespace en URL per pipeline. Zo kan een andere deployment de applicatie niet vervangen tijdens Cucumber en ZAP. Richt verloop of geplande cleanup voor deze namespaces in. Een resourcegroep alleen op de deploymentjob houdt geen lock vast tijdens volgende testjobs. Voor gedeelde omgevingen bestaan aanvullende planningspatronen; zie het [onderzoek naar deploymentvolgorde](deployment-concurrency.md).
 
-Provide a reviewed `ci/zap/rules.tsv`. By default ZAP baseline uses passive checks and reports findings as warnings; this starter blocks exit statuses 1, 2, and 3. Use explicit, reviewed rule exceptions. Add authenticated active/API scans as separate components when required. [ZAP baseline behavior](https://www.zaproxy.org/docs/docker/baseline-scan/)
+Lever een beoordeeld `ci/zap/rules.tsv` aan. ZAP baseline gebruikt standaard passieve controles en meldt bevindingen als waarschuwingen. Deze component blokkeert op exitcodes 1, 2 en 3. Gebruik expliciete, beoordeelde uitzonderingen. Voeg zo nodig geauthenticeerde actieve/API-scans toe als aparte componenten. Zie [ZAP baseline](https://www.zaproxy.org/docs/docker/baseline-scan/).
 
-Production imports the same digest output from the test deployment and waits for both integration checks. Configure admission signature verification and prevent stale pipeline deployments in GitLab; review any rollback as a separate deployment decision. Retain release evidence in durable storage for your required audit period: the component artifact default is seven days and should be overridden for release evidence.
+Productie gebruikt dezelfde digestoutput als de testdeployment en wacht op beide integratiecontroles. Stel handtekeningverificatie bij clustertoelating in en voorkom verouderde deployments in GitLab. Beoordeel een rollback als afzonderlijke deploymentbeslissing. Bewaar releasebewijs duurzaam gedurende de vereiste auditperiode; de standaard artifactbewaartermijn van zeven dagen moet daarvoor zo nodig worden aangepast.
 
-## Extending a module
+## Een module uitbreiden
 
-Copy example hooks into the consuming application repository, then pass their paths:
+Kopieer voorbeeldhooks naar de repository van de afnemende applicatie en geef de paden mee:
 
 ```yaml
 include:
@@ -96,4 +96,4 @@ include:
       cleanup-hook: ci/hooks/cleanup.sh
 ```
 
-The sample post hook exports `SERVICE_A_BUILD_CUSTOM_BUILD_LABEL`. A downstream job with an artifact-enabled `needs` edge can read it along with the built-in outputs. Custom output keys must begin with `<PREFIX>_CUSTOM_`, values must be nonempty single lines, and the total dotenv file must remain within 5 KB. Keep the number of inherited variables within your instance's dotenv limit. Use a JSON artifact for large or structured output.
+De voorbeeld-post-hook publiceert `SERVICE_A_BUILD_CUSTOM_BUILD_LABEL`. Een vervolgjob kan die samen met de ingebouwde outputs lezen via `needs` met artifacts. Eigen outputnamen beginnen met `<PREFIX>_CUSTOM_`. Waarden zijn niet-leeg en beslaan één regel. Het totale dotenv-bestand blijft binnen 5 KB. Houd het aantal overgenomen variabelen binnen de dotenv-limiet van de instance. Gebruik een JSON-artifact voor grote of gestructureerde gegevens.

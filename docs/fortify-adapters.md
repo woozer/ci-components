@@ -1,10 +1,12 @@
-# Fortify adapter contract
+# Afspraken voor Fortify-adapters
 
-Fortify edition, version, licensing, endpoints, and organization policy are not specified yet. The two components therefore require explicit adapters and fail if those adapters are missing. This starter does not claim a working Fortify installation or substitute a successful no-op.
+De Fortify-editie, versie, licentie, endpoints en het organisatiebeleid zijn nog niet gekozen. De twee componenten vereisen daarom expliciete adapters en falen als die ontbreken. Er is nog geen werkende Fortify-installatie; een ontbrekende scan wordt niet als geslaagd behandeld.
 
-Supply the adapters in the consuming repository, or place an approved implementation in the component's dedicated image and use a repository script to invoke it. The scan image needs your Fortify scanner/client, appropriate language tooling, POSIX `sh`, and Python 3; the gate image only needs your policy client, `sh`, and Python 3. They can be different images.
+De losse scan- en gatecomponenten volgen onze oorspronkelijke keuze voor één taak per module. Fortify en GitLab verplichten deze opsplitsing niet. Bij activering beoordelen we eerst de ondersteunde integratie en of één component voor scan én beleidscontrole het gebruik eenvoudiger maakt.
 
-The scan adapter is invoked from the component working directory:
+Lever de adapters aan in de repository van de afnemer, of plaats een goedgekeurde implementatie in de componentimage en roep die aan met een repositoryscript. De scanimage heeft de Fortify-scanner/client, taaltools, POSIX `sh` en Python 3 nodig. De gate-image heeft alleen de client voor beleidscontrole, `sh` en Python 3 nodig. Deze images mogen verschillen.
+
+De scanadapter wordt vanuit de werkmap van de component aangeroepen:
 
 ```sh
 sh ci/fortify/scan.sh \
@@ -13,7 +15,7 @@ sh ci/fortify/scan.sh \
   --pipeline-id PIPELINE_ID
 ```
 
-It must submit the current source, wait for processing to complete, and write a JSON receipt:
+De adapter moet de huidige broncode aanbieden, wachten tot de verwerking klaar is en een JSON-bewijsbestand schrijven:
 
 ```json
 {
@@ -27,9 +29,9 @@ It must submit the current source, wait for processing to complete, and write a 
 }
 ```
 
-The scan component validates commit, pipeline, completion status, and scan ID. Its output variable points to the receipt file. Credentials must not appear in the receipt.
+De scancomponent controleert commit, pipeline, voltooiingsstatus en scan-ID. De outputvariabele verwijst naar het bewijsbestand. Dat bestand mag geen toegangsgegevens bevatten.
 
-The separate policy adapter is invoked as:
+De aparte adapter voor beleidscontrole wordt zo aangeroepen:
 
 ```sh
 sh ci/fortify/gate.sh \
@@ -37,7 +39,7 @@ sh ci/fortify/gate.sh \
   --report /absolute/output/policy.json
 ```
 
-It must evaluate the exact scan in the receipt against your approved policy and write:
+Deze adapter moet precies de scan uit het bewijsbestand aan het goedgekeurde beleid toetsen en het volgende resultaat schrijven:
 
 ```json
 {
@@ -47,8 +49,8 @@ It must evaluate the exact scan in the receipt against your approved policy and 
 }
 ```
 
-Return nonzero for policy violations, authentication/network errors, missing results, incomplete scans, or timeouts. A failed policy may still write its report for diagnostics. The gate component rejects a success report for the wrong scan.
+Geef een exitcode ongelijk aan nul terug bij beleidsovertredingen, authenticatie- of netwerkfouten, ontbrekende resultaten, onvoltooide scans en timeouts. Bij een mislukte beleidscontrole mag het rapport wel worden geschreven voor foutonderzoek. De gate-component weigert een succesrapport dat bij een andere scan hoort.
 
-For SSC policies that inspect the latest application-version state, isolate versions by pipeline/commit or serialize the entire upload, processing, and policy sequence. Locking only the upload job does not stop another pipeline changing the version before policy evaluation. Persist provider IDs and verify that the policy response belongs to the receipt. Do not silently assess whichever scan happens to be latest.
+Als SSC-beleid de laatste status van een applicatieversie controleert, gebruik dan aparte versies per pipeline/commit of voer upload, verwerking en beleidscontrole als één vergrendelde reeks uit. Alleen de uploadjob vergrendelen is onvoldoende: een andere pipeline kan de versie vóór de beleidscontrole wijzigen. Bewaar de provider-ID's en controleer of het beleidsresultaat bij het bewijsbestand hoort. Beoordeel altijd de bedoelde scan.
 
-The official `fcli ssc action run ci` can orchestrate scan submission and completion. Its `check-policy` action is documented as a sample; customize and version the actual organization policy. Disable optional PR/MR comment publication in these adapters unless that behavior is explicitly wanted. For Fortify on Demand, use the corresponding FoD APIs/actions and translate their results into the same contract. [Fortify SSC actions](https://fortify.github.io/fcli/latest/ssc-actions.html)
+Het officiële `fcli ssc action run ci` kan het aanbieden en afhandelen van scans aansturen. De actie `check-policy` is gedocumenteerd als voorbeeld; pas het echte organisatiebeleid aan en beheer het onder versiebeheer. Schakel optionele PR/MR-reacties in deze adapters alleen in als dat expliciet gewenst is. Gebruik voor Fortify on Demand de bijbehorende FoD-API's/acties en vertaal hun resultaten naar dezelfde afspraken. Zie [Fortify SSC-acties](https://fortify.github.io/fcli/latest/ssc-actions.html).
