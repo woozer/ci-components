@@ -58,7 +58,7 @@ variables:
   TEST_NAMESPACE: ci-samples
   TEST_URL: http://host.docker.internal:8180
   DEPLOY_KUBECONFIG: '$SAMPLE_KUBECONFIG'
-  MAVEN_REPOSITORY_URL: '$GITLAB_INTERNAL_URL/api/v4/projects/$CI_PROJECT_ID/packages/maven'
+  MAVEN_PUBLISH_URL: '$GITLAB_INTERNAL_URL/api/v4/projects/$CI_PROJECT_ID/packages/maven'
   RELEASE_REGISTRY_URL: 'http://host.docker.internal:8082'
   IMAGE_REPOSITORY_PATH: 'docker-local/root-ci-samples/module-releases/api'
 
@@ -94,9 +94,9 @@ verify-sample:
           test "$SELECTION_CLUSTER" = local; test "$SELECTION_USER_CONFIG" = default
           test -s .ci-output/deployment-select/pipeline.yml ;;
         maven-publish)
-          test "$MAVEN_PUBLISH_REPOSITORY_URL" = "$MAVEN_REPOSITORY_URL"
+          test "$MAVEN_PUBLISH_REPOSITORY_URL" = "$MAVEN_PUBLISH_URL"
           curl --fail --silent --show-error --max-time 60 --header "JOB-TOKEN: $CI_JOB_TOKEN" \
-            "$MAVEN_REPOSITORY_URL/com/example/hello-app/$APP_VERSION/hello-app-$APP_VERSION.jar" --output published.jar
+            "$MAVEN_PUBLISH_URL/com/example/hello-app/$APP_VERSION/hello-app-$APP_VERSION.jar" --output published.jar
           test -s published.jar ;;
         release-reserve|release-check|gitlab-release)
           git fetch origin "refs/tags/v$RELEASE_VERSION"
