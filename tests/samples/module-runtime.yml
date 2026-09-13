@@ -64,7 +64,7 @@ variables:
 
 verify-sample:
   stage: verify
-  image: $JAVA_CI_IMAGE
+  image: $CI_VALIDATION_IMAGE
   cache: []
   script:
     - |
