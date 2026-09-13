@@ -12,6 +12,6 @@ include:
   - component: $CI_SERVER_FQDN/$[[ inputs.library-project ]]/release-check@$[[ inputs.library-ref ]]
     inputs:
       image: $JAVA_CI_IMAGE
-      image-path: "$RELEASE_IMAGE_PATH"
+      image-path: "$IMAGE_REPOSITORY_PATH"
       version: "$RELEASE_VERSION"
-      commit: "$RELEASE_COMMIT"
+      commit: "$RELEASE_COMMIT_SHA"

@@ -60,8 +60,7 @@ variables:
   DEPLOY_KUBECONFIG: '$SAMPLE_KUBECONFIG'
   MAVEN_REPOSITORY_URL: '$GITLAB_INTERNAL_URL/api/v4/projects/$CI_PROJECT_ID/packages/maven'
   RELEASE_REGISTRY_URL: 'http://host.docker.internal:8082'
-  RELEASE_IMAGE_PATH: 'docker-local/root-ci-samples/module-releases/api'
-  RELEASE_COMMIT: '$CI_COMMIT_SHA'
+  IMAGE_REPOSITORY_PATH: 'docker-local/root-ci-samples/module-releases/api'
 
 verify-sample:
   stage: verify
