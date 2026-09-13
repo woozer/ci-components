@@ -515,7 +515,7 @@ PYTHON
         self.assertEqual("1h", jobs["dependency-check"]["timeout"])
         self.assertEqual("2h", jobs["fortify"]["timeout"])
         self.assertEqual(9, next(item["inputs"]["fail-cvss"] for item in profile_includes({"dependency-check-fail-cvss": 9})
-                                 if item["local"] == "/modules/todo/dependency-check.yml"))
+                                 if item["local"] == "/templates/dependency-check.yml"))
         self.assertEqual({"include"}, set(PARSED[str(ROOT / "examples/full-pipeline/profile.yml")][1]))
         for job in jobs.values():
             self.assertNotIn("needs", job)

@@ -8,12 +8,14 @@ In `spec:inputs` van elke module staat wat je moet invullen:
 - **Met `default`: optioneel.** Vul de input alleen in als je van de standaardwaarde wilt afwijken.
 - Bij uitvoering kunnen daarnaast bestanden, variabelen en toegangsgegevens nodig zijn. Die voorwaarden staan hieronder.
 
-Elke module vereist `image`. Voor de dertien actieve modules gelden daarnaast de volgende verplichte inputs:
+Elke module vereist `image`. Voor de vijftien actieve modules gelden daarnaast de volgende verplichte inputs:
 
 | Module | Aanvullende verplichte inputs |
 |---|---|
 | [maven-build](../templates/maven-build.yml) | Geen |
 | [cucumber-test](../templates/cucumber-test.yml) | Geen; zie hieronder de voorwaarde voor de doel-URL |
+| [sonar](../templates/sonar.yml) | Geen; vereist bij uitvoering `SONAR_HOST_URL`, `SONAR_PROJECT_KEY` en `SONAR_TOKEN` |
+| [dependency-check](../templates/dependency-check.yml) | Geen; de openbare NVD-feed en scanner-versie hebben vaste defaults |
 | [maven-publish](../templates/maven-publish.yml) | `settings-file`, `repository-url` |
 | [jib-build](../templates/jib-build.yml) | `project-selector`, `settings-file`, `image-repository`, `base-image` |
 | [helm-publish](../templates/helm-publish.yml) | `chart`, `chart-name`, `chart-version`, `oci-repository` |
@@ -35,7 +37,7 @@ Veelgebruikte optionele inputs:
 | `output-prefix` | Modulespecifiek, bijvoorbeeld `MAVEN_BUILD` |
 | `pre-hook`, `post-hook`, `cleanup-hook` | Leeg: geen hook |
 | `hook-parameters-json` | `{}` |
-| `job-timeout` | `30m` voor de demomodules |
+| `job-timeout` | `30m`; Dependency-Check gebruikt `1h` |
 | `artifact-expire-in` | `7 days` |
 | `maven-executable` | `./mvnw` in de Maven-, Jib- en Cucumber-modules |
 | Cucumber `profile` | Leeg: geen Maven-profiel |

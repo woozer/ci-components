@@ -6,12 +6,16 @@ Neem alleen de modules op die je nodig hebt. Je `.gitlab-ci.yml` bepaalt stages,
 
 Elk voorbeeld is uitvoerbare YAML met de vereiste stage en één module. Vul de verplichte bibliotheekversie in, lever de image en uitvoeringsvoorwaarden aan en pas de applicatiepaden aan. Alle inputtypen en standaardwaarden staan in `spec:inputs` van de gelinkte module; inputs zonder standaardwaarde zijn verplicht. Zie [verplichte inputs](inputs.md).
 
+Gebruik een uitgebrachte versie zoals `1.0.0` als `library-ref`. Een volledige commit-SHA blijft mogelijk voor het testen van een kandidaatwijziging. Zie [componentversies](component-versions.md).
+
 | Module | Minimaal voorbeeld | Nodig bij uitvoering |
 |---|---|---|
 | [maven-build](../templates/maven-build.yml) | [YAML](../examples/modules/maven-build.yml) | POM en Java/Maven-image; maakt packages en slaat tests over |
 | [cucumber-test](../templates/cucumber-test.yml) | [YAML](../examples/modules/cucumber-test.yml) | Cucumber/Failsafe-tests; dit voorbeeld start zelf de applicatie |
 | [npm-build](../templates/npm-build.yml) | [YAML](../examples/modules/npm-build.yml) | Lockfile en `build`-script in `ui/` |
 | [npm-test](../templates/npm-test.yml) | [YAML](../examples/modules/npm-test.yml) | Lockfile en `test:ci`-script dat `reports/junit.xml` aanmaakt |
+| [sonar](../templates/sonar.yml) | [YAML](../examples/modules/sonar.yml) | SonarQube-project en analysetoken; Java/Maven en bij JS/TS ook Node in de image |
+| [dependency-check](../templates/dependency-check.yml) | [YAML](../examples/modules/dependency-check.yml) | Maven-project en bereikbare openbare NVD-feed; geen API-key nodig |
 | [maven-publish](../templates/maven-publish.yml) | [YAML](../examples/modules/maven-publish.yml) | Repository-URL en Maven-settingsbestand met authenticatie |
 | [jib-build](../templates/jib-build.yml) | [YAML](../examples/modules/jib-build.yml) | Jib-plugin, Maven-settings voor de registry, doelrepository en Java-basisimage vastgezet op digest |
 | [image-build](../templates/image-build.yml) | [YAML](../examples/modules/image-build.yml) | Dockerfile en geschikte runner voor rootless BuildKit; gebruikt standaard GitLab Registry-toegangsgegevens |
@@ -23,6 +27,8 @@ Elk voorbeeld is uitvoerbare YAML met de vereiste stage en één module. Vul de 
 | [gitlab-release](../templates/gitlab-release.yml) | [YAML](../examples/modules/gitlab-release.yml) | Bestaande tag, gepubliceerde image-/chartoutputs en `CI_JOB_TOKEN` |
 
 `JAVA_CI_IMAGE`, `NODE_CI_IMAGE`, `HELM_CI_IMAGE` en `BUILDKIT_CI_IMAGE` bevatten in de voorbeelden de goedgekeurde tool-images. Maven-modules gebruiken standaard `./mvnw`; de daarvoor benodigde tools moeten in de image zitten. Gebruik `maven-executable: mvn` wanneer je bewust de geïnstalleerde Maven gebruikt, zoals de uitvoerbare samples doen. Je kunt de jobnaam en stage van elke module wijzigen; declareer die stages in je pipeline.
+
+Zie de [scanhandleiding](scanners.md) voor de automatische lokale inrichting en de beperkingen van de gratis scanners.
 
 De releasevoorbeelden tonen afzonderlijke bewerkingen, geen volledig goedkeurings- of releasebeleid. Het opnemen van een module richt geen serverrechten in en een handmatige job maakt een release niet vanzelf toegestaan. De optionele [standaardreleasestrategie](releases.md) laat zien hoe deze bewerkingen worden gecombineerd en beveiligd.
 

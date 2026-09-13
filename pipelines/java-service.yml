@@ -3,7 +3,7 @@
 spec:
   inputs:
     library-ref:
-      description: 'Immutable library revision; use the same value as include.ref'
+      description: 'Component release version or full commit SHA; use the same value as include.ref'
     library-project:
       default: root/ci-components
     maven-project:
@@ -95,6 +95,15 @@ include:
       stage: build
       image: $NPM_BUILD_IMAGE
       working-directory: '$[[ inputs.ui-directory ]]'
+  - local: /templates/sonar.yml
+    inputs:
+      image: $SONAR_IMAGE
+      maven-executable: mvn
+  - local: /templates/dependency-check.yml
+    inputs:
+      image: $DEPENDENCY_CHECK_IMAGE
+      maven-executable: mvn
+      nvd-datafeed-url: $NVD_DATAFEED_URL
   - local: /templates/npm-test.yml
     inputs:
       job-name: test-ui
@@ -335,7 +344,7 @@ workflow:
     - if: '$CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api"'
     - when: never
 
-stages: [check, build, test, publish, image, configure, deploy, integration, release, release-delivery, finish]
+stages: [check, build, test, analyze, publish, image, configure, deploy, integration, release, release-delivery, finish]
 
 default:
   tags: [local-docker]
@@ -393,6 +402,35 @@ test:
   interruptible: true
   needs: [build]
 
+# Community Build analyzes the protected default branch; MR analysis requires
+# a different Sonar edition. Dependency-Check also runs in merge requests.
+sonar:
+  cache:
+    - !reference [.maven-cache, cache]
+    - key: sonar-$CI_PROJECT_ID
+      paths: [.sonar/cache/]
+  rules:
+    - if: '"$[[ inputs.flow ]]" == "release"'
+    - if: '"$[[ inputs.flow ]]" == "pipeline" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_REF_PROTECTED == "true"'
+  needs:
+    - job: test
+      artifacts: true
+    - job: test-ui
+      optional: true
+      artifacts: true
+  resource_group: sonar-$CI_PROJECT_ID
+  variables:
+    SONAR_USER_HOME: '$CI_PROJECT_DIR/.sonar'
+    MAVEN_ARGS: '-Drevision=$APP_VERSION -Dsonar.maven.scanAll=true -Dsonar.exclusions=**/node_modules/**,**/dist/**,**/coverage/**,.ci-output/**,.m2/**,.cache/**,.sonar/**'
+
+dependency-check:
+  extends: .validation
+  needs: [test]
+  cache:
+    - !reference [.maven-cache, cache]
+    - key: dependency-check-13
+      paths: [.cache/dependency-check/]
+
 # A separate developer run cannot replace the mandatory test above.
 test-custom:
   extends: .maven-cache
@@ -416,6 +454,10 @@ publish-maven:
     - job: test
     - job: test-ui
       optional: true
+      artifacts: false
+    - job: sonar
+      artifacts: false
+    - job: dependency-check
       artifacts: false
 
 publish-image:

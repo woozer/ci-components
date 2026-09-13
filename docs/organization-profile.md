@@ -14,12 +14,12 @@ Dit toekomstige voorbeeld gebruikt modules uit `modules/todo/` en wordt niet doo
 
 ## Goedgekeurde standaardwaarden aanpassen
 
-Het profiel koppelt elke image-input aan een afzonderlijke CI-variabele op groeps- of projectniveau, bijvoorbeeld `$MAVEN_BUILD_IMAGE`. Stel deze variabelen in op goedgekeurde images met een vaste digest, zoals beschreven bij [inrichting](setup.md). De koppelingen installeren geen images. Wil je een versiebeheerbare imagecatalogus voor de organisatie, zet dan de volledige goedgekeurde imagereferenties in het profiel en publiceer het profiel op een vaste commit.
+Het profiel koppelt elke image-input aan een afzonderlijke CI-variabele op groeps- of projectniveau, bijvoorbeeld `$MAVEN_BUILD_IMAGE`. Stel deze variabelen in op goedgekeurde images met een vaste digest, zoals beschreven bij [inrichting](setup.md). De koppelingen installeren geen images. Wil je een versiebeheerbare imagecatalogus voor de organisatie, zet dan de volledige goedgekeurde imagereferenties in het profiel en publiceer het profiel onder een vaste componentversie.
 
 ```yaml
 include:
   - project: platform/ci-components
-    ref: REPLACE_WITH_COMMIT_SHA
+    ref: 1.0.0
     file: /examples/full-pipeline/profile.yml
     inputs:
       production-namespace: application-production

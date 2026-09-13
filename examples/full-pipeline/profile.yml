@@ -107,12 +107,6 @@ spec:
     zap-image:
       type: string
       default: $ZAP_IMAGE
-    sonar-maven-plugin-version:
-      type: string
-      default: $SONAR_MAVEN_PLUGIN_VERSION
-    dependency-check-plugin-version:
-      type: string
-      default: $DEPENDENCY_CHECK_PLUGIN_VERSION
     fortify-scan-adapter:
       type: string
       default: ci/fortify/scan.sh
@@ -148,18 +142,16 @@ include:
       working-directory: $[[ inputs.npm-directory ]]
       job-timeout: $[[ inputs.job-timeout ]]
       artifact-expire-in: $[[ inputs.artifact-expire-in ]]
-  - local: /modules/todo/sonar.yml
+  - local: /templates/sonar.yml
     inputs:
       image: $[[ inputs.sonar-scanner-image ]]
       working-directory: $[[ inputs.maven-directory ]]
-      scanner-version: $[[ inputs.sonar-maven-plugin-version ]]
       job-timeout: $[[ inputs.job-timeout ]]
       artifact-expire-in: $[[ inputs.artifact-expire-in ]]
-  - local: /modules/todo/dependency-check.yml
+  - local: /templates/dependency-check.yml
     inputs:
       image: $[[ inputs.dependency-check-image ]]
       working-directory: $[[ inputs.maven-directory ]]
-      plugin-version: $[[ inputs.dependency-check-plugin-version ]]
       fail-cvss: $[[ inputs.dependency-check-fail-cvss ]]
       job-timeout: $[[ inputs.dependency-check-job-timeout ]]
       artifact-expire-in: $[[ inputs.artifact-expire-in ]]

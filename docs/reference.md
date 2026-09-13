@@ -19,7 +19,7 @@ De [Java 25-sample](http://localhost:8929/root/hello-world) is een zelfstandig S
 - Waarden uit jobs worden doorgegeven als dotenv-outputs met een eigen prefix. Bestanden en rapporten zijn gewone artifacts. Een vervolgjob haalt de outputs expliciet op met `needs: {job: ..., artifacts: true}`.
 - Outputs worden gepubliceerd nadat de bewerking en post-hook slagen. Een fout stopt de job en voorkomt succesoutputs. Verplichte scanners en gates falen ook bij toolfouten en timeouts.
 - Hooks zijn POSIX-shellscripts met een pad relatief aan de repository. Ze worden met `sh` uitgevoerd, zonder `eval`. Ze draaien als subprocessen: gebruik bestanden voor overdracht. Exports en wijzigingen van de werkmap worden niet overgenomen door de componentshell.
-- Elke component laadt de gedeelde lifecycle uit `shared/module.yml` van dezelfde bibliotheekcommit. GitLab verwerkt deze YAML zonder bibliotheekscripts uit te checken. Hook- en adapterpaden verwijzen naar de **repository van de afnemende applicatie**.
+- Elke component laadt de gedeelde lifecycle uit `shared/module.yml` van dezelfde bibliotheekversie. GitLab verwerkt deze YAML zonder bibliotheekscripts uit te checken. Hook- en adapterpaden verwijzen naar de **repository van de afnemende applicatie**.
 - Jobnamen en outputprefixen zijn instelbaar, zodat een component vaker kan worden gebruikt. Houd prefixen uniek binnen een pipeline.
 
 ## Inputs, outputs en hooks
@@ -44,7 +44,7 @@ Hooks zijn vertrouwde applicatiecode en vormen geen beveiligingsgrens. Bescherm 
 
 ## Actieve componenten
 
-De centrale Java-pipeline gebruikt de volgende dertien modules uit `templates/`.
+De centrale Java-pipeline gebruikt de volgende vijftien modules uit `templates/`.
 
 | Component | Verantwoordelijkheid | Aanvullende outputs met standaardprefix |
 |---|---|---|
@@ -61,16 +61,18 @@ De centrale Java-pipeline gebruikt de volgende dertien modules uit `templates/`.
 | `release-reserve` | Een unieke versie met een Git-tag reserveren | `RELEASE_VERSION`, `RELEASE_TAG` |
 | `release-check` | Gereserveerde tag, commit en nog vrije artifactlocaties controleren | `RELEASE_CHECK_VERSION`, `RELEASE_CHECK_TAG` |
 | `gitlab-release` | Gevalideerde artifacts vastleggen als GitLab Release | `GITLAB_RELEASE_URL` |
+| `sonar` | Maven/Java-analyse uitvoeren en op de quality gate wachten | `SONAR_TASK_FILE` |
+| `dependency-check` | OWASP Dependency-Check op Maven-dependencies uitvoeren | `DEPENDENCY_CHECK_REPORT_DIR` |
+
+Zie de [scanhandleiding](scanners.md) voor de gratis inrichting, uitvoeringsvoorwaarden en beperkingen.
 
 ## Modules voor toekomstig gebruik
 
-De volgende negen modules staan in [modules/todo/](../modules/todo/) en worden niet door de Java-demo ingeladen. Hun contracttests blijven bestaan. Valideer de echte dienstintegraties voordat een module naar de actieve verzameling verhuist.
+De volgende zeven modules staan in [modules/todo/](../modules/todo/) en worden niet door de Java-demo ingeladen. Hun contracttests blijven bestaan. Valideer de echte dienstintegraties voordat een module naar de actieve verzameling verhuist.
 
 | Module | Beoogde verantwoordelijkheid | Aanvullende outputs met standaardprefix |
 |---|---|---|
 | `maven-test` | Surefire-unittests en het ingestelde JaCoCo-rapport | `MAVEN_TEST_REPORT_ROOT` |
-| `sonar` | Maven/Java-analyse uitvoeren en op de quality gate wachten | `SONAR_TASK_FILE` |
-| `dependency-check` | OWASP Dependency-Check op Maven-dependencies uitvoeren | `DEPENDENCY_CHECK_REPORT_DIR` |
 | `npm-audit` | npm-dependencies controleren | `NPM_AUDIT_REPORT` |
 | `fortify` | Scannen en beleid toetsen aan precies die scan | `FORTIFY_RECEIPT`, `FORTIFY_REPORT` |
 | `image-scan` | De kandidaatimage scannen, een CycloneDX-SBOM maken en de ernstgrens afdwingen | `IMAGE_SCAN_REPORT`, `IMAGE_SCAN_SBOM` |
@@ -82,7 +84,7 @@ De output `STATUS` is informatief. GitLabs exitcodes en verplichte jobafhankelij
 
 ## Koppeling met de lokale applicatie
 
-De [hello-world-pipeline](http://localhost:8929/root/hello-world/-/blob/main/.gitlab-ci.yml) neemt het gedeelde inputformulier en één centrale [java-service.yml](../pipelines/java-service.yml) op met een vaste commit. Het centrale bestand combineert build, verplichte tests, optionele ontwikkeltests, publicatie, deployment en release. Ook de childvarianten staan daar; er is geen apart organisatieprofiel of delivery-omhulsel nodig.
+De [hello-world-pipeline](http://localhost:8929/root/hello-world/-/blob/main/.gitlab-ci.yml) neemt het gedeelde inputformulier en één centrale [java-service.yml](../pipelines/java-service.yml) op met een vaste uitgebrachte versie. Het centrale bestand combineert build, verplichte tests, optionele ontwikkeltests, publicatie, deployment en release. Ook de childvarianten staan daar; er is geen apart organisatieprofiel of delivery-omhulsel nodig.
 
 De applicatie geeft de deploybare module en declaratieve Helm-values op. CI-scripts, jobvolgorde, hooks en releasebeleid blijven in de bibliotheek. Andere projecten kunnen de modules afzonderlijk gebruiken. De uitgebreidere scan-/signingvoorbeelden vereisen eerst hun diensten en beleid.
 
@@ -116,7 +118,7 @@ Bouw de kandidaatimage één keer. Scan, onderteken, verifieer en promoveer daar
 
 ## Basisafspraken voor de organisatie
 
-1. Geef componentafspraken semantische versies en neem componenten op via vaste commit-SHA's. Laat platform-/beveiligingsverantwoordelijken wijzigingen beoordelen. Test een kandidaatcomponent met representatieve Java-, npm- en deploymentrepositories vóór publicatie.
+1. Neem componenten op via een volledige uitgebrachte versie, zoals `1.0.0`, en bescherm de bijbehorende Git-tags. Laat platform-/beveiligingsverantwoordelijken wijzigingen beoordelen. Test een kandidaatcomponent op zijn exacte commit-SHA met representatieve Java-, npm- en deploymentrepositories vóór publicatie. Zie [componentversies](component-versions.md).
 2. Commit de Maven Wrapper met distributiechecksum, zet plugins en dependencies vast en gebruik goedgekeurde artifactrepositories. Gebruik `npm ci` met de gecommitteerde lockfile. Caches versnellen downloads; vereiste buildoutputs worden als artifacts doorgegeven. Zie [npm ci](https://docs.npmjs.com/cli/v11/commands/npm-ci/).
 3. Configureer Surefire voor unittests, JaCoCo voor coverage en Failsafe voor integratietests. Voer de Failsafe-fase `verify` uit, zodat testfouten CI laten falen. Laat een verwachte maar lege testsuite falen. Zie [Maven Failsafe](https://maven.apache.org/surefire/maven-failsafe-plugin/).
 4. Stel de Sonar-quality-gate centraal in. Een mogelijk startbeleid is minstens 80% dekking op nieuwe code, geen nieuwe blocker-/critical-bevindingen en beoordeelde security hotspots. Stem dit af op het applicatierisico. Deze grenzen zijn beleidsvoorstellen, geen universele industrie-eisen.
@@ -128,7 +130,7 @@ Bouw de kandidaatimage één keer. Scan, onderteken, verifieer en promoveer daar
 
 ## Inrichten vóór uitvoering
 
-- Publiceer de repository op je GitLab-instance. Vervang `platform/ci-components` en `REPLACE_WITH_COMMIT_SHA` in voorbeelden door het echte project en de vaste commit.
+- Publiceer de repository op je GitLab-instance. Gebruik in voorbeelden het eigen componentproject en een uitgebrachte versie; voor onze demo zijn dat `root/ci-components` en `1.0.0`.
 - Stel de imagevariabelen uit `docs/setup.md` in op vaste digests. Images hebben POSIX `sh` en de genoemde tools nodig. Componenten downloaden tijdens een job geen tooling.
 - Configureer Maven-test-/coverageprofielen, npm-CI-rapportage, een chart met ondersteuning voor image-digests en de Fortify-adapters uit `docs/fortify-adapters.md`.
 - Beheer geheimen via een secretmanager of passend beschermde GitLab-variabelen, nooit via componentinputs of outputartifacts.
@@ -142,12 +144,12 @@ Bewerk actieve bestanden `templates/<component-name>.yml` rechtstreeks. Toekomst
 ```text
 pipelines/java-service.yml   # jobvolgorde en beleid voor Java
 shared/module.yml           # gedeelde joblifecycle
-templates/                  # dertien actieve modules
-modules/todo/               # negen modules voor toekomstig gebruik
+templates/                  # vijftien actieve modules
+modules/todo/               # zeven modules voor toekomstig gebruik
 ```
 
 De applicatie gebruikt de openbare componentnaam en de bijbehorende afspraken. Houd bij implementatiewijzigingen inputnamen en -typen, outputnamen en -betekenis, artifactpaden, hookgedrag, imagevereisten en foutafhandeling stabiel. De afnemer bepaalt de jobafhankelijkheden.
 
-Componenten laden het gedeelde bestand met `include:local` en kiezen de drie onderdelen met `!reference`. De post-hook blijft aan het einde van `script`, waar een fout de job laat falen. `after_script` is voor cleanup. `image-build` verwijdert eerst zijn tijdelijke registry-credentials en roept daarna de gedeelde cleanup aan. Applicaties kunnen `extends` gebruiken voor jobdefaults. Gebruik één bibliotheekcommit per pipeline, omdat alle modules dezelfde verborgen job delen. Zie [GitLab-YAML-referenties](https://docs.gitlab.com/ci/yaml/yaml_optimization/#reference-tags) en [lokale includes](https://docs.gitlab.com/ci/yaml/#includelocal).
+Componenten laden het gedeelde bestand met `include:local` en kiezen de drie onderdelen met `!reference`. De post-hook blijft aan het einde van `script`, waar een fout de job laat falen. `after_script` is voor cleanup. `image-build` verwijdert eerst zijn tijdelijke registry-credentials en roept daarna de gedeelde cleanup aan. Applicaties kunnen `extends` gebruiken voor jobdefaults. Gebruik één bibliotheekversie per pipeline, omdat alle modules dezelfde verborgen job delen. Zie [GitLab-YAML-referenties](https://docs.gitlab.com/ci/yaml/yaml_optimization/#reference-tags) en [lokale includes](https://docs.gitlab.com/ci/yaml/#includelocal).
 
 Als we later een standaardcomponent overnemen, gebruik dan de ondersteunde uitbreidingspunten of een kleine adapter om de afspraken te behouden. Test de vervanging met bestaande contracttests en representatieve applicaties. Onverenigbare wijzigingen vereisen een nieuwe majorversie en expliciete migratie van afnemers. Componenten van verschillende aanbieders zijn niet vanzelf uitwisselbaar.

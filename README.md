@@ -5,7 +5,7 @@ Stel zelf een pipeline samen met zelfstandig bruikbare modules, of gebruik de op
 ## Zelf een pipeline samenstellen
 
 1. Kies een module uit de [modulehandleiding](docs/modules.md).
-2. Neem het minimale voorbeeld over, zet de bibliotheek vast op een commit en vul de verplichte inputs in. Optionele standaardwaarden kun je weglaten.
+2. Neem het minimale voorbeeld over, kies een uitgebrachte bibliotheekversie zoals `1.0.0` en vul de verplichte inputs in. Optionele standaardwaarden kun je weglaten.
 3. Verbind jobs met GitLabs `needs` en artifacts/dotenv. Begin met een [uitvoerbaar voorbeeld](examples/samples/README.md).
 
 | Klein beginnen | Een volgende stap toevoegen | Modules herhalen |
@@ -15,6 +15,8 @@ Stel zelf een pipeline samen met zelfstandig bruikbare modules, of gebruik de op
 Start deze via [CI samples → New pipeline](http://localhost:8929/root/ci-samples/-/pipelines/new): kies `sample` en daarna **New pipeline**. Dezelfde YAML-bestanden dienen als voorbeeld voor afnemers en valideren modulewijzigingen in echte GitLab-jobs. Lees [hoe de validatie werkt](examples/samples/README.md#testisolatie-en-bewijs).
 
 Voor één module heb je geen standaardpipeline, organisatieprofiel of releaseproces nodig. Je platform levert de images en toegangsgegevens voor diensten; de verplichte inputs en uitvoeringsvoorwaarden staan per module beschreven. De gedeelde afhandeling van hooks wordt automatisch ingeladen.
+
+Gebruik dezelfde [componentversie](docs/component-versions.md) voor alle modules, het gedeelde formulier en de centrale pipeline. Wijzigingen vóór publicatie testen we op hun exacte commit-SHA.
 
 ## Standaardpipeline voor de Java-sample
 
@@ -30,4 +32,6 @@ Naslag: [modulehandleiding](docs/modules.md), [verplichte inputs](docs/inputs.md
 
 We volgen GitLabs advies over componenttests en hergebruik. GitLab levert jobs, afhankelijkheden, artifacts, inputs en locks; de keuzetermijn van tien seconden en automatische patchversie zijn afspraken van onze optionele standaardpipeline. Zie [standaarden en keuzes](docs/reuse-and-standards.md).
 
-De dertien actieve modules staan in `templates/`; negen toekomstige modules staan in [modules/todo/](modules/todo/). Er is geen eigen handoff-keten of YAML-generator.
+De vijftien actieve modules staan in `templates/`; zeven toekomstige modules staan in [modules/todo/](modules/todo/). Er is geen eigen handoff-keten of YAML-generator.
+
+De [scanhandleiding](docs/scanners.md) beschrijft SonarQube en Dependency-Check in de demo, zonder handmatig aangevraagde API-keys.

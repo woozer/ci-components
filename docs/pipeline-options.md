@@ -1,6 +1,6 @@
 # Pipelinekeuzes: naslag
 
-Voor dagelijks gebruik volstaan de [drie handelingen](../README.md#standaardpipeline-voor-de-java-sample). Bouwen en verplichte tests starten direct. De applicatie neemt het gedeelde [formulier New pipeline](../config/pipeline-inputs.yml) en één [centrale pipeline](../pipelines/java-service.yml) op, beide met dezelfde vaste bibliotheekcommit. Alleen `library-ref` en `maven-project` zijn verplichte vaste applicatie-instellingen. Formulierwaarden worden doorgegeven zonder standaardwaarden te herhalen.
+Voor dagelijks gebruik volstaan de [drie handelingen](../README.md#standaardpipeline-voor-de-java-sample). Bouwen en verplichte tests starten direct. De applicatie neemt het gedeelde [formulier New pipeline](../config/pipeline-inputs.yml) en één [centrale pipeline](../pipelines/java-service.yml) op, beide met dezelfde uitgebrachte [bibliotheekversie](component-versions.md). Alleen `library-ref` en `maven-project` zijn verplichte vaste applicatie-instellingen. Formulierwaarden worden doorgegeven zonder standaardwaarden te herhalen.
 
 De pipelinenamen gebruiken GitLabs [`workflow:name`](https://docs.gitlab.com/ci/yaml/#workflowname): `CI — <branch>`, **Dev — deployment en integratietests** en `Release — <version>`. Na reservering wordt de versie vastgelegd in de release-childconfiguratie. Triggers nemen geen variabelen van de parent over, zodat de parentnaam de childnaam niet overschrijft.
 
