@@ -1,10 +1,10 @@
 # Afspraken voor Fortify-adapters
 
-De Fortify-editie, versie, licentie, endpoints en het organisatiebeleid zijn nog niet gekozen. De twee componenten vereisen daarom expliciete adapters en falen als die ontbreken. Er is nog geen werkende Fortify-installatie; een ontbrekende scan wordt niet als geslaagd behandeld.
+De Fortify-editie, versie, licentie, endpoints en het organisatiebeleid zijn nog niet gekozen. De component `fortify` vereist daarom expliciete scan- en gateadapters en faalt als die ontbreken. Er is nog geen werkende Fortify-installatie; een ontbrekende scan wordt niet als geslaagd behandeld.
 
-De losse scan- en gatecomponenten volgen onze oorspronkelijke keuze voor één taak per module. Fortify en GitLab verplichten deze opsplitsing niet. Bij activering beoordelen we eerst de ondersteunde integratie en of één component voor scan én beleidscontrole het gebruik eenvoudiger maakt.
+Eén component voert scan en beleidscontrole in dezelfde job uit. De afnemer kiest één image en geeft `scan-adapter` en `gate-adapter` op. Er is geen aparte gatejob of overdracht via een `receipt-variable` nodig. Dit adaptercontract is voorlopig maatwerk van deze bibliotheek. Beoordeel vóór activering de ondersteunde Fortify-integratie en vervang de adapters als die de benodigde taak rechtstreeks afhandelt.
 
-Lever de adapters aan in de repository van de afnemer, of plaats een goedgekeurde implementatie in de componentimage en roep die aan met een repositoryscript. De scanimage heeft de Fortify-scanner/client, taaltools, POSIX `sh` en Python 3 nodig. De gate-image heeft alleen de client voor beleidscontrole, `sh` en Python 3 nodig. Deze images mogen verschillen.
+Lever de adapters aan in de repository van de afnemer, of plaats een goedgekeurde implementatie in de componentimage en roep die aan met een repositoryscript. De gekozen image bevat de Fortify-scanner, de client voor beleidscontrole, benodigde taaltools, POSIX `sh` en Python 3.
 
 De scanadapter wordt vanuit de werkmap van de component aangeroepen:
 
@@ -29,7 +29,7 @@ De adapter moet de huidige broncode aanbieden, wachten tot de verwerking klaar i
 }
 ```
 
-De scancomponent controleert commit, pipeline, voltooiingsstatus en scan-ID. De outputvariabele verwijst naar het bewijsbestand. Dat bestand mag geen toegangsgegevens bevatten.
+De component controleert commit, pipeline, voltooiingsstatus en scan-ID voordat de beleidscontrole begint. Het bewijsbestand mag geen toegangsgegevens bevatten.
 
 De aparte adapter voor beleidscontrole wordt zo aangeroepen:
 
@@ -49,7 +49,7 @@ Deze adapter moet precies de scan uit het bewijsbestand aan het goedgekeurde bel
 }
 ```
 
-Geef een exitcode ongelijk aan nul terug bij beleidsovertredingen, authenticatie- of netwerkfouten, ontbrekende resultaten, onvoltooide scans en timeouts. Bij een mislukte beleidscontrole mag het rapport wel worden geschreven voor foutonderzoek. De gate-component weigert een succesrapport dat bij een andere scan hoort.
+Geef een exitcode ongelijk aan nul terug bij beleidsovertredingen, authenticatie- of netwerkfouten, ontbrekende resultaten, onvoltooide scans en timeouts. Bij een mislukte beleidscontrole mag het rapport wel worden geschreven voor foutonderzoek. De component weigert een succesrapport dat bij een andere scan hoort. Pas nadat beide stappen slagen, publiceert zij `FORTIFY_RECEIPT`, `FORTIFY_REPORT` en `FORTIFY_STATUS=passed`. De post-hook draait dan één keer. Scan- en beleidsrapporten worden ook bij fouten als artifacts bewaard, voor zover ze zijn aangemaakt.
 
 Als SSC-beleid de laatste status van een applicatieversie controleert, gebruik dan aparte versies per pipeline/commit of voer upload, verwerking en beleidscontrole als één vergrendelde reeks uit. Alleen de uploadjob vergrendelen is onvoldoende: een andere pipeline kan de versie vóór de beleidscontrole wijzigen. Bewaar de provider-ID's en controleer of het beleidsresultaat bij het bewijsbestand hoort. Beoordeel altijd de bedoelde scan.
 

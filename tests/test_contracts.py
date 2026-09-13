@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Validate YAML and exercise the contract without network or real scanners."""
 import copy
-import io
 import json
 import os
 from pathlib import Path
@@ -9,8 +8,6 @@ import re
 import subprocess
 import tempfile
 import unittest
-from unittest import mock
-from urllib.parse import parse_qs, urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
 RUBY_YAML = '''require "yaml"; require "json"
@@ -457,15 +454,6 @@ PYTHON
         self.assertIn('-Dcucumber.filter.tags=@smoke', args)
         self.assertIn('-Pintegration', args)
 
-    def test_wrong_fortify_scan_receipt_is_rejected_before_policy_adapter(self):
-        (self.root / "scan.json").write_text(json.dumps({"commit_sha": "wrong", "pipeline_id": "99",
-                                                       "status": "completed", "scan_id": "scan-1"}))
-        h = Harness(self.root, "fortify-gate", inputs={"adapter": "gate.sh"}, env={"FORTIFY_SCAN_RECEIPT": "scan.json"})
-        h.write("gate.sh", '#!/bin/sh\nprintf "gate\\n" >> "$CI_PROJECT_DIR/events"\n')
-        self.assertNotEqual(0, h.run().returncode)
-        self.assertEqual([], h.events())
-        self.assertFalse(h.output_file.exists())
-
     def test_example_production_depends_on_all_required_checks(self):
         example = PARSED[str(ROOT / "examples/full-pipeline/application.gitlab-ci.yml")][0]
         profile = example["include"][0]
@@ -505,7 +493,7 @@ PYTHON
         for component in COMPONENTS:
             with self.subTest(component=component):
                 _, default = render(component)
-                self.assertEqual({"dependency-check": "1h", "fortify-scan": "2h"}.get(component, "30m"), default["timeout"])
+                self.assertEqual({"dependency-check": "1h", "fortify": "2h"}.get(component, "30m"), default["timeout"])
                 self.assertEqual("7 days", default["artifacts"]["expire_in"])
                 _, changed = render(component, {"job-timeout": "45m", "artifact-expire-in": "30 days"})
                 self.assertEqual("45m", changed["timeout"])
@@ -517,7 +505,7 @@ PYTHON
             "maven-build-image": image_ref, "maven-directory": "service", "npm-directory": "web",
             "job-timeout": "45m", "artifact-expire-in": "30 days", "dependency-check-fail-cvss": 9,
         }))
-        self.assertEqual(19, len(jobs))
+        self.assertEqual(16, len(jobs))
         self.assertEqual(image_ref, jobs["maven-build"]["image"]["name"])
         self.assertEqual("$MAVEN_TEST_IMAGE", jobs["maven-test"]["image"]["name"])
         self.assertEqual("$NPM_BUILD_IMAGE", jobs["npm-build"]["image"]["name"])
@@ -525,54 +513,13 @@ PYTHON
         self.assertEqual("web", jobs["npm-test"]["variables"]["MODULE_WORKDIR"])
         self.assertEqual("45m", jobs["maven-build"]["timeout"])
         self.assertEqual("1h", jobs["dependency-check"]["timeout"])
-        self.assertEqual("2h", jobs["fortify-scan"]["timeout"])
+        self.assertEqual("2h", jobs["fortify"]["timeout"])
         self.assertEqual(9, next(item["inputs"]["fail-cvss"] for item in profile_includes({"dependency-check-fail-cvss": 9})
                                  if item["local"] == "/modules/todo/dependency-check.yml"))
         self.assertEqual({"include"}, set(PARSED[str(ROOT / "examples/full-pipeline/profile.yml")][1]))
         for job in jobs.values():
             self.assertNotIn("needs", job)
             self.assertEqual("30 days", job["artifacts"]["expire_in"])
-
-
-class SonarGateTests(unittest.TestCase):
-    def run_gate(self, responses):
-        _, job = render("sonar-gate")
-        code = re.search(r"python3 - <<'PY'\n(.*?)\nPY", job["script"][0], re.S)[1]
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            (root / "task.txt").write_text("ceTaskId=task-for-this-pipeline\n")
-            env = {"CI_PROJECT_DIR": directory, "CI_MODULE_OUTPUT_DIR": directory,
-                   "SONAR_TASK_FILE": "task.txt", "SONAR_HOST_URL": "https://sonar.example.com",
-                   "SONAR_TOKEN": "test-only-token", "SONAR_GATE_TIMEOUT": "60"}
-            requests = []
-            queued = iter(responses)
-            class Opener:
-                def open(self, request, timeout):
-                    requests.append(request.full_url)
-                    return io.BytesIO(json.dumps(next(queued)).encode())
-            with mock.patch.dict(os.environ, env), mock.patch("urllib.request.build_opener", return_value=Opener()), mock.patch("time.sleep"):
-                exec(compile(code, "sonar-gate", "exec"), {})
-            return requests
-
-    def test_polls_submitted_task_and_checks_its_analysis_id(self):
-        urls = self.run_gate([{"task": {"status": "PENDING"}},
-                              {"task": {"status": "SUCCESS", "analysisId": "exact-analysis"}},
-                              {"projectStatus": {"status": "OK"}}])
-        self.assertEqual({"id": ["task-for-this-pipeline"]}, parse_qs(urlsplit(urls[0]).query))
-        self.assertEqual({"analysisId": ["exact-analysis"]}, parse_qs(urlsplit(urls[-1]).query))
-
-    def test_red_quality_gate_fails(self):
-        with self.assertRaises(SystemExit):
-            self.run_gate([{"task": {"status": "SUCCESS", "analysisId": "exact-analysis"}},
-                           {"projectStatus": {"status": "ERROR"}}])
-
-    def test_failed_analysis_fails(self):
-        with self.assertRaises(SystemExit):
-            self.run_gate([{"task": {"status": "FAILED"}}])
-
-    def test_missing_gate_result_fails(self):
-        with self.assertRaises(KeyError):
-            self.run_gate([{"task": {"status": "SUCCESS", "analysisId": "exact-analysis"}}, {}])
 
 
 if __name__ == "__main__":

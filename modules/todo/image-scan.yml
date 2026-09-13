@@ -1,4 +1,4 @@
-# Scan the candidate image for high and critical vulnerabilities
+# Scan the candidate image once, produce a CycloneDX SBOM and enforce vulnerability policy
 spec:
   inputs:
     job-name:
@@ -75,9 +75,15 @@ include:
   script:
     - |
       image_ref=$(image_input "$IMAGE_REF_VARIABLE")
-      trivy image --scanners vuln --severity HIGH,CRITICAL --exit-code 1 \
+      # Keep the complete inventory and findings before applying the blocking threshold.
+      trivy image --scanners vuln --list-all-pkgs --severity UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL --exit-code 0 \
         --format json --output "$CI_MODULE_OUTPUT_DIR/image-scan.json" "$image_ref"
+      trivy convert --format cyclonedx --exit-code 0 \
+        --output "$CI_MODULE_OUTPUT_DIR/sbom.cdx.json" "$CI_MODULE_OUTPUT_DIR/image-scan.json"
+      trivy convert --format table --scanners vuln --severity HIGH,CRITICAL --exit-code 1 \
+        "$CI_MODULE_OUTPUT_DIR/image-scan.json"
       emit REPORT ".ci-output/$CI_JOB_NAME/image-scan.json"
+      emit SBOM ".ci-output/$CI_JOB_NAME/sbom.cdx.json"
     - !reference [.ci-module, script]
   after_script:
     - !reference [.ci-module, after_script]
@@ -88,3 +94,5 @@ include:
       - '.ci-output/$CI_JOB_NAME/'
     reports:
       dotenv: '.ci-output/$CI_JOB_NAME/outputs.env'
+      cyclonedx:
+        - '.ci-output/$CI_JOB_NAME/sbom.cdx.json'

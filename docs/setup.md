@@ -13,14 +13,11 @@ Elke module vereist de input `image`. Er is geen globale image of verplicht gede
 | `NPM_BUILD_IMAGE` | Goedgekeurde Node.js en npm, `sh` |
 | `NPM_TEST_IMAGE` | Node/npm en browserlibraries als de testrunner die nodig heeft |
 | `SONAR_SCANNER_IMAGE` | JDK, Maven Wrapper-vereisten, Git en eventueel Node voor JS/TS-analyse |
-| `SONAR_GATE_IMAGE` | Python 3, CA-certificaten, `sh` |
 | `DEPENDENCY_CHECK_IMAGE` | JDK die bij de goedgekeurde plugin past en Maven Wrapper-vereisten |
 | `NPM_AUDIT_IMAGE` | Node/npm, `sh` |
-| `FORTIFY_SCAN_IMAGE` | Gelicentieerde scanner/client voor de gekozen Fortify-editie, taalvereisten, Python 3, `sh` |
-| `FORTIFY_GATE_IMAGE` | Fortify-client voor beleidscontrole, Python 3, `sh` |
+| `FORTIFY_IMAGE` | Gelicentieerde scanner en client voor scan én beleidscontrole, taalvereisten, Python 3, `sh` |
 | `IMAGE_BUILD_IMAGE` | Rootless BuildKit met `buildctl-daemonless.sh`, Python 3, `sh` |
 | `IMAGE_SCAN_IMAGE` | Trivy, CA-certificaten, `sh` |
-| `SBOM_IMAGE` | Trivy, CA-certificaten, `sh` |
 | `IMAGE_SIGN_IMAGE` | Cosign, KMS-authenticatie, CA-certificaten, `sh` |
 | `IMAGE_VERIFY_IMAGE` | Cosign, CA-certificaten, `sh` |
 | `HELM_TEST_IMAGE` | Gekozen Helm-majorversie, kubectl, CA-certificaten, `sh` |
@@ -35,7 +32,7 @@ Gebruik bijpassende Java-/Node-versies voor build en tests. Configureer interne 
 
 ## Diensten instellen
 
-- Stel `SONAR_HOST_URL` in op HTTPS en configureer `SONAR_PROJECT_KEY`, een beperkt `SONAR_TOKEN` en een vaste `SONAR_MAVEN_PLUGIN_VERSION`. De scanjob publiceert CE-taakmetadata. De gate wacht op die taak en controleert het bijbehorende analyse-ID. Zie [Sonar-analyse en quality gates](https://docs.sonarsource.com/sonarqube-cloud/advanced-setup/ci-based-analysis/gitlab-ci).
+- Stel `SONAR_HOST_URL` in op HTTPS en configureer `SONAR_PROJECT_KEY`, een beperkt `SONAR_TOKEN` en een vaste `SONAR_MAVEN_PLUGIN_VERSION`. De component voert de analyse uit met `sonar.qualitygate.wait=true`. SonarScanner wacht zelf op de gate en laat de job falen bij een afgekeurde gate of timeout. De input `gate-timeout` staat standaard op 300 seconden en moet binnen `job-timeout` passen. Na succes publiceert de component CE-taakmetadata en `SONAR_STATUS=passed`. Zie [Sonar-analyse en quality gates](https://docs.sonarsource.com/sonarqube-community-build/analyzing-source-code/ci-integration/overview).
 - Kies een vaste `DEPENDENCY_CHECK_PLUGIN_VERSION` en lever `NVD_API_KEY` veilig aan. De plugin leest de sleutel via de naam van de omgevingsvariabele. Regel feedcache, actualiteitscontroles en uitzonderingsbeleid voordat veel projecten tegelijk scannen.
 - Richt Fortify in met de adapters uit `fortify-adapters.md`. Geef scan- en gatecredentials alleen de benodigde rechten.
 - Schakel de GitLab-containerregistry in. Configureer Trivy-/Cosign-authenticatie via hun ondersteunde credentials of een pre-hook. De BuildKit-component maakt standaard een tijdelijke registry-configuratie met het GitLab-jobtoken en verwijdert die in `after_script`. Dit bestand staat buiten de artifactmap.
@@ -45,9 +42,9 @@ Gebruik bijpassende Java-/Node-versies voor build en tests. Configureer interne 
 
 ## Afspraken voor Maven en npm
 
-Maven-componenten gebruiken standaard een uitvoerbare Maven Wrapper in de ingestelde werkmap. `maven-build`, `maven-publish`, `jib-build` en `cucumber-test` accepteren ook `maven-executable: mvn` om Maven uit de goedgekeurde image te gebruiken. Commit de versie- en checksumconfiguratie van de wrapper. Zet Surefire-, Failsafe-, JaCoCo- en scanpluginversies vast in de parent-POM of componentinputs.
+Maven-componenten gebruiken standaard een uitvoerbare Maven Wrapper in de ingestelde werkmap. `maven-build`, `maven-publish`, `jib-build`, `cucumber-test` en `sonar` accepteren ook `maven-executable: mvn` om Maven uit de goedgekeurde image te gebruiken. Commit de versie- en checksumconfiguratie van de wrapper. Zet Surefire-, Failsafe-, JaCoCo- en scanpluginversies vast in de parent-POM of componentinputs.
 
-Het profiel `ci-unit` moet JaCoCo `prepare-agent` vóór de tests activeren en Surefire instellen. De testcomponent voert `test jacoco:report` uit. Maak het XML-rapport beschikbaar voor Sonar. `sonar-scan` behoudt opgehaalde coverage-artifacts en installeert reactorartifacts met overgeslagen tests om afhankelijkheden tussen modules op te lossen. Die voorbereiding kan opnieuw compileren/verpakken; de release-OCI-image wordt nog steeds één keer gebouwd vanuit de buildartifacts.
+Het profiel `ci-unit` moet JaCoCo `prepare-agent` vóór de tests activeren en Surefire instellen. De testcomponent voert `test jacoco:report` uit. Maak het XML-rapport beschikbaar voor Sonar. `sonar` behoudt opgehaalde coverage-artifacts en installeert reactorartifacts met overgeslagen tests om afhankelijkheden tussen modules op te lossen. Die voorbereiding kan opnieuw compileren/verpakken; de release-OCI-image wordt nog steeds één keer gebouwd vanuit de buildartifacts.
 
 Koppel in de POM de Failsafe-doelen `integration-test` en `verify`, laat een echte Cucumber-suite ontdekken en schrijf JUnit XML naar `target/failsafe-reports`. De testcode leest `cucumber.base-url`. Stuur Surefires `skipTests` aan via een eigen property `skipUnitTests`. Gebruik geen globale `skipTests` voor Cucumber, omdat daarmee ook Failsafe kan worden overgeslagen. Laat de suite falen als het ingestelde tagfilter geen scenario's selecteert. Modules die bewust geen tests bevatten, hebben een beoordeelde afzonderlijke discoveryconfiguratie nodig. Zie [Cucumber met Failsafe](https://maven.apache.org/components/surefire/maven-failsafe-plugin/examples/cucumber.html).
 
@@ -55,7 +52,9 @@ Cucumber activeert standaard geen Maven-profiel. Staat Failsafe in een profiel, 
 
 Commit `package-lock.json` en de goedgekeurde npm-configuratie. `build` schrijft naar de ingestelde uitvoermap, standaard `dist`. `test:ci` draait zonder interactie, faalt als er geen tests zijn en maakt `reports/junit.xml` aan. Schrijf ook `coverage/lcov.info` als Sonar JS/TS-coverage gebruikt. De npm-build-, test- en auditcomponenten installeren ieder hun dependencies vanuit dezelfde lockfile.
 
-De Sonar-component gebruikt de Maven-scanner. Analyseer je Java en npm als één project, neem dan frontendbronnen en LCOV op in de POM-/Sonar-configuratie. Gebruik voor een afzonderlijk frontendproject een eigen Sonar-CLI-component met overeenkomstige outputs. Geef de gate een unieke taakvariabele en outputprefix.
+De Sonar-component gebruikt de Maven-scanner. Analyseer je Java en npm als één project, neem dan frontendbronnen en LCOV op in de POM-/Sonar-configuratie. Gebruik voor een afzonderlijk frontendproject een eigen Sonar-CLI-component met overeenkomstige outputs. Geef iedere analysejob een unieke jobnaam en outputprefix; laat de bijbehorende scanner ook de gate afhandelen.
+
+`image-scan` scant de aangeleverde digest één keer met Trivy. Het volledige JSON-rapport bevat alle gevonden packages en ernstniveaus. `trivy convert` maakt daar een CycloneDX-SBOM van en controleert vervolgens de grens HIGH/CRITICAL. Beide rapporten blijven bij een afgekeurde gate beschikbaar als artifacts; succesoutputs verschijnen alleen bij een geslaagde job. Zie [Trivy-rapportconversie](https://trivy.dev/docs/latest/configuration/reporting/#converting).
 
 ## Afspraken voor deployment
 

@@ -32,7 +32,7 @@ include:
       job-timeout: 45m
 ```
 
-Deze instellingen gelden voor deze opname van het profiel. Elke image heeft een eigen input, ook de afzonderlijke Helm-images voor test en productie. Gewone jobs hebben standaard 30 minuten, Dependency-Check één uur en de Fortify-scan twee uur. Pas langere jobs aan via `dependency-check-job-timeout` en `fortify-scan-job-timeout`; zij nemen de gewone timeout niet over. De maximale timeout van GitLab Runner blijft de bovengrens. Artifacts worden standaard zeven dagen bewaard.
+Deze instellingen gelden voor deze opname van het profiel. Elke image heeft een eigen input, ook de afzonderlijke Helm-images voor test en productie. Gewone jobs hebben standaard 30 minuten, Dependency-Check één uur en Fortify inclusief beleidscontrole twee uur. Pas langere jobs aan via `dependency-check-job-timeout` en `fortify-job-timeout`; zij nemen de gewone timeout niet over. De maximale timeout van GitLab Runner blijft de bovengrens. Artifacts worden standaard zeven dagen bewaard.
 
 Inputs zijn alleen beschikbaar in het bestand dat ze declareert. Het profiel geeft waarden expliciet door aan de opgenomen modules; modules lezen het profiel niet zelf. Geneste `include:local`-bestanden worden opgezocht in het project en de commit van het profiel. Zie [GitLab-inputs](https://docs.gitlab.com/ci/inputs/) en [geneste includes](https://docs.gitlab.com/ci/yaml/includes/).
 

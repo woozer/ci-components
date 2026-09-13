@@ -1,10 +1,10 @@
-# Submit Maven/Java analysis without waiting for the quality gate
+# Analyze Maven/Java sources and enforce the Sonar quality gate
 spec:
   inputs:
     job-name:
       description: 'Unique job name within the consuming pipeline'
       type: 'string'
-      default: 'sonar-scan'
+      default: 'sonar'
     stage:
       description: 'Stage declared by the consuming pipeline'
       type: 'string'
@@ -27,7 +27,7 @@ spec:
     output-prefix:
       description: 'Unique namespace for dotenv outputs'
       type: 'string'
-      default: 'SONAR_SCAN'
+      default: 'SONAR'
       regex: '^[A-Z][A-Z0-9_]*$'
     pre-hook:
       description: 'Optional repository-relative POSIX shell script before operation'
@@ -45,6 +45,15 @@ spec:
       description: 'Non-secret JSON configuration provided as CI_MODULE_PARAMETERS_FILE'
       type: 'string'
       default: '{}'
+    maven-executable:
+      description: 'Maven executable in the image or wrapper in the working directory'
+      type: string
+      default: ./mvnw
+    gate-timeout:
+      description: 'Seconds SonarScanner waits for the quality gate; within job-timeout'
+      type: string
+      default: '300'
+      regex: '^[1-9][0-9]*$'
     scanner-version:
       description: 'Approved exact sonar-maven-plugin version'
       type: 'string'
@@ -67,6 +76,8 @@ include:
     MODULE_POST_HOOK: '$[[ inputs.post-hook ]]'
     MODULE_CLEANUP_HOOK: '$[[ inputs.cleanup-hook ]]'
     MODULE_HOOK_PARAMETERS_JSON: '$[[ inputs.hook-parameters-json ]]'
+    MAVEN_EXECUTABLE: '$[[ inputs.maven-executable ]]'
+    SONAR_GATE_TIMEOUT: '$[[ inputs.gate-timeout ]]'
     SONAR_SCANNER_VERSION: '$[[ inputs.scanner-version ]]'
     GIT_DEPTH: '0'
   before_script:
@@ -77,11 +88,12 @@ include:
       : "${SONAR_TOKEN:?Configure a scoped SONAR_TOKEN}"
       : "${SONAR_PROJECT_KEY:?Configure SONAR_PROJECT_KEY}"
       # Install resolves reactor modules for analysis; tests/coverage run in their own jobs.
-      ./mvnw --batch-mode --no-transfer-progress -DskipTests -DskipITs install \
+      "$MAVEN_EXECUTABLE" --batch-mode --no-transfer-progress -DskipTests -DskipITs install \
         "org.sonarsource.scanner.maven:sonar-maven-plugin:$SONAR_SCANNER_VERSION:sonar" \
         "-Dsonar.projectKey=$SONAR_PROJECT_KEY" \
         "-Dsonar.scanner.metadataFilePath=$CI_MODULE_OUTPUT_DIR/report-task.txt" \
-        -Dsonar.qualitygate.wait=false
+        -Dsonar.qualitygate.wait=true \
+        "-Dsonar.qualitygate.timeout=$SONAR_GATE_TIMEOUT"
       test -s "$CI_MODULE_OUTPUT_DIR/report-task.txt"
       emit TASK_FILE ".ci-output/$CI_JOB_NAME/report-task.txt"
     - !reference [.ci-module, script]
