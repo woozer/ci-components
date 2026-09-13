@@ -1,4 +1,4 @@
-# Shared native input declaration for the start form and launcher.
+# Central native input declaration for the sample start form.
 spec:
   inputs:
     sample:

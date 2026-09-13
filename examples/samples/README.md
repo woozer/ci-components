@@ -68,7 +68,7 @@ Alle voorbeeld- en validatiebestanden staan in de componentbibliotheek `ci-compo
 | [`examples/modules/`](../modules/) | Een minimaal, uitvoerbaar gebruiksvoorbeeld per actieve module |
 | [`examples/samples/`](./) | Complete pipelines die afnemers kunnen overnemen |
 | [`tests/samples/launcher.yml`](../../tests/samples/launcher.yml) | De samplekeuze afhandelen en de gekozen voorbeelden als childpipelines starten |
-| [`tests/samples/options.yml`](../../tests/samples/options.yml) | Eén gedeelde keuzelijst voor het startformulier en de launcher |
+| [`tests/samples/options.yml`](../../tests/samples/options.yml) | De centrale keuzelijst voor het startformulier |
 | [`tests/samples/module-runtime.yml`](../../tests/samples/module-runtime.yml) | Lokale voorwaarden en outputcontroles voor losse modules |
 | [`tests/samples/runtime.yml`](../../tests/samples/runtime.yml) | De testomgeving instellen en outputs controleren |
 | [`tests/samples/deployment-runtime.yml`](../../tests/samples/deployment-runtime.yml) | Tijdelijke Helm-deployments opruimen |

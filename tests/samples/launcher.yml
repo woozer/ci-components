@@ -1,10 +1,11 @@
 # Native sample selection; each child executes the exact consumer example YAML.
 spec:
-  include:
-    - local: /tests/samples/options.yml
   inputs:
     library-ref:
       description: 'Component release version or full candidate commit SHA'
+    sample:
+      description: 'Selection validated by the start form; see options.yml'
+      default: all
 ---
 workflow:
   name: 'Samples — $[[ inputs.sample ]]'
