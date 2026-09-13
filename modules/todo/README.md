@@ -6,4 +6,4 @@ De actieve modules staan in [templates/](../../templates/). Het [uitgebreide pip
 
 Bepaal vóór activering wie de module nodig heeft, beoordeel ondersteunde GitLab-/leveranciersimplementaties en valideer de echte dienstintegratie. Verplaats daarna de gekozen implementatie naar `templates/`. Houd inputs, outputs en foutafhandeling expliciet. Zie [hergebruik en standaarden](../../docs/reuse-and-standards.md).
 
-Scan en bijbehorende controle zitten samen in `sonar` en `fortify`. `image-scan` levert zowel het scanrapport als een CycloneDX-SBOM. Er zijn geen losse gate- of SBOM-componenten meer; zie het [overzicht van outputs](../../docs/reference.md#modules-voor-toekomstig-gebruik).
+Scan en bijbehorende controle zitten samen in `fortify`. De samengevoegde `sonar`-component en `dependency-check` zijn naar `templates/` verplaatst. `image-scan` levert zowel het scanrapport als een CycloneDX-SBOM. Er zijn geen losse gate- of SBOM-componenten meer; zie het [overzicht van outputs](../../docs/reference.md#modules-voor-toekomstig-gebruik).

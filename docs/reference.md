@@ -44,7 +44,7 @@ Hooks zijn vertrouwde applicatiecode en vormen geen beveiligingsgrens. Bescherm 
 
 ## Actieve componenten
 
-De centrale Java-pipeline gebruikt de volgende dertien modules uit `templates/`.
+De centrale Java-pipeline gebruikt de volgende vijftien modules uit `templates/`.
 
 | Component | Verantwoordelijkheid | Aanvullende outputs met standaardprefix |
 |---|---|---|
@@ -61,16 +61,18 @@ De centrale Java-pipeline gebruikt de volgende dertien modules uit `templates/`.
 | `release-reserve` | Een unieke versie met een Git-tag reserveren | `RELEASE_VERSION`, `RELEASE_TAG` |
 | `release-check` | Gereserveerde tag, commit en nog vrije artifactlocaties controleren | `RELEASE_CHECK_VERSION`, `RELEASE_CHECK_TAG` |
 | `gitlab-release` | Gevalideerde artifacts vastleggen als GitLab Release | `GITLAB_RELEASE_URL` |
+| `sonar` | Maven/Java-analyse uitvoeren en op de quality gate wachten | `SONAR_TASK_FILE` |
+| `dependency-check` | OWASP Dependency-Check op Maven-dependencies uitvoeren | `DEPENDENCY_CHECK_REPORT_DIR` |
+
+Zie de [scanhandleiding](scanners.md) voor de gratis inrichting, uitvoeringsvoorwaarden en beperkingen.
 
 ## Modules voor toekomstig gebruik
 
-De volgende negen modules staan in [modules/todo/](../modules/todo/) en worden niet door de Java-demo ingeladen. Hun contracttests blijven bestaan. Valideer de echte dienstintegraties voordat een module naar de actieve verzameling verhuist.
+De volgende zeven modules staan in [modules/todo/](../modules/todo/) en worden niet door de Java-demo ingeladen. Hun contracttests blijven bestaan. Valideer de echte dienstintegraties voordat een module naar de actieve verzameling verhuist.
 
 | Module | Beoogde verantwoordelijkheid | Aanvullende outputs met standaardprefix |
 |---|---|---|
 | `maven-test` | Surefire-unittests en het ingestelde JaCoCo-rapport | `MAVEN_TEST_REPORT_ROOT` |
-| `sonar` | Maven/Java-analyse uitvoeren en op de quality gate wachten | `SONAR_TASK_FILE` |
-| `dependency-check` | OWASP Dependency-Check op Maven-dependencies uitvoeren | `DEPENDENCY_CHECK_REPORT_DIR` |
 | `npm-audit` | npm-dependencies controleren | `NPM_AUDIT_REPORT` |
 | `fortify` | Scannen en beleid toetsen aan precies die scan | `FORTIFY_RECEIPT`, `FORTIFY_REPORT` |
 | `image-scan` | De kandidaatimage scannen, een CycloneDX-SBOM maken en de ernstgrens afdwingen | `IMAGE_SCAN_REPORT`, `IMAGE_SCAN_SBOM` |
@@ -142,8 +144,8 @@ Bewerk actieve bestanden `templates/<component-name>.yml` rechtstreeks. Toekomst
 ```text
 pipelines/java-service.yml   # jobvolgorde en beleid voor Java
 shared/module.yml           # gedeelde joblifecycle
-templates/                  # dertien actieve modules
-modules/todo/               # negen modules voor toekomstig gebruik
+templates/                  # vijftien actieve modules
+modules/todo/               # zeven modules voor toekomstig gebruik
 ```
 
 De applicatie gebruikt de openbare componentnaam en de bijbehorende afspraken. Houd bij implementatiewijzigingen inputnamen en -typen, outputnamen en -betekenis, artifactpaden, hookgedrag, imagevereisten en foutafhandeling stabiel. De afnemer bepaalt de jobafhankelijkheden.

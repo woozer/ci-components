@@ -56,6 +56,46 @@ exit "${FAKE_MAVEN_EXIT:-0}"
         self.assertNotEqual(0, h.run().returncode)
         self.assertFalse(h.output_file.exists())
 
+    def dependency_check(self):
+        h = Harness(self.root, 'dependency-check', inputs={'maven-executable': 'mvn'})
+        h.env.pop('NVD_API_KEY', None)
+        h.write('bin/mvn', '''#!/bin/sh
+printf '%s\n' "$@" > "$CI_PROJECT_DIR/maven-args"
+if [ "${FAKE_REPORT:-yes}" = yes ]; then
+  printf '{}' > "$CI_MODULE_OUTPUT_DIR/dependency-check-report.json"
+fi
+exit "${FAKE_MAVEN_EXIT:-0}"
+''')
+        return h
+
+    def test_dependency_check_uses_keyless_feed_and_configured_report_directory(self):
+        h = self.dependency_check()
+        result = h.run()
+        self.assertEqual(0, result.returncode, result.stderr)
+        args = (self.root / 'maven-args').read_text().splitlines()
+        self.assertIn('-DnvdDatafeedUrl=https://nvd.nist.gov/feeds/json/cve/2.0/nvdcve-2.0-{0}.json.gz', args)
+        self.assertIn('-Dodc.outputDirectory=' + str(h.output_file.parent), args)
+        self.assertIn('-DdataDirectory=' + str(self.root / '.cache/dependency-check'), args)
+        self.assertIn('-DfailOnError=true', args)
+        self.assertIn('-DfailBuildOnCVSS=7', args)
+        self.assertIn('-DossIndexAnalyzerEnabled=false', args)
+        self.assertIn('-Dformats=HTML,JSON', args)
+        self.assertFalse(any('ApiKey' in arg for arg in args))
+        self.assertEqual('passed', h.outputs()['DEPENDENCY_CHECK_STATUS'])
+
+    def test_dependency_check_feed_or_scan_error_blocks_success(self):
+        h = self.dependency_check()
+        h.env['FAKE_MAVEN_EXIT'] = '1'
+        self.assertNotEqual(0, h.run().returncode)
+        self.assertTrue((h.output_file.parent / 'dependency-check-report.json').exists())
+        self.assertFalse(h.output_file.exists())
+
+    def test_dependency_check_requires_a_report(self):
+        h = self.dependency_check()
+        h.env['FAKE_REPORT'] = 'no'
+        self.assertNotEqual(0, h.run().returncode)
+        self.assertFalse(h.output_file.exists())
+
     def fortify(self, receipt=None, policy=None):
         h = Harness(self.root, 'fortify', inputs={'scan-adapter': 'scan.sh', 'gate-adapter': 'gate.sh'})
         (self.root / 'receipt.json').write_text(json.dumps(receipt if receipt is not None else {

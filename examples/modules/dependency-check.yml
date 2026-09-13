@@ -1,0 +1,14 @@
+# Minimal module usage. Supply the documented runtime prerequisites.
+spec:
+  inputs:
+    library-ref:
+      description: Immutable component commit SHA
+    library-project:
+      default: root/ci-components
+---
+stages: [analyze]
+
+include:
+  - component: $CI_SERVER_FQDN/$[[ inputs.library-project ]]/dependency-check@$[[ inputs.library-ref ]]
+    inputs:
+      image: $DEPENDENCY_CHECK_IMAGE
