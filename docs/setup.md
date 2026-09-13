@@ -85,7 +85,7 @@ Kopieer voorbeeldhooks naar de repository van de afnemende applicatie en geef de
 
 ```yaml
 include:
-  - component: $CI_SERVER_FQDN/platform/ci-components/maven-build@REPLACE_WITH_COMMIT_SHA
+  - component: $CI_SERVER_FQDN/platform/ci-components/maven-build@1.0.0
     inputs:
       image: $MAVEN_BUILD_IMAGE
       working-directory: backend

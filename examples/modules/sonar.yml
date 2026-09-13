@@ -2,7 +2,7 @@
 spec:
   inputs:
     library-ref:
-      description: Immutable component commit SHA
+      description: Released component version or full commit SHA
     library-project:
       default: root/ci-components
 ---

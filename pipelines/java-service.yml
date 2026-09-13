@@ -3,7 +3,7 @@
 spec:
   inputs:
     library-ref:
-      description: 'Immutable library revision; use the same value as include.ref'
+      description: 'Component release version or full commit SHA; use the same value as include.ref'
     library-project:
       default: root/ci-components
     maven-project:

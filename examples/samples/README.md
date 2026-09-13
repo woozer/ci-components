@@ -16,16 +16,16 @@ Deze voorbeelden zijn gewone GitLab-pipelines, samengesteld uit losse modules. H
 3. Behoud `library_ref` voor de ingestelde bibliotheekversie, of vul de volledige componentcommit in die je wilt testen.
 4. Kies **New pipeline**. Open de childpipeline met de naam van het voorbeeld om jobs, artifacts en testrapporten te bekijken.
 
-Bij een modulewijziging start de trigger `validate-samples` in het componentproject ook alle vier voorbeelden. Met `strategy: mirror` neemt de componentpipeline hun resultaat over. De trigger geeft de gewijzigde componentcommit door, zodat de nieuwe code wordt getest. Een mislukte sample laat de validatie falen. De interne [include voor componentvalidatie](../../tests/samples/component-validation.yml) vult `CI_COMMIT_SHA` met GitLabs `expand_vars` in voordat de waarde naar de downstream-input gaat. Het sampleproject accepteert alleen een volledige commit-SHA.
+Bij een modulewijziging start de trigger `validate-samples` in het componentproject ook alle vier voorbeelden. Met `strategy: mirror` neemt de componentpipeline hun resultaat over. De trigger geeft de gewijzigde componentcommit door, zodat de nieuwe code wordt getest. Een mislukte sample laat de validatie falen. De interne [include voor componentvalidatie](../../tests/samples/component-validation.yml) vult `CI_COMMIT_SHA` met GitLabs `expand_vars` in voordat de waarde naar de downstream-input gaat. Het sampleproject accepteert een volledige uitgebrachte versie of een volledige commit-SHA voor kandidaatvalidatie.
 
 ## Een voorbeeld in je eigen project gebruiken
 
-Neem het gekozen bestand op met een vaste bibliotheekcommit en geef dezelfde commit mee als `library-ref`:
+Neem het gekozen bestand op met een uitgebrachte bibliotheekversie en geef dezelfde versie mee als `library-ref`:
 
 ```yaml
 include:
   - project: root/ci-components
-    ref: &library REPLACE_WITH_COMMIT_SHA
+    ref: &library 1.0.0
     file: /examples/samples/build-and-test.yml
     inputs:
       library-ref: *library

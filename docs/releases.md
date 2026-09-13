@@ -12,7 +12,7 @@ De Java-strategie combineert onafhankelijke Maven-, Jib-, Helm- en releasecompon
 
 Voor dagelijks gebruik zijn er [drie handelingen](../README.md#standaardpipeline-voor-de-java-sample). Na een volledige, geslaagde pipeline op protected main reserveert **start-release** een versie en tag. De standaard `version: auto` begint bij `0.1.0` en verhoogt daarna het hoogste gereserveerde patchnummer. Open de job om een versie op te geven, bijvoorbeeld `1.0.0`. De beperkte modi `validate` en `publish` geven geen toegang tot releasepublicatie.
 
-**release-delivery** start `Release — <version>`. Deze pipeline bouwt, test en publiceert de gereserveerde versie, deployt die naar dev en voert API-/browsertests uit. De laatste job, **publish-release**, maakt de daadwerkelijke GitLab Release aan zodra alle verplichte validatie slaagt. Alleen een tag reserveren maakt nog geen releasevermelding aan. Afnemers die een oudere bibliotheekcommit gebruiken, behouden de oude jobnamen totdat zij upgraden.
+**release-delivery** start `Release — <version>`. Deze pipeline bouwt, test en publiceert de gereserveerde versie, deployt die naar dev en voert API-/browsertests uit. De laatste job, **publish-release**, maakt de daadwerkelijke GitLab Release aan zodra alle verplichte validatie slaagt. Alleen een tag reserveren maakt nog geen releasevermelding aan. Afnemers die een oudere bibliotheekversie gebruiken, behouden de oude jobnamen totdat zij upgraden.
 
 Er is geen aparte goedkeuring van de tag. Met **start-release** besluit je de release te starten; de codebeoordeling vindt vóór de merge plaats. De lokale demo heeft één gebruiker, die ook de MR merget. Vereis in de echte organisatie beoordeling door een tweede persoon vóór een merge naar een protected branch. Een handmatige knop alleen dwingt het vierogenprincipe niet af.
 
@@ -56,7 +56,7 @@ De reserveringsjob maakt de Git-tag atomair aan op de exacte commit van de gekoz
 | [gitlab-release.yml](../templates/gitlab-release.yml) | Geteste artifacts vastleggen als GitLab Release |
 | [shared/release.yml](../shared/release.yml) | Gedeelde validatiefuncties voor deze componenten |
 
-De reserveringsjob schrijft een klein configuratieartifact voor de childpipeline. De centrale template en applicatie-instellingen liggen vast bij het aanmaken van de parentpipeline. De gekozen versie, exacte commit en geslaagde deploymentkeuzes worden tijdens de uitvoering ingevuld. Jobimplementaties blijven in de bibliotheek. Zo gebruikt een latere herhaling dezelfde oorspronkelijke inputs en bibliotheekcommit.
+De reserveringsjob schrijft een klein configuratieartifact voor de childpipeline. De centrale template en applicatie-instellingen liggen vast bij het aanmaken van de parentpipeline. De gekozen versie, exacte commit en geslaagde deploymentkeuzes worden tijdens de uitvoering ingevuld. Jobimplementaties blijven in de bibliotheek. Zo gebruikt een latere herhaling dezelfde oorspronkelijke inputs en bibliotheekversie.
 
 ## Afdwingen in GitLab en Artifactory
 

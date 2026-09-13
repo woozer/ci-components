@@ -6,6 +6,8 @@ Neem alleen de modules op die je nodig hebt. Je `.gitlab-ci.yml` bepaalt stages,
 
 Elk voorbeeld is uitvoerbare YAML met de vereiste stage en één module. Vul de verplichte bibliotheekversie in, lever de image en uitvoeringsvoorwaarden aan en pas de applicatiepaden aan. Alle inputtypen en standaardwaarden staan in `spec:inputs` van de gelinkte module; inputs zonder standaardwaarde zijn verplicht. Zie [verplichte inputs](inputs.md).
 
+Gebruik een uitgebrachte versie zoals `1.0.0` als `library-ref`. Een volledige commit-SHA blijft mogelijk voor het testen van een kandidaatwijziging. Zie [componentversies](component-versions.md).
+
 | Module | Minimaal voorbeeld | Nodig bij uitvoering |
 |---|---|---|
 | [maven-build](../templates/maven-build.yml) | [YAML](../examples/modules/maven-build.yml) | POM en Java/Maven-image; maakt packages en slaat tests over |

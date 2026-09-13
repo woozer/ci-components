@@ -2,7 +2,7 @@
 spec:
   inputs:
     library-ref:
-      description: 'Exact component commit being tested'
+      description: 'Component release version or full candidate commit SHA'
     sample:
       default: all
       options: [all, maven-build, build-and-test, deploy-and-test, two-deployables]
