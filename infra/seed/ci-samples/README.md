@@ -1,6 +1,6 @@
 # Uitvoerbare CI-samples
 
-Open [New pipeline](http://localhost:8929/root/ci-samples/-/pipelines/new), selecteer `main`, kies `sample` en klik op **New pipeline**. Met `all` voer je alle negentien voorbeelden op de beschermde `main` uit. Gebruik bij `library_ref` standaard de uitgebrachte componentversie `1.1.0`, kies een andere volledige versie of geef een volledige commit-SHA op om een kandidaatwijziging te testen. De [versieafspraken](http://localhost:8929/root/ci-components/-/blob/main/docs/component-versions.md) gelden voor alle opgenomen bestanden.
+Open [New pipeline](http://localhost:8929/root/ci-samples/-/pipelines/new), selecteer `main`, kies `sample` en klik op **New pipeline**. Met `all` voer je alle negentien voorbeelden op de beschermde `main` uit. Gebruik bij `library_ref` standaard de uitgebrachte componentversie `1.0.0`, kies een andere volledige versie of geef een volledige commit-SHA op om een kandidaatwijziging te testen. De [versieafspraken](http://localhost:8929/root/ci-components/-/blob/main/docs/component-versions.md) gelden voor alle opgenomen bestanden.
 
 Kies een van de vier pipelinevoorbeelden of een van de vijftien losse modules, zoals `module-sonar`, `module-dependency-check` of `module-npm-test`. Sonar en de drie releasevoorbeelden vereisen de beschermde `main`; `all` in een merge request voert de overige vijftien voorbeelden uit.
 

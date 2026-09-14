@@ -12,11 +12,4 @@ De scanimage bevat Maven 3.9.12, Java 25 en Node.js 24 uit de al vastgelegde Art
 
 De inrichting volgt het [officiële Compose-patroon](https://docs.sonarsource.com/sonarqube-community-build/server-installation/from-docker-image/set-up-and-start-container). HTTP op het lokale Docker-netwerk is een demo-keuze; een organisatie-inrichting gebruikt TLS en beheerde toegangsgegevens.
 
-Voor een echte controle van de component tegen een aparte checkout van de app:
-
-```sh
-python3 infra/sonarqube/validate.py sonar
-python3 infra/sonarqube/validate.py dependency-check
-```
-
-De checkout, Maven-cache en rapporten staan dan onder `.ci-tmp/scanner-validation/`. Deze controle gebruikt de echte scanner en hetzelfde modulescript. De GitLab-pipeline blijft nodig om ook images, variabelen, caching en jobafhankelijkheden in de runner te valideren. Zie de [scanhandleiding](../../docs/scanners.md).
+Test de scanners via [ci-samples → New pipeline](http://localhost:8929/root/ci-samples/-/pipelines/new). Kies `module-sonar` of `module-dependency-check`. Deze uitvoerbare voorbeelden gebruiken de echte scanner, runner, configuratie en artifacts. Er is geen aparte lokale checkout of scannerhelper nodig. Zie de [scanhandleiding](../../docs/scanners.md).

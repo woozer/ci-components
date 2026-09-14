@@ -69,3 +69,5 @@ Dit Maven-profiel installeert en cachet de Chromium-versie die bij Playwright ho
 `./mvnw package` bouwt de applicatie en voert de Surefire-unittests uit. De sample schrijft JUnit-rapporten naar `hello-app/target/surefire-reports/` en JaCoCo-coverage naar `hello-app/target/site/jacoco/`.
 
 `./mvnw verify` voert daarnaast de Cucumber-integratietests uit en start daarvoor zelf de backend. In CI doet `maven-build` de build met unittests; de aparte Cucumber-stap gebruikt `-DskipUnitTests=true` om de unittests niet opnieuw uit te voeren. Browsertests blijven apart en vereisen een draaiende UI.
+
+De projectconfiguratie in `.gitlab-ci.yml` legt met `release-line: "0.1"` de major en minor vast. De centrale releasejob kiest de volgende vrije patch binnen die reeks. Wijzig de reeks via een merge request; de releasejob schrijft geen versiecommit terug. Zie de [gedeelde releasestrategie](http://localhost:8929/root/ci-components/-/blob/main/docs/releases.md).

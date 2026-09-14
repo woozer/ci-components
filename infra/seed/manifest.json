@@ -1,8 +1,5 @@
 {
-  "hello_world_commit": "591dae6cc4839a6c8785b01d974efbe304fb3347",
-  "ci_samples_commit": "3badcf94fa12c8744cdae501f527e4b7a52f18f4",
   "component_versions": [
-    "1.0.0",
-    "1.1.0"
+    "1.0.0"
   ]
 }

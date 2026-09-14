@@ -15,6 +15,7 @@ include:
     inputs:
       library-ref: *ci_strategy
       maven-project: hello-app
+      release-line: "0.1"
       ui-directory: ui
       cluster: $[[ inputs.cluster ]]
       user-config: $[[ inputs.user_config ]]

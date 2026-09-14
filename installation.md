@@ -47,7 +47,7 @@ Git bevat Compose-bestanden, scripts, Dockerfiles en de broncode voor het vullen
 
 De map `java/` bevat de applicatiebroncode in deze repository. De installer maakt daarvoor een afzonderlijk GitLab-project aan. `infra/seed/ci-samples/` bevat alleen de afwijkende bestanden voor het sampleproject. Zo kan één checkout de volledige demo vullen zonder verbinding met de oude lokale GitLab.
 
-Neem bij het overzetten naar een externe remote ook de componenttags `1.0.0` en `1.1.0` mee. De bronkopieën van de applicatie en samples verwijzen naar die versies. `check` controleert of de tags lokaal beschikbaar zijn. Nieuwe GitLab-projecten worden alleen gevuld als hun repository leeg is; bestaande branchgeschiedenis wordt niet vervangen.
+Neem bij het overzetten naar een externe remote ook de componenttag `1.0.0` mee. De bronkopieën van de applicatie en samples verwijzen naar die versie. `check` controleert of de tags lokaal beschikbaar zijn. Nieuwe GitLab-projecten worden alleen gevuld als hun repository leeg is; bestaande branchgeschiedenis wordt niet vervangen.
 
 ## Opnieuw installeren of verhuizen
 
