@@ -1,0 +1,10 @@
+name: organization-gitlab-runner
+
+services:
+  runner:
+    image: gitlab/gitlab-runner:alpine-v19.3.0
+    restart: unless-stopped
+    mem_limit: 512m
+    volumes:
+      - ./secrets/config:/etc/gitlab-runner
+      - /var/run/docker.sock:/var/run/docker.sock

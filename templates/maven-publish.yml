@@ -94,7 +94,8 @@ include:
       set --
       if [ -n "$MAVEN_PROJECT_SELECTOR" ]; then set -- -pl "$MAVEN_PROJECT_SELECTOR" -am; fi
       "$MAVEN_EXECUTABLE" --batch-mode --no-transfer-progress --settings "$MAVEN_SETTINGS" "$@" \
-        deploy -DskipTests "-DaltDeploymentRepository=${MAVEN_REPOSITORY_ID}::${MAVEN_REPOSITORY_URL}"
+        deploy -DskipTests -DskipUnitTests=true -DskipITs \
+        "-DaltDeploymentRepository=${MAVEN_REPOSITORY_ID}::${MAVEN_REPOSITORY_URL}"
       emit REPOSITORY_URL "$MAVEN_REPOSITORY_URL"
     - !reference [.ci-module, script]
   after_script:

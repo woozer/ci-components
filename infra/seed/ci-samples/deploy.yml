@@ -1,0 +1,20 @@
+# Fixture consuming the child configuration emitted by deployment-select.
+spec:
+  inputs:
+    cluster:
+      options: [local]
+    user-config:
+      options: [default]
+---
+stages: [verify]
+verify-selection:
+  stage: verify
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "parent_pipeline"'
+  tags: [local-docker]
+  image: $JAVA_CI_IMAGE
+  script:
+    - test '$[[ inputs.cluster ]]' = local
+    - test '$[[ inputs.user-config ]]' = default
+    - test -s 'environment/cluster/$[[ inputs.cluster ]].yaml'
+    - test -s 'environment/user/$[[ inputs.user-config ]].yaml'

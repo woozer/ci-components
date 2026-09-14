@@ -98,6 +98,8 @@ Scenario's met `@ui` draaien na beide deployments en zijn verplicht voor afrondi
 
 ## Een kleine componentcatalogus houden
 
+`maven-build` volgt de gewone Maven-lifecycle: `package` omvat Surefire-unittests. Cucumber/Failsafe blijft een afzonderlijke integratieteststap. De voorbereide `maven-test`-module is hiermee samengevoegd. JUnit-rapporten horen bij de build; JaCoCo-configuratie hoort in de POM. Publicatie slaat de al uitgevoerde unit- en integratietests over en moet via `needs` van de geslaagde validatie afhangen. Zie [Mavens build-lifecycle](https://maven.apache.org/guides/introduction/introduction-to-the-lifecycle.html).
+
 Ontwerp één component per herkenbare taak voor de afnemer. GitLab staat meerdere jobs binnen één component toe. Een losse technische stap vereist daarom geen eigen publieke module. Splits alleen op bij aantoonbaar zelfstandig gebruik, verschillende rechten of verschillende uitvoeringsmomenten. Dit is onze ontwerpafspraak binnen [GitLabs componentmodel](https://docs.gitlab.com/ci/components/).
 
 De TODO-modules zijn op drie plaatsen samengevoegd: `sonar` verzorgt analyse en de native quality gate, `fortify` combineert scan en beleidscontrole, en `image-scan` maakt ook het CycloneDX-SBOM. Daarmee vervallen drie losse componenten en de eigen Sonar-pollingcode. Dit is een keuze voor eenvoud, geen voorgeschreven industriestandaard. `sonar` is met Dependency-Check opgenomen in de actieve verzameling. `fortify` en `image-scan` blijven in `modules/todo/` voor latere integratie. Zie de [scanhandleiding](scanners.md) voor de gratis demo-inrichting.

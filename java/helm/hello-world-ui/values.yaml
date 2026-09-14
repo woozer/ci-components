@@ -1,0 +1,20 @@
+replicaCount: 1
+image:
+  repository: hello-world-ui
+  tag: local
+  digest: ''
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+backend:
+  url: http://hello-world:8080
+service:
+  type: ClusterIP
+  port: 8090
+  nodePort: null
+resources:
+  requests:
+    cpu: 50m
+    memory: 32Mi
+  limits:
+    cpu: 500m
+    memory: 128Mi

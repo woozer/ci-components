@@ -6,6 +6,30 @@ spec:
       description: 'Component release version or full commit SHA; use the same value as include.ref'
     library-project:
       default: root/ci-components
+    runner-tags:
+      description: 'Runner tags selected by the platform team'
+      type: array
+      default: [local-docker]
+    buildkit-runner-tags:
+      description: 'Runner tags for rootless BuildKit'
+      type: array
+      default: [local-buildkit]
+    registry-plain-http:
+      description: 'Local demo only; set false for an HTTPS organization registry'
+      type: boolean
+      default: true
+    kubeconfig-variable:
+      description: 'GitLab file variable; empty uses the agent-provided KUBECONFIG and KUBE_CONTEXT'
+      default: LOCAL_KUBECONFIG
+      regex: '^([A-Z][A-Z0-9_]*)?$'
+    clusters:
+      description: 'Cluster choices configured by the platform team'
+      type: array
+      default: [local]
+    user-configs:
+      description: 'Available environment/user profiles'
+      type: array
+      default: [default, two-replicas]
     maven-project:
       description: 'Deployable Maven module containing Jib'
     application:
@@ -38,10 +62,10 @@ spec:
       default: environment
     cluster:
       default: local
-      options: [local]
+      regex: '^[a-z0-9][a-z0-9-]*$'
     user-config:
       default: default
-      options: [default, two-replicas]
+      regex: '^[a-z0-9][a-z0-9-]*$'
     pipeline-mode:
       description: 'Choose before pipeline creation; runtime choices affect deployment only'
       default: deploy
@@ -121,7 +145,7 @@ include:
       image-repository: '$OCI_REGISTRY/$PUBLISH_REPOSITORY/$[[ inputs.ui-application ]]'
       image-tag: $APP_VERSION
       base-image: $NGINX_BASE_IMAGE
-      plain-http: true
+      plain-http: $[[ inputs.registry-plain-http ]]
       output-prefix: UI_IMAGE
   - local: /templates/helm-publish.yml
     inputs:
@@ -133,7 +157,7 @@ include:
       chart-version: $APP_VERSION
       app-version: $APP_VERSION
       oci-repository: oci://$OCI_REGISTRY/$PUBLISH_REPOSITORY/charts
-      plain-http: true
+      plain-http: $[[ inputs.registry-plain-http ]]
       output-prefix: UI_CHART
   - local: /templates/maven-publish.yml
     inputs:
@@ -143,8 +167,8 @@ include:
       maven-executable: mvn
       project-selector: '$[[ inputs.maven-project ]]'
       settings-file: $MAVEN_PUBLISH_SETTINGS
-      repository-id: gitlab-maven
-      repository-url: $GITLAB_INTERNAL_URL/api/v4/projects/$CI_PROJECT_ID/packages/maven
+      repository-id: $MAVEN_PUBLISH_SERVER_ID
+      repository-url: $MAVEN_PUBLISH_URL
   - local: /templates/jib-build.yml
     inputs:
       job-name: publish-image
@@ -157,7 +181,7 @@ include:
       image-tag: $APP_VERSION
       base-image: $JIB_BASE_IMAGE
       digest-file: '$[[ inputs.maven-project ]]/target/jib-image.digest'
-      allow-insecure-registry: true
+      allow-insecure-registry: $[[ inputs.registry-plain-http ]]
       output-prefix: JIB
   - local: /templates/helm-publish.yml
     inputs:
@@ -169,13 +193,14 @@ include:
       chart-version: $APP_VERSION
       app-version: $APP_VERSION
       oci-repository: oci://$OCI_REGISTRY/$PUBLISH_REPOSITORY/charts
-      plain-http: true
+      plain-http: $[[ inputs.registry-plain-http ]]
       output-prefix: CHART
   - local: /templates/deployment-select.yml
     inputs:
       job-name: configure-deploy
       image: $MAVEN_BUILD_IMAGE
-      user-configs: [default, two-replicas]
+      clusters: $[[ inputs.clusters ]]
+      user-configs: $[[ inputs.user-configs ]]
       default-cluster: '$[[ inputs.cluster ]]'
       default-user-config: '$[[ inputs.user-config ]]'
       pipeline-config: |
@@ -188,6 +213,12 @@ include:
               chart: '$[[ inputs.chart | expand_vars ]]'
               library-ref: '$[[ inputs.library-ref ]]'
               library-project: '$[[ inputs.library-project ]]'
+              runner-tags: $[[ inputs.runner-tags ]]
+              buildkit-runner-tags: $[[ inputs.buildkit-runner-tags ]]
+              registry-plain-http: $[[ inputs.registry-plain-http ]]
+              kubeconfig-variable: '$[[ inputs.kubeconfig-variable ]]'
+              clusters: $[[ inputs.clusters ]]
+              user-configs: $[[ inputs.user-configs ]]
               maven-project: '$[[ inputs.maven-project ]]'
               ui-directory: '$[[ inputs.ui-directory ]]'
               ui-application: '$[[ inputs.ui-application | expand_vars ]]'
@@ -225,6 +256,12 @@ include:
               flow: release
               library-ref: '$[[ inputs.library-ref ]]'
               library-project: '$[[ inputs.library-project ]]'
+              runner-tags: $[[ inputs.runner-tags ]]
+              buildkit-runner-tags: $[[ inputs.buildkit-runner-tags ]]
+              registry-plain-http: $[[ inputs.registry-plain-http ]]
+              kubeconfig-variable: '$[[ inputs.kubeconfig-variable ]]'
+              clusters: $[[ inputs.clusters ]]
+              user-configs: $[[ inputs.user-configs ]]
               application: '$[[ inputs.application | expand_vars ]]'
               maven-project: '$[[ inputs.maven-project ]]'
               ui-directory: '$[[ inputs.ui-directory ]]'
@@ -263,9 +300,9 @@ include:
       image-ref-variable: UI_IMAGE_IMAGE_REF
       chart-variable: UI_CHART_REF
       chart-version-variable: UI_CHART_VERSION
-      kubeconfig-variable: LOCAL_KUBECONFIG
+      kubeconfig-variable: '$[[ inputs.kubeconfig-variable ]]'
       create-namespace: false
-      plain-http: true
+      plain-http: $[[ inputs.registry-plain-http ]]
       values-file: '$[[ inputs.environment-directory ]]/cluster/$[[ inputs.cluster ]].yaml'
       override-values-file: '$[[ inputs.environment-directory ]]/user/$[[ inputs.user-config ]].yaml'
       release: '$[[ inputs.ui-application ]]'
@@ -291,9 +328,9 @@ include:
       image-ref-variable: JIB_IMAGE_REF
       chart-variable: CHART_REF
       chart-version-variable: CHART_VERSION
-      kubeconfig-variable: LOCAL_KUBECONFIG
+      kubeconfig-variable: '$[[ inputs.kubeconfig-variable ]]'
       create-namespace: false
-      plain-http: true
+      plain-http: $[[ inputs.registry-plain-http ]]
       values-file: '$[[ inputs.environment-directory ]]/cluster/$[[ inputs.cluster ]].yaml'
       override-values-file: '$[[ inputs.environment-directory ]]/user/$[[ inputs.user-config ]].yaml'
       release: '$[[ inputs.application ]]'
@@ -330,7 +367,7 @@ workflow:
         JAVA_SERVICE_PIPELINE_NAME: 'Release — $[[ inputs.version ]]'
         PUBLISH_REPOSITORY: $RELEASE_OCI_REPOSITORY
         ARTIFACT_ENVIRONMENT: release/publish
-        DEPLOY_ENVIRONMENT: release/dev
+        DEPLOY_ENVIRONMENT: 'release/dev/$[[ inputs.cluster ]]'
     - if: '$CI_PIPELINE_SOURCE == "parent_pipeline" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_REF_PROTECTED == "true" && "$[[ inputs.flow ]]" == "deploy"'
       variables:
         JAVA_SERVICE_PIPELINE_NAME: 'Dev — deployment en integratietests'
@@ -347,15 +384,16 @@ workflow:
 stages: [check, build, test, analyze, publish, image, configure, deploy, integration, release, release-delivery, finish]
 
 default:
-  tags: [local-docker]
+  tags: $[[ inputs.runner-tags ]]
 
 variables:
   JAVA_SERVICE_PIPELINE_NAME: 'CI — $CI_COMMIT_BRANCH'
+  HELM_REGISTRY_PLAIN_HTTP: '$[[ inputs.registry-plain-http ]]'
   APP_VERSION: '$[[ inputs.version ]]'
   RELEASE_COMMIT: '$[[ inputs.commit ]]'
   PUBLISH_REPOSITORY: $OCI_REPOSITORY
   ARTIFACT_ENVIRONMENT: dev
-  DEPLOY_ENVIRONMENT: dev
+  DEPLOY_ENVIRONMENT: 'dev/$[[ inputs.cluster ]]'
   MAVEN_ARGS: '-Drevision=$APP_VERSION'
   MAVEN_USER_HOME: '$CI_PROJECT_DIR/.m2'
   MAVEN_OPTS: '-Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository'
@@ -413,6 +451,8 @@ sonar:
     - if: '"$[[ inputs.flow ]]" == "release"'
     - if: '"$[[ inputs.flow ]]" == "pipeline" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_REF_PROTECTED == "true"'
   needs:
+    - job: build
+      artifacts: true
     - job: test
       artifacts: true
     - job: test-ui
@@ -609,7 +649,7 @@ test-ui:
 
 publish-ui-image:
   extends: .ui-publish
-  tags: [local-buildkit]
+  tags: $[[ inputs.buildkit-runner-tags ]]
   needs: [build-ui, publish-maven]
 
 publish-ui-chart:

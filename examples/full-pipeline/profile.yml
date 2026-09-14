@@ -62,9 +62,6 @@ spec:
     maven-build-image:
       type: string
       default: $MAVEN_BUILD_IMAGE
-    maven-test-image:
-      type: string
-      default: $MAVEN_TEST_IMAGE
     npm-build-image:
       type: string
       default: $NPM_BUILD_IMAGE
@@ -121,12 +118,6 @@ include:
   - local: /templates/maven-build.yml
     inputs:
       image: $[[ inputs.maven-build-image ]]
-      working-directory: $[[ inputs.maven-directory ]]
-      job-timeout: $[[ inputs.job-timeout ]]
-      artifact-expire-in: $[[ inputs.artifact-expire-in ]]
-  - local: /modules/todo/maven-test.yml
-    inputs:
-      image: $[[ inputs.maven-test-image ]]
       working-directory: $[[ inputs.maven-directory ]]
       job-timeout: $[[ inputs.job-timeout ]]
       artifact-expire-in: $[[ inputs.artifact-expire-in ]]

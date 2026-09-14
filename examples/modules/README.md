@@ -11,7 +11,7 @@ Elk YAML-bestand in deze map neemt één actieve component op met de noodzakelij
 
 | Keuze | Wat wordt uitgevoerd? |
 |---|---|
-| `module-maven-build` | Maven-packages bouwen |
+| `module-maven-build` | Maven-packages bouwen en unittests uitvoeren |
 | `module-cucumber-test` | Backendtests die zelf de applicatie starten |
 | `module-npm-build` | Angular-assets bouwen |
 | `module-npm-test` | UI-unittests met een JUnit-rapport |

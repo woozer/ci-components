@@ -2,6 +2,8 @@
 
 Deze uitgebreide handleiding behandelt ook toekomstige scan-/signingmodules. Begin voor de actieve modules met de [modulehandleiding](modules.md) en [uitvoerbare voorbeelden](../examples/samples/README.md).
 
+**TODO:** de instructies voor `npm-audit`, `fortify`, `image-scan`, `image-sign`, `image-verify` en `zap-baseline` zijn voorbereidend. Deze modules draaien nog niet in de demo. Zie [status en resterend werk](modules.md#todo-nog-niet-actief).
+
 ## Eigen images per taak
 
 Elke module vereist de input `image`. Er is geen globale image of verplicht gedeelde image. Het optionele organisatieprofiel biedt per taak een imagevariabele die je kunt aanpassen. Taken mogen dezelfde image gebruiken als hun toolvereisten overeenkomen. Zet goedgekeurde images vast met `@sha256:<64 hexadecimal characters>`. Zie [standaardwaarden en profielen](defaults.md) voor de verdeling van configuratie. De validatiejob van de componentrepository heeft een eigen imagevariabele buiten dat profiel.
@@ -9,7 +11,6 @@ Elke module vereist de input `image`. Er is geen globale image of verplicht gede
 | Voorbeeldvariabele | Benodigde inhoud |
 |---|---|
 | `MAVEN_BUILD_IMAGE` | Goedgekeurde JDK, vereisten voor Maven Wrapper, `sh` |
-| `MAVEN_TEST_IMAGE` | Bijpassende JDK, vereisten voor Maven Wrapper, `sh` |
 | `NPM_BUILD_IMAGE` | Goedgekeurde Node.js en npm, `sh` |
 | `NPM_TEST_IMAGE` | Node/npm en browserlibraries als de testrunner die nodig heeft |
 | `SONAR_SCANNER_IMAGE` | JDK, Maven Wrapper-vereisten, Git en eventueel Node voor JS/TS-analyse |
@@ -24,7 +25,7 @@ Elke module vereist de input `image`. Er is geen globale image of verplicht gede
 | `HELM_PRODUCTION_IMAGE` | Gekozen Helm-majorversie, kubectl, CA-certificaten, `sh` |
 | `CUCUMBER_IMAGE` | JDK, Maven Wrapper-vereisten en eventueel browserlibraries |
 | `ZAP_IMAGE` | Meegeleverde `zap-baseline.py` van ZAP, schrijfbare `/zap/wrk`, `sh` |
-| `CI_VALIDATION_IMAGE` | Python 3, Ruby met standaard YAML-library, `sh`; alleen voor deze componentrepository |
+| `CI_VALIDATION_IMAGE` | Python 3, Ruby met standaard YAML-library, Git, `sh`; alleen voor deze componentrepository |
 
 Alle images hebben ook POSIX-basistools nodig: `awk`, `grep`, `wc`, `printenv`, `cat`, `cp`, `mv`, `rm` en `mkdir`. Minimale of distroless images kunnen een kleine interne uitbreiding nodig hebben om de shell toe te voegen. Een image hoeft geen tools voor andere bouwblokken te bevatten. Neem tools op in beheerde images en download geen willekeurige binaries via hooks.
 
@@ -44,7 +45,7 @@ Gebruik bijpassende Java-/Node-versies voor build en tests. Configureer interne 
 
 Maven-componenten gebruiken standaard een uitvoerbare Maven Wrapper in de ingestelde werkmap. `maven-build`, `maven-publish`, `jib-build`, `cucumber-test` en `sonar` accepteren ook `maven-executable: mvn` om Maven uit de goedgekeurde image te gebruiken. Commit de versie- en checksumconfiguratie van de wrapper. Bij een `only-script` wrapper met een ZIP-distributie en checksum moet de tool-image ook `unzip` bevatten. Zet Surefire-, Failsafe-, JaCoCo- en scanpluginversies vast in de parent-POM of componentinputs.
 
-Het profiel `ci-unit` moet JaCoCo `prepare-agent` vóór de tests activeren en Surefire instellen. De testcomponent voert `test jacoco:report` uit. Maak het XML-rapport beschikbaar voor Sonar. `sonar` behoudt opgehaalde coverage-artifacts en installeert reactorartifacts met overgeslagen tests om afhankelijkheden tussen modules op te lossen. Die voorbereiding kan opnieuw compileren/verpakken; de release-OCI-image wordt nog steeds één keer gebouwd vanuit de buildartifacts.
+De buildcomponent voert `package` uit, inclusief Surefire-unittests. Configureer eventuele JaCoCo-coverage in de POM: `prepare-agent` vóór de tests en `report` uiterlijk tijdens `package`, bijvoorbeeld in `prepare-package`. Geef de buildartifacts met het XML-rapport via `needs` door aan Sonar. Er is geen verplicht `ci-unit`-profiel of aparte Maven-unittestmodule. `sonar` behoudt opgehaalde coverage-artifacts en installeert reactorartifacts met overgeslagen tests om afhankelijkheden tussen modules op te lossen. Die voorbereiding kan opnieuw compileren/verpakken; de release-OCI-image wordt nog steeds één keer gebouwd vanuit de buildartifacts.
 
 Koppel in de POM de Failsafe-doelen `integration-test` en `verify`, laat een echte Cucumber-suite ontdekken en schrijf JUnit XML naar `target/failsafe-reports`. De testcode leest `cucumber.base-url`. Stuur Surefires `skipTests` aan via een eigen property `skipUnitTests`. Gebruik geen globale `skipTests` voor Cucumber, omdat daarmee ook Failsafe kan worden overgeslagen. Laat de suite falen als het ingestelde tagfilter geen scenario's selecteert. Modules die bewust geen tests bevatten, hebben een beoordeelde afzonderlijke discoveryconfiguratie nodig. Zie [Cucumber met Failsafe](https://maven.apache.org/components/surefire/maven-failsafe-plugin/examples/cucumber.html).
 

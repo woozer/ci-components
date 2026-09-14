@@ -2,9 +2,11 @@
 
 Neem alleen de modules op die je nodig hebt. Je `.gitlab-ci.yml` bepaalt stages, afhankelijkheden tussen jobs, voorwaarden en extra jobs. Een organisatieprofiel of standaardpipeline voor Java is niet verplicht. Elke module heeft een eigen image en outputs; de gedeelde afhandeling van hooks wordt automatisch ingeladen.
 
+**Status:** de 15 modules in het eerste overzicht zijn actief. De [6 TODO-modules](#todo-nog-niet-actief) staan apart en vereisen nog inrichting en integratievalidatie. Hun YAML- en contracttests maken ze nog niet onderdeel van de actieve catalogus.
+
 Voer elk actief voorbeeld direct uit via [CI samples → New pipeline](http://localhost:8929/root/ci-samples/-/pipelines/new): kies `main` en bijvoorbeeld `module-sonar`. Zie [alle modulevoorbeelden](../examples/modules/README.md).
 
-## Een module kiezen
+## Actief: een module kiezen
 
 Elk voorbeeld is uitvoerbare YAML met de vereiste stage en één module. Vul de verplichte bibliotheekversie in, lever de image en uitvoeringsvoorwaarden aan en pas de applicatiepaden aan. Alle inputtypen en standaardwaarden staan in `spec:inputs` van de gelinkte module; inputs zonder standaardwaarde zijn verplicht. Zie [verplichte inputs](inputs.md).
 
@@ -12,7 +14,7 @@ Gebruik een uitgebrachte versie zoals `1.0.0` als `library-ref`. Een volledige c
 
 | Module | Minimaal voorbeeld | Nodig bij uitvoering |
 |---|---|---|
-| [maven-build](../templates/maven-build.yml) | [YAML](../examples/modules/maven-build.yml) | POM en Java/Maven-image; maakt packages en slaat tests over |
+| [maven-build](../templates/maven-build.yml) | [YAML](../examples/modules/maven-build.yml) | POM en Java/Maven-image; bouwt packages en voert Surefire-unittests uit |
 | [cucumber-test](../templates/cucumber-test.yml) | [YAML](../examples/modules/cucumber-test.yml) | Cucumber/Failsafe-tests; dit voorbeeld start zelf de applicatie |
 | [npm-build](../templates/npm-build.yml) | [YAML](../examples/modules/npm-build.yml) | Lockfile en `build`-script in `ui/` |
 | [npm-test](../templates/npm-test.yml) | [YAML](../examples/modules/npm-test.yml) | Lockfile en `test:ci`-script dat `reports/junit.xml` aanmaakt |
@@ -34,7 +36,24 @@ Zie de [scanhandleiding](scanners.md) voor de automatische lokale inrichting en 
 
 De releasevoorbeelden tonen afzonderlijke bewerkingen, geen volledig goedkeurings- of releasebeleid. Het opnemen van een module richt geen serverrechten in en een handmatige job maakt een release niet vanzelf toegestaan. De optionele [standaardreleasestrategie](releases.md) laat zien hoe deze bewerkingen worden gecombineerd en beveiligd.
 
+## TODO: nog niet actief
+
+Deze modules staan in `modules/todo/`. Ze draaien niet in de standaardpipeline en staan niet in het keuzemenu van **CI samples**. Het uitgebreide `examples/full-pipeline`-voorbeeld toont hun beoogde gebruik; het is geen gevalideerde demo van deze integraties.
+
+| Module | Beoogde taak | Nodig vóór activering |
+|---|---|---|
+| [npm-audit — TODO](../modules/todo/npm-audit.yml) | Kwetsbaarheden in npm-dependencies controleren | Auditbeleid, uitzonderingen en een echte sample; `npm-test` en Maven Dependency-Check vervangen deze controle niet |
+| [fortify — TODO](../modules/todo/fortify.yml) | Fortify-scan en beleidscontrole | Gekozen editie/licentie, server, credentials en gevalideerde integratie; er is nog geen Fortify-installatie |
+| [image-scan — TODO](../modules/todo/image-scan.yml) | Trivy-scan, CycloneDX-SBOM en ernstgrens | Scannerimage, actuele kwetsbaarheidsdatabase, beleid en integratievalidatie |
+| [image-sign — TODO](../modules/todo/image-sign.yml) | Image-digest met Cosign ondertekenen | Beheerde signing-identiteit of sleutel, rechten en integratievalidatie |
+| [image-verify — TODO](../modules/todo/image-verify.yml) | Imagehandtekening controleren | Vertrouwensbeleid en tests met geldige, ontbrekende en ongeldige handtekeningen |
+| [zap-baseline — TODO](../modules/todo/zap-baseline.yml) | Passieve ZAP-scan van de gedeployde applicatie | Scanconfiguratie, beoordeelde uitzonderingen en een uitvoerbare sample |
+
+Verplaats een module pas naar `templates/` nadat er een concrete afnemer is en de echte integratie is gevalideerd. De mapnaam **TODO** zegt dat de module nog niet is geactiveerd; niet dat er nog geen code bestaat. Zie [outputs van toekomstige modules](reference.md#modules-voor-toekomstig-gebruik) en [afspraken vóór activering](../modules/todo/README.md).
+
 ## Outputs verbinden met needs
+
+De Maven-build voert `package` uit met Surefire-unittests en publiceert de JUnit XML-rapporten. Cucumber draait afzonderlijk via Failsafe en slaat de al uitgevoerde unittests over. De vroegere TODO-module `maven-test` is daarom samengevoegd met `maven-build`; een aparte opname is niet nodig. Coverage wordt door de POM ingericht en gaat als buildartifact naar Sonar.
 
 Begin met de [uitvoerbare voorbeelden](../examples/samples/README.md). Die gebruiken de volgende relaties:
 

@@ -1,0 +1,62 @@
+name: organization-sonarqube
+
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE:?Run ./infra/setup.sh install}
+    restart: unless-stopped
+    mem_limit: 512m
+    environment:
+      POSTGRES_DB: sonar
+      POSTGRES_USER: sonar
+      POSTGRES_PASSWORD: ${SONAR_DB_PASSWORD:?Run ./infra/setup.sh install}
+    volumes:
+      - database:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U sonar -d sonar']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  sonarqube:
+    image: ${SONARQUBE_IMAGE:?Run ./infra/setup.sh install}
+    restart: unless-stopped
+    mem_limit: 4g
+    cpus: 2
+    environment:
+      SONAR_JDBC_URL: jdbc:postgresql://postgres:5432/sonar
+      SONAR_JDBC_USERNAME: sonar
+      SONAR_JDBC_PASSWORD: ${SONAR_DB_PASSWORD:?Run ./infra/setup.sh install}
+    ports:
+      - '127.0.0.1:9000:9000'
+    volumes:
+      - data:/opt/sonarqube/data
+      - extensions:/opt/sonarqube/extensions
+      - logs:/opt/sonarqube/logs
+    ulimits:
+      nofile:
+        soft: 131072
+        hard: 131072
+      nproc: 8192
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - default
+      - ci
+    healthcheck:
+      test: ['CMD-SHELL', 'curl --fail --silent --max-time 4 http://localhost:9000/api/system/status | grep -q ''"status":"UP"''']
+      interval: 10s
+      timeout: 5s
+      start_period: 5m
+      retries: 12
+
+networks:
+  ci:
+    external: true
+    name: kind
+
+volumes:
+  database:
+  data:
+  extensions:
+  logs:

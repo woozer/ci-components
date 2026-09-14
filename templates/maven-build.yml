@@ -1,4 +1,4 @@
-# Package Maven application artifacts
+# Run Maven unit tests and package application artifacts
 spec:
   inputs:
     job-name:
@@ -73,7 +73,7 @@ include:
     - !reference [.ci-module, before_script]
   script:
     - |
-      "$MAVEN_EXECUTABLE" --batch-mode --no-transfer-progress -Dmaven.test.skip=true -DskipITs package
+      "$MAVEN_EXECUTABLE" --batch-mode --no-transfer-progress -DskipITs package
       emit ARTIFACT_ROOT "$MODULE_WORKDIR"
     - !reference [.ci-module, script]
   after_script:
@@ -86,3 +86,5 @@ include:
       - '$[[ inputs.working-directory ]]/**/target/'
     reports:
       dotenv: '.ci-output/$CI_JOB_NAME/outputs.env'
+      junit:
+        - '$[[ inputs.working-directory ]]/**/target/surefire-reports/TEST-*.xml'

@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>com.example</groupId>
+    <artifactId>hello-world-parent</artifactId>
+    <version>${revision}</version>
+  </parent>
+  <artifactId>hello-app</artifactId>
+  <name>Hello World REST application</name>
+
+  <properties>
+    <container.image>hello-world:local</container.image>
+    <container.base-image>eclipse-temurin:25-jre@sha256:f9e65324a37f28209ce7dd0e5149a7aa954520ed936fb87813cf6ded2400a112</container.base-image>
+    <container.architecture>amd64</container.architecture>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-webmvc</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <version>0.8.14</version>
+        <executions>
+          <execution>
+            <goals><goal>prepare-agent</goal></goals>
+          </execution>
+          <execution>
+            <id>unit-coverage</id>
+            <phase>prepare-package</phase>
+            <goals><goal>report</goal></goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+        <configuration>
+          <!-- Keep a normal jar for the sibling test module and an executable jar. -->
+          <classifier>exec</classifier>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>com.google.cloud.tools</groupId>
+        <artifactId>jib-maven-plugin</artifactId>
+        <configuration>
+          <from>
+            <image>${container.base-image}</image>
+            <platforms>
+              <platform>
+                <os>linux</os>
+                <architecture>${container.architecture}</architecture>
+              </platform>
+            </platforms>
+          </from>
+          <to>
+            <image>${container.image}</image>
+          </to>
+          <container>
+            <mainClass>com.example.hello.HelloApplication</mainClass>
+            <user>10001:10001</user>
+            <ports>
+              <port>8080</port>
+            </ports>
+            <creationTime>EPOCH</creationTime>
+          </container>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+  <profiles>
+    <profile>
+      <id>native-arm64</id>
+      <activation><os><arch>aarch64</arch></os></activation>
+      <properties><container.architecture>arm64</container.architecture></properties>
+    </profile>
+  </profiles>
+</project>

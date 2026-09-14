@@ -2,6 +2,8 @@
 
 Stel zelf een pipeline samen met zelfstandig bruikbare modules, of gebruik de optionele standaardpipeline voor Java. Elke module voert één herkenbare taak uit, kiest een eigen image en publiceert benoemde outputs. Je pipeline bepaalt `stages`, `needs`, voorwaarden en aanvullende jobs.
 
+**Beschikbaarheid:** 15 actieve modules hebben uitvoerbare samples. Daarnaast staan 6 modules op **TODO**: `npm-audit`, `fortify`, `image-scan`, `image-sign`, `image-verify` en `zap-baseline`. Ze draaien niet in de demo en zijn niet selecteerbaar in **CI samples**. Zie [status en resterend werk per module](docs/modules.md#todo-nog-niet-actief).
+
 ## Zelf een pipeline samenstellen
 
 1. Kies een module uit de [modulehandleiding](docs/modules.md).
@@ -32,6 +34,6 @@ Naslag: [modulehandleiding](docs/modules.md), [verplichte inputs](docs/inputs.md
 
 We volgen GitLabs advies over componenttests en hergebruik. GitLab levert jobs, afhankelijkheden, artifacts, inputs en locks; de keuzetermijn van tien seconden en automatische patchversie zijn afspraken van onze optionele standaardpipeline. Zie [standaarden en keuzes](docs/reuse-and-standards.md).
 
-De vijftien actieve modules staan in `templates/`; zeven toekomstige modules staan in [modules/todo/](modules/todo/). Er is geen eigen handoff-keten of YAML-generator.
+De vijftien actieve modules staan in `templates/`; zes toekomstige modules staan in [modules/todo/](modules/todo/). Er is geen eigen handoff-keten of YAML-generator.
 
 De [scanhandleiding](docs/scanners.md) beschrijft SonarQube en Dependency-Check in de demo, zonder handmatig aangevraagde API-keys.

@@ -25,7 +25,9 @@ De grens `fail-cvss` is standaard 7. Dit is onze beleidskeuze, geen universele n
 
 Feedgebruik is een ondersteunde Dependency-Check-optie. De keuze voor de publieke mirror is een demo-afspraak: de beheerders werken deze naar beste vermogen dagelijks bij, zonder beschikbaarheidsgarantie. Gegevens kunnen achterlopen. Kies in een echte organisatie een beheerde bron en afspraken over actualiteit, caching en uitzonderingen. Zie [Dependency-Check-feeds](https://dependency-check.github.io/DependencyCheck/data/mirrornvd.html) en [Maven-instellingen](https://dependency-check.github.io/DependencyCheck/dependency-check-maven/check-mojo.html).
 
-## Wat blijft voorbereid?
+## TODO: nog niet actieve controles
+
+De volledige lijst met resterend werk staat in [het TODO-overzicht](modules.md#todo-nog-niet-actief). Voor beveiligingscontroles gaat het om `npm-audit`, `fortify`, `image-scan`, `image-sign`, `image-verify` en `zap-baseline`.
 
 `fortify` blijft in `modules/todo/`. Er is geen geschikte gratis Community-editie vastgesteld; de beschikbare Fortify-integraties vereisen een gekozen editie, licentie en inrichting. Een gratis connector of proefperiode maakt de scanner niet vrij bruikbaar. De samengevoegde component voor scan en beleidscontrole is wel behouden voor later gebruik. Zie de [adapterafspraken](fortify-adapters.md).
 

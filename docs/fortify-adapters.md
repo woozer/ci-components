@@ -1,5 +1,7 @@
 # Afspraken voor Fortify-adapters
 
+**Status: TODO.** Dit is een voorbereidende adapterafspraak voor [modules/todo/fortify.yml](../modules/todo/fortify.yml), geen actieve demo-integratie. Zie [de modulestatus](modules.md#todo-nog-niet-actief).
+
 De Fortify-editie, versie, licentie, endpoints en het organisatiebeleid zijn nog niet gekozen. De component `fortify` vereist daarom expliciete scan- en gateadapters en faalt als die ontbreken. Er is nog geen werkende Fortify-installatie; een ontbrekende scan wordt niet als geslaagd behandeld.
 
 Eén component voert scan en beleidscontrole in dezelfde job uit. De afnemer kiest één image en geeft `scan-adapter` en `gate-adapter` op. Er is geen aparte gatejob of overdracht via een `receipt-variable` nodig. Dit adaptercontract is voorlopig maatwerk van deze bibliotheek. Beoordeel vóór activering de ondersteunde Fortify-integratie en vervang de adapters als die de benodigde taak rechtstreeks afhandelt.

@@ -10,6 +10,8 @@ In `spec:inputs` van elke module staat wat je moet invullen:
 
 Elke module vereist `image`. Voor de vijftien actieve modules gelden daarnaast de volgende verplichte inputs:
 
+De [zes TODO-modules](modules.md#todo-nog-niet-actief) vallen buiten dit gebruiksoverzicht. Hun voorbereidende inputdefinities staan bij de bestanden onder `modules/todo/`.
+
 | Module | Aanvullende verplichte inputs |
 |---|---|
 | [maven-build](../templates/maven-build.yml) | Geen |
@@ -55,7 +57,7 @@ De [modulehandleiding](modules.md) bevat voor elke actieve module een minimaal v
 stages: [build]
 
 include:
-  - component: $CI_SERVER_FQDN/root/ci-components/maven-build@54f0b3819b073d138a5b0842979fe0bc84fefe0f
+  - component: $CI_SERVER_FQDN/root/ci-components/maven-build@1.1.0
     inputs:
       image: $MY_MAVEN_IMAGE
       maven-executable: mvn

@@ -3,6 +3,14 @@ __pycache__/
 .ci-output/
 .ci-tmp/
 .tools/
-# Separate application repository and private local infrastructure configuration.
-/java/
-/infra/
+# Infrastructure source is portable; installation state is private and local.
+/infra/**/secrets/
+/infra/**/.env
+/infra/.state/
+/infra/artifactory/ci-images.json
+/infra/artifactory/docker-hub.json
+/infra/artifactory/eula.html
+/infra/gitlab-runner/validation-image.json
+# Local maintenance helpers are not part of the installer.
+/infra/gitlab-runner/sample-work.py
+/infra/sonarqube/review.py

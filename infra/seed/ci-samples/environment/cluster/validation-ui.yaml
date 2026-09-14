@@ -1,0 +1,7 @@
+imagePullSecrets:
+  - name: local-artifactory
+service:
+  type: LoadBalancer
+  port: 8190
+backend:
+  url: http://ci-samples-api:8180
