@@ -29,9 +29,10 @@ def save(path, value):
 def credentials():
     path = PRIVATE / 'credentials.json'
     if not path.exists():
-        save(path, json.dumps({'admin': secrets.token_urlsafe(24),
+        # Guarantee every required character class as well as random entropy.
+        save(path, json.dumps({'admin': secrets.token_urlsafe(24) + 'Aa1!',
                                'database': secrets.token_urlsafe(24),
-                               'ci': secrets.token_urlsafe(24)}, indent=2))
+                               'ci': secrets.token_urlsafe(24) + 'Aa1!'}, indent=2))
     return json.loads(path.read_text())
 
 
