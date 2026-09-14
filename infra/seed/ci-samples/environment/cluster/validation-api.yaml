@@ -1,0 +1,5 @@
+imagePullSecrets:
+  - name: local-artifactory
+service:
+  type: LoadBalancer
+  port: 8180

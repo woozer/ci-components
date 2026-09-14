@@ -1,0 +1,8 @@
+**/target/
+.idea/
+*.iml
+.DS_Store
+.m2/
+.ci-output/
+.flattened-pom.xml
+**/.flattened-pom.xml

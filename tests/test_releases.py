@@ -17,6 +17,7 @@ class ReleaseContractTests(unittest.TestCase):
         inputs = {'release-branch': 'main', 'version': '1.2.3'}
         if name == 'release-reserve':
             inputs.update({
+                'release-line': '1.2',
                 'git-url': 'ssh://git@gitlab.invalid/group/service.git',
                 'git-key-file': str(self.root / 'key'),
                 'git-known-hosts-file': str(self.root / 'known-hosts'),
@@ -122,20 +123,46 @@ exit "${FAKE_HTTP_EXIT:-0}"
         self.assertFalse((self.root / 'password').exists())
 
     def test_auto_starts_at_initial_version_without_existing_tags(self):
-        h = self.harness(version='auto')
+        h = self.harness(version='auto', **{'release-line': '0.1'})
         result = h.run()
         self.assertEqual(0, result.returncode, result.stderr)
         self.assertEqual('0.1.0', h.outputs()['RELEASE_VERSION'])
         self.assertIn('--sort=-version:refname', self.calls())
 
-    def test_auto_increments_highest_reserved_stable_version(self):
-        h = self.harness(version='auto')
+    def test_auto_increments_highest_reserved_patch_within_the_configured_line(self):
+        h = self.harness(version='auto', **{'release-line': '2.0'})
         # Git returns version-sorted refs; reserved tags count without a release record.
         h.env['FAKE_REMOTE_TAGS'] = '\n'.join('a'*40 + '\trefs/tags/' + tag for tag in
-            ['v9.0.0-rc1', 'v2.0.9', 'v2.0.8', 'v1.100.0'])
+            ['v9.0.0-rc1', 'v8.0.100', 'v2.10.99', 'v2.0.11-rc1', 'v2.0.9', 'v2.0.8', 'v1.100.0'])
         result = h.run()
         self.assertEqual(0, result.returncode, result.stderr)
         self.assertEqual('2.0.10', h.outputs()['RELEASE_VERSION'])
+
+    def test_new_minor_or_major_line_starts_at_patch_zero(self):
+        for line in ('2.4', '3.0'):
+            with self.subTest(line=line):
+                h = self.harness(version='auto', **{'release-line': line})
+                h.env['FAKE_REMOTE_TAGS'] = '\n'.join('a'*40 + '\trefs/tags/' + tag for tag in
+                    ['v8.0.0', 'v2.40.99', 'v2.3.123'])
+                result = h.run()
+                self.assertEqual(0, result.returncode, result.stderr)
+                self.assertEqual(line + '.0', h.outputs()['RELEASE_VERSION'])
+
+    def test_invalid_release_lines_fail_before_git_access(self):
+        for line in ('', 'v2.3', '2', '2.03', '2.3.0', '2.3-rc', '2.3\n4.5'):
+            with self.subTest(line=line):
+                h = self.harness(version='auto', **{'release-line': line})
+                self.assertNotEqual(0, h.run().returncode)
+                self.assertEqual('', self.calls())
+                self.assertFalse(h.output_file.exists())
+
+    def test_manual_version_cannot_change_the_reviewed_release_line(self):
+        h = self.harness(version='3.0.0', **{'release-line': '2.3'})
+        result = h.run()
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn('must belong to release-line 2.3', result.stderr)
+        self.assertEqual('', self.calls())
+        self.assertFalse(h.output_file.exists())
 
     def test_auto_does_not_guess_initial_version_when_tag_listing_fails(self):
         h = self.harness(version='auto')
@@ -145,7 +172,7 @@ exit "${FAKE_HTTP_EXIT:-0}"
         self.assertFalse(h.output_file.exists())
 
     def test_auto_rejects_arithmetic_overflow(self):
-        h = self.harness(version='auto')
+        h = self.harness(version='auto', **{'release-line': '1.0'})
         h.env['FAKE_REMOTE_TAGS'] = 'a'*40 + '\trefs/tags/v1.0.99999999999999999999'
         self.assertNotEqual(0, h.run().returncode)
         self.assertNotIn('push ', self.calls())

@@ -38,8 +38,12 @@ spec:
       description: "Protected branch permitted to release"
       default: "$CI_DEFAULT_BRANCH"
     version:
-      description: "auto selects the next patch; override with an explicit SemVer"
+      description: "auto selects the next patch in release-line; an explicit version must use the same line"
       default: auto
+    release-line:
+      description: 'Reviewed major.minor release line; patch is selected automatically'
+      default: '0.1'
+      regex: '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
     git-url:
       description: "Repository SSH URL used only for creating the tag"
       default: "$RELEASE_GIT_URL"
@@ -72,6 +76,7 @@ include:
     MODULE_CLEANUP_HOOK: '$[[ inputs.cleanup-hook ]]'
     MODULE_HOOK_PARAMETERS_JSON: '$[[ inputs.hook-parameters-json ]]'
     RELEASE_BRANCH: '$[[ inputs.release-branch ]]'
+    RELEASE_LINE: '$[[ inputs.release-line ]]'
     RELEASE_TAG_GIT_URL: '$[[ inputs.git-url ]]'
     RELEASE_GIT_KEY_FILE: '$[[ inputs.git-key-file ]]'
     RELEASE_GIT_KNOWN_HOSTS_FILE: '$[[ inputs.git-known-hosts-file ]]'
@@ -82,7 +87,12 @@ include:
     - !reference [.ci-release, script]
     - |
       RELEASE_VERSION='${{ job.inputs.version }}'
-      if [ "$RELEASE_VERSION" != auto ]; then validate_version "$RELEASE_VERSION"; fi
+      validate_version "$RELEASE_LINE.0"
+      if [ "$RELEASE_VERSION" != auto ]; then
+        validate_version "$RELEASE_VERSION"
+        [ "${RELEASE_VERSION%.*}" = "$RELEASE_LINE" ] ||
+          fail "Version must belong to release-line $RELEASE_LINE; change the project configuration through a merge request."
+      fi
       require_release_branch
 
       : "${RELEASE_GIT_KEY_FILE:?Missing release Git deploy key}"
@@ -99,12 +109,13 @@ include:
         if ! release_tags=$(git ls-remote --tags --refs --sort=-version:refname "$RELEASE_TAG_GIT_URL"); then
           fail 'Cannot list reserved release versions; automatic version selection is blocked.'
         fi
-        latest=$(printf '%s\n' "$release_tags" | awk '
+        latest=$(printf '%s\n' "$release_tags" | awk -v line="$RELEASE_LINE" '
           !found && $2 ~ /^refs\/tags\/v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/ {
-            sub(/^refs\/tags\/v/, "", $2); print $2; found=1
+            sub(/^refs\/tags\/v/, "", $2)
+            if (index($2, line ".") == 1) { print $2; found=1 }
           }')
         if [ -z "$latest" ]; then
-          RELEASE_VERSION=0.1.0
+          RELEASE_VERSION="$RELEASE_LINE.0"
         else
           patch=${latest##*.}
           [ "${#patch}" -le 18 ] || fail 'Patch number exceeds automatic arithmetic; enter an explicit version.'
@@ -143,7 +154,7 @@ include:
       dotenv: '.ci-output/$CI_JOB_NAME/outputs.env'
   inputs:
     version:
-      description: 'auto: first 0.1.0, then next patch; or enter a version such as 1.0.0'
+      description: 'auto: next patch in release-line; or enter an unused version within the same line'
       type: string
       default: '$[[ inputs.version ]]'
       regex: '^(auto|(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*))$'

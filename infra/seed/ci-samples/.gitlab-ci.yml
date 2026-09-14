@@ -1,0 +1,18 @@
+spec:
+  include:
+    - project: root/ci-components
+      ref: '1.0.0'
+      file: /tests/samples/options.yml
+  inputs:
+    library_ref:
+      description: 'Released component version or full candidate commit SHA'
+      default: '1.0.0'
+      regex: '^([a-f0-9]{40}|(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*))$'
+---
+include:
+  - project: root/ci-components
+    ref: $[[ inputs.library_ref ]]
+    file: /tests/samples/launcher.yml
+    inputs:
+      library-ref: $[[ inputs.library_ref ]]
+      sample: $[[ inputs.sample ]]

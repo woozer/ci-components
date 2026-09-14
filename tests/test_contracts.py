@@ -180,6 +180,23 @@ class ComponentContractTests(unittest.TestCase):
         self.assertEqual(0, h.run().returncode)
         self.assertEqual(["installed-maven"], h.events())
 
+    def test_build_runs_unit_tests_and_does_not_publish_success_after_a_test_failure(self):
+        h = Harness(self.root)
+        h.write('mvnw', '''#!/bin/sh
+printf '%s\\n' "$@" > "$CI_PROJECT_DIR/maven-arguments"
+case " $* " in
+  *-Dmaven.test.skip*|*-DskipTests*|*-DskipUnitTests*) exit 0 ;;
+esac
+exit 1
+''')
+        result = h.run()
+        self.assertNotEqual(0, result.returncode)
+        self.assertFalse(h.output_file.exists())
+        args = (self.root / 'maven-arguments').read_text().splitlines()
+        self.assertIn('package', args)
+        self.assertIn('-DskipITs', args)
+        self.assertEqual(['./**/target/surefire-reports/TEST-*.xml'], h.job['artifacts']['reports']['junit'])
+
     def test_cucumber_can_start_its_own_application_without_an_upstream_url(self):
         h = Harness(self.root, "cucumber-test", inputs={"target-url-variable": ""})
         h.write("mvnw", '#!/bin/sh\nprintf "%s\\n" "$@" > "$CI_PROJECT_DIR/maven-args"\n')
@@ -505,11 +522,10 @@ PYTHON
             "maven-build-image": image_ref, "maven-directory": "service", "npm-directory": "web",
             "job-timeout": "45m", "artifact-expire-in": "30 days", "dependency-check-fail-cvss": 9,
         }))
-        self.assertEqual(16, len(jobs))
+        self.assertEqual(15, len(jobs))
         self.assertEqual(image_ref, jobs["maven-build"]["image"]["name"])
-        self.assertEqual("$MAVEN_TEST_IMAGE", jobs["maven-test"]["image"]["name"])
         self.assertEqual("$NPM_BUILD_IMAGE", jobs["npm-build"]["image"]["name"])
-        self.assertEqual("service", jobs["maven-test"]["variables"]["MODULE_WORKDIR"])
+        self.assertEqual("service", jobs["maven-build"]["variables"]["MODULE_WORKDIR"])
         self.assertEqual("web", jobs["npm-test"]["variables"]["MODULE_WORKDIR"])
         self.assertEqual("45m", jobs["maven-build"]["timeout"])
         self.assertEqual("1h", jobs["dependency-check"]["timeout"])

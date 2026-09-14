@@ -1,4 +1,4 @@
-# Configure CI_VALIDATION_IMAGE to a digest-pinned image with Python 3 and Ruby.
+# Configure CI_VALIDATION_IMAGE to a digest-pinned image with Python 3, Ruby and Git.
 workflow:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'

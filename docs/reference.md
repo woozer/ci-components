@@ -48,7 +48,7 @@ De centrale Java-pipeline gebruikt de volgende vijftien modules uit `templates/`
 
 | Component | Verantwoordelijkheid | Aanvullende outputs met standaardprefix |
 |---|---|---|
-| `maven-build` | Java-artifacts bouwen | `MAVEN_BUILD_ARTIFACT_ROOT` |
+| `maven-build` | Java-artifacts bouwen en Surefire-unittests uitvoeren | `MAVEN_BUILD_ARTIFACT_ROOT` |
 | `maven-publish` | Reactorartifacts naar een Maven-repository publiceren | `MAVEN_PUBLISH_REPOSITORY_URL` |
 | `jib-build` | Een Java-OCI-image met Jib bouwen en publiceren | `JIB_BUILD_IMAGE_REF`, `JIB_BUILD_IMAGE_REPOSITORY`, `JIB_BUILD_IMAGE_DIGEST` |
 | `helm-publish` | Een OCI-Helm-chart met versie verpakken en publiceren | `HELM_PUBLISH_REF`, `HELM_PUBLISH_VERSION` |
@@ -68,11 +68,10 @@ Zie de [scanhandleiding](scanners.md) voor de gratis inrichting, uitvoeringsvoor
 
 ## Modules voor toekomstig gebruik
 
-De volgende zeven modules staan in [modules/todo/](../modules/todo/) en worden niet door de Java-demo ingeladen. Hun contracttests blijven bestaan. Valideer de echte dienstintegraties voordat een module naar de actieve verzameling verhuist.
+De volgende zes modules staan in [modules/todo/](../modules/todo/) en worden niet door de Java-demo ingeladen. **Status: TODO voor alle onderstaande modules.** Ze zijn niet selecteerbaar in CI samples. Zie [resterend werk per module](modules.md#todo-nog-niet-actief). Hun contracttests blijven bestaan. Valideer de echte dienstintegraties voordat een module naar de actieve verzameling verhuist.
 
 | Module | Beoogde verantwoordelijkheid | Aanvullende outputs met standaardprefix |
 |---|---|---|
-| `maven-test` | Surefire-unittests en het ingestelde JaCoCo-rapport | `MAVEN_TEST_REPORT_ROOT` |
 | `npm-audit` | npm-dependencies controleren | `NPM_AUDIT_REPORT` |
 | `fortify` | Scannen en beleid toetsen aan precies die scan | `FORTIFY_RECEIPT`, `FORTIFY_REPORT` |
 | `image-scan` | De kandidaatimage scannen, een CycloneDX-SBOM maken en de ernstgrens afdwingen | `IMAGE_SCAN_REPORT`, `IMAGE_SCAN_SBOM` |
@@ -94,20 +93,19 @@ Het onderstaande diagram toont het uitgebreide toekomstige referentievoorbeeld, 
 
 ```mermaid
 flowchart TD
-  MB[Maven-build] --> MT[Maven-unittests]
+  MB[Maven-build en unittests] --> SS[Sonar-analyse en kwaliteitscontrole]
   NB[npm-build] --> NT[npm-unittests]
-  MT --> SS[Sonar-analyse en kwaliteitscontrole]
   NT --> SS
-  FS[Fortify-scan en beleidscontrole] --> IB
+  FS[TODO: Fortify-scan en beleidscontrole] --> IB
   DC[Dependency-Check] --> IB[Kandidaatimage bouwen]
-  NA[npm audit] --> IB
+  NA[TODO: npm audit] --> IB
   SS --> IB
-  IB --> IS[Imagescan, SBOM en ernstgrens]
-  IS --> SIGN[Image-digest ondertekenen]
-  SIGN --> VERIFY[Handtekening verifiëren]
+  IB --> IS[TODO: Imagescan, SBOM en ernstgrens]
+  IS --> SIGN[TODO: Image-digest ondertekenen]
+  SIGN --> VERIFY[TODO: Handtekening verifiëren]
   VERIFY --> DEPLOY[Naar aparte testomgeving deployen]
   DEPLOY --> CUC[Cucumber-integratietests]
-  DEPLOY --> ZAP[ZAP-baseline]
+  DEPLOY --> ZAP[TODO: ZAP-baseline]
   CUC --> PROD[Dezelfde digest goedkeuren en naar productie deployen]
   ZAP --> PROD
 ```
@@ -145,7 +143,7 @@ Bewerk actieve bestanden `templates/<component-name>.yml` rechtstreeks. Toekomst
 pipelines/java-service.yml   # jobvolgorde en beleid voor Java
 shared/module.yml           # gedeelde joblifecycle
 templates/                  # vijftien actieve modules
-modules/todo/               # zeven modules voor toekomstig gebruik
+modules/todo/               # zes modules voor toekomstig gebruik
 ```
 
 De applicatie gebruikt de openbare componentnaam en de bijbehorende afspraken. Houd bij implementatiewijzigingen inputnamen en -typen, outputnamen en -betekenis, artifactpaden, hookgedrag, imagevereisten en foutafhandeling stabiel. De afnemer bepaalt de jobafhankelijkheden.

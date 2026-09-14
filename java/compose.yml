@@ -1,0 +1,18 @@
+name: hello-world
+
+services:
+  hello-world:
+    image: hello-world:local
+    ports:
+      - '127.0.0.1:8080:8080'
+    mem_limit: 512m
+    environment:
+      JAVA_TOOL_OPTIONS: '-XX:MaxRAMPercentage=70'
+  ui:
+    image: hello-world-ui:local
+    ports:
+      - '127.0.0.1:8090:8080'
+    depends_on: [hello-world]
+    read_only: true
+    tmpfs: [/tmp]
+    mem_limit: 128m

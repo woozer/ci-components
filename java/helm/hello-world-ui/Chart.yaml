@@ -1,0 +1,6 @@
+apiVersion: v2
+name: hello-world-ui
+description: Angular animal discovery UI served by unprivileged Nginx
+type: application
+version: 0.1.0
+appVersion: local

@@ -1,0 +1,6 @@
+# The image is built into Docker Desktop by Jib before installing this chart.
+image:
+  pullPolicy: Never
+
+service:
+  type: LoadBalancer

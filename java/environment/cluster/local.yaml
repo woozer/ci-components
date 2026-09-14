@@ -1,0 +1,6 @@
+# Local cluster settings. Kubeconfig credentials are protected GitLab variables.
+imagePullSecrets:
+  - name: local-artifactory
+
+service:
+  type: LoadBalancer

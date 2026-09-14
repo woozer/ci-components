@@ -26,10 +26,6 @@ include:
       # artifact-expire-in: 30 days
 
 # The application pipeline owns orchestration. Every needs edge below is required.
-maven-test:
-  needs:
-    - job: maven-build
-      artifacts: true
 npm-test:
   needs:
     - job: npm-build
@@ -37,8 +33,6 @@ npm-test:
 sonar:
   needs:
     - job: maven-build
-      artifacts: true
-    - job: maven-test
       artifacts: true
     - job: npm-test
       artifacts: true

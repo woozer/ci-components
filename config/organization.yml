@@ -11,6 +11,8 @@ variables:
   ARTIFACTORY_PUBLIC_URL: http://localhost:8082
   OCI_REGISTRY: host.docker.internal:8082
   OCI_REPOSITORY: docker-local
+  MAVEN_PUBLISH_SERVER_ID: gitlab-maven
+  MAVEN_PUBLISH_URL: $GITLAB_INTERNAL_URL/api/v4/projects/$CI_PROJECT_ID/packages/maven
 
   MAVEN_BUILD_IMAGE: $JAVA_CI_IMAGE
   CUCUMBER_TEST_IMAGE: $JAVA_CI_IMAGE

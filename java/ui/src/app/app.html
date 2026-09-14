@@ -1,0 +1,85 @@
+<div class="page">
+  <header class="masthead">
+    <a class="brand" href="/" aria-label="Wildlife startpagina"
+      ><span class="brand-mark" aria-hidden="true">w.</span> wildlife</a
+    >
+    <span class="edition">Een kleine ontdekkingsreis</span>
+  </header>
+  <main>
+    <section class="intro" aria-labelledby="title">
+      <p class="eyebrow"><span aria-hidden="true">↗</span> ONTDEK DE DIERENWERELD</p>
+      <h1 id="title">Een wereld vol<br /><em>bijzondere dieren.</em></h1>
+      <p class="lead">
+        Van het regenwoud tot de poolcirkel. Ontmoet zes dieren uit een willekeurige selectie en
+        ontdek waar ze zich thuis voelen.
+      </p>
+    </section>
+    <section class="collection" aria-labelledby="collection-title" [attr.aria-busy]="loading()">
+      <div class="collection-header">
+        <div>
+          <p class="eyebrow">VELDNOTITIES / 01</p>
+          <h2 id="collection-title">
+            Jouw ontdekkingen <span class="count">{{ animals().length }}</span>
+          </h2>
+        </div>
+        <button type="button" (click)="refresh()" [disabled]="loading()">
+          <span aria-hidden="true">↻</span>
+          {{ loading() ? 'Even ophalen…' : 'Ontdek andere dieren' }}
+        </button>
+      </div>
+      @if (error()) {
+        <p class="notice error" role="alert">
+          {{ error() }}
+          @if (animals().length) {
+            De vorige selectie blijft hieronder staan.
+          }
+        </p>
+      }
+      @if (animals().length) {
+        <div class="table-scroll">
+          <table>
+            <caption class="sr-only">
+              Dieren uit de backend, met leefgebied en voeding
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">DIER</th>
+                <th scope="col">LEEFGEBIED</th>
+                <th scope="col">VOEDING</th>
+                <th scope="col" class="number">NR.</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (animal of animals(); track animal.id; let i = $index) {
+                <tr>
+                  <th scope="row">
+                    <span class="animal-dot" aria-hidden="true"></span>{{ animal.name }}
+                  </th>
+                  <td>{{ animal.habitat }}</td>
+                  <td>
+                    <span class="diet">{{ animal.diet }}</span>
+                  </td>
+                  <td class="number">{{ (i + 1).toString().padStart(2, '0') }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else if (loading()) {
+        <p class="notice" role="status">We zoeken een nieuwe selectie voor je…</p>
+      } @else if (!error()) {
+        <p class="notice" role="status">Nog geen dieren gevonden. Probeer een nieuwe selectie.</p>
+      }
+      <div class="collection-footer">
+        <span class="status-dot" aria-hidden="true"></span
+        ><span aria-live="polite">{{
+          loading() ? 'Selectie ophalen' : error() ? 'Ophalen mislukt' : 'Selectie opgehaald'
+        }}</span
+        ><span class="footer-note">Er valt altijd iets nieuws te ontdekken.</span>
+      </div>
+    </section>
+  </main>
+  <footer class="page-footer">
+    <span>Blijf nieuwsgierig.</span><span>WILDLIFE — EEN DEMO MET ECHTE API-DATA</span>
+  </footer>
+</div>

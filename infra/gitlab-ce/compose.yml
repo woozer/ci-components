@@ -1,0 +1,36 @@
+name: organization-gitlab-ce
+
+services:
+  gitlab:
+    image: gitlab/gitlab-ce:19.3.1-ce.0
+    hostname: gitlab.local
+    restart: unless-stopped
+    shm_size: '256m'
+    cpus: 4
+    mem_limit: 8g
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url 'http://localhost:8929'
+        gitlab_rails['gitlab_shell_ssh_port'] = 2424
+        letsencrypt['enable'] = false
+        prometheus_monitoring['enable'] = false
+        puma['worker_processes'] = 2
+        sidekiq['concurrency'] = 10
+    ports:
+      - '127.0.0.1:8929:8929'
+      - '127.0.0.1:2424:22'
+    volumes:
+      - config:/etc/gitlab
+      - logs:/var/log/gitlab
+      - data:/var/opt/gitlab
+    healthcheck:
+      test: ['CMD', 'curl', '--fail', '--silent', 'http://localhost:8929/-/readiness']
+      interval: 30s
+      timeout: 10s
+      start_period: 10m
+      retries: 10
+
+volumes:
+  config:
+  logs:
+  data:

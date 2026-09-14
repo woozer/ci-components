@@ -2,14 +2,17 @@
 
 Het organisatiebestand [config/organization.yml](../config/organization.yml) bevat gedeelde serveradressen en imagekeuzes. Het voegt geen jobs toe. De applicatie neemt [java-service.yml](../pipelines/java-service.yml) rechtstreeks op. Die samenstelling bepaalt de modules, jobvolgorde en standaardwaarden op basis van de projectnaam.
 
+Voor eigen serveradressen, credentials en OpenShift beschrijft [gebruik in de eigen organisatie](real-environment.md) de verdeling van instellingen en de configureerbare platformkeuzes.
+
 | Instelling | Doel |
 |---|---|
 | `GITLAB_INTERNAL_URL` | GitLab-adres dat bereikbaar is vanuit jobcontainers |
 | `ARTIFACTORY_PUBLIC_URL` | Browseradres voor release-artifactlinks, zonder toegangsgegevens |
 | `OCI_REGISTRY` | Registry-adres voor Jib en Helm |
 | `DEV_TARGET_URL`, `DEV_PUBLIC_URL` | Dev-URL voor respectievelijk CI en de GitLab-interface |
-| `HELM_REGISTRY_PLAIN_HTTP` | Bewust ingeschakelde HTTP-toegang voor Helm-login in de lokale testomgeving |
+| `registry-plain-http` (pipeline-input) | Bewust ingeschakelde HTTP-toegang voor de lokale demo; zet op `false` voor HTTPS |
 | `OCI_REPOSITORY` | Artifactory-repository voor images en charts |
+| `MAVEN_PUBLISH_URL`, `MAVEN_PUBLISH_SERVER_ID` | Maven-publicatieadres en bijbehorende server-ID in Maven-settings |
 | `MAVEN_BUILD_IMAGE`, `MAVEN_PUBLISH_IMAGE` | Images voor de twee Maven-taken |
 | `CUCUMBER_TEST_IMAGE`, `JIB_BUILD_IMAGE` | Images voor HTTP-tests en Jib |
 | `HELM_PUBLISH_IMAGE`, `HELM_DEPLOY_IMAGE` | Images voor chartpublicatie en deployment |
@@ -28,7 +31,7 @@ GitLab-variabelen selecteren images voor Java/Maven, Node, BuildKit, Helm en Pla
 | `DOCKER_AUTH_CONFIG` | Masked variabele met lees-/cachetoegang tot de registry voor de runner |
 | `CI_JOB_TOKEN` | Automatisch geleverd door GitLab voor publicatie van Maven-packages |
 
-De sample deployt naar lokaal Kubernetes. Voor OpenShift kun je dezelfde module `helm-deploy` gebruiken met een OpenShift-kubeconfig. Beperk deploymentcredentials tot de bijbehorende GitLab-omgeving, bijvoorbeeld `local`, `test` of `production`, en geef alleen toegang tot de benodigde namespace. Publicatiejobs moeten ook over hun registry-credentials kunnen beschikken. Zet geen toegangsgegevens in de organisatie-YAML, hookparameters of outputartifacts.
+De sample deployt naar lokaal Kubernetes. Voor OpenShift kun je dezelfde module `helm-deploy` gebruiken met een OpenShift-kubeconfig. Beperk deploymentcredentials tot de bijbehorende GitLab-omgeving, bijvoorbeeld `dev/local`, `dev/openshift-test` of `release/dev/openshift-test`, en geef alleen toegang tot de benodigde namespace. Publicatiejobs moeten ook over hun registry-credentials kunnen beschikken. Zet geen toegangsgegevens in de organisatie-YAML, hookparameters of outputartifacts.
 
 **De vaste applicatie-instellingen zijn de verplichte inputs `library-ref` en `maven-project`.** De demo schakelt de aparte UI in met `ui-directory: ui`. Daarnaast geeft de applicatie keuzes uit het gedeelde formulier **New pipeline** door. De standaardpipeline gebruikt `$CI_PROJECT_NAME` als applicatienaam en namespace, `helm/$CI_PROJECT_NAME` als chartpad en `environment/` als configuratiemap. Lokale URL's, HTTP-toegang tot de registry en de koppeling tussen cluster en kubeconfig staan centraal bij de organisatie-instellingen. De applicatie herhaalt geen standaardwaarden. Stages, afhankelijkheden en hooks staan in de centrale strategie.
 

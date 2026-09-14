@@ -17,7 +17,7 @@ Als we afwijken, beschrijf dan de gebruikelijke aanpak, onze reden en de gevolge
 | Eén centrale YAML voor gewone uitvoering, deployment en release | GitLab-includes, rules, dynamische childpipelines en resourcegroepen | De samenstelling staat op één plek. De interne input `flow` kiest jobs; deployment blijft een child zodat de lock Helm én Cucumber omvat. |
 | Eigen taakcomponenten | Ondersteunde CLI's/plugins en de onderhouden componenten hieronder | Behoudt de afgesproken inputs, outputs en hooks; onderhoud en integratietests blijven onze verantwoordelijkheid. |
 | Handmatig releasemoment | Handmatige GitLab-jobs; automatisch releasen na een merge naar de default branch is ook ondersteund | We kiezen wanneer een geslaagde main-commit een officiële versie wordt. Review gebeurt vóór de merge; de knop dwingt geen tweede goedkeuring af. |
-| Automatisch volgende patchnummer | SemVer bepaalt de betekenis van versies, maar verplicht geen automatische patchverhoging | Een gebruiksafspraak van de organisatie. De ontwikkelaar moet een minor-/majorversie kiezen als compatibiliteitswijzigingen dat vereisen. |
+| Automatisch volgende patchnummer | SemVer bepaalt de betekenis van versies, maar verplicht geen automatische patchverhoging | Een gebruiksafspraak van de organisatie. Het team wijzigt `release-line` (major.minor) via een merge request; de releasejob verhoogt alleen de patch binnen die reeks. |
 
 De GitLab-functies staan beschreven bij [jobinputs](https://docs.gitlab.com/ci/jobs/job_inputs/), [downstream-pipelines](https://docs.gitlab.com/ci/pipelines/downstream_pipelines/) en [resourcegroepen](https://docs.gitlab.com/ci/resource_groups/). GitLab regelt planning, afhankelijkheden en locks. Onze organisatie kiest de wachttijd, het handmatige releasemoment en het patchbeleid. Dat zijn geen formele industriestandaarden. Zowel [releasen na een merge naar de default branch](https://docs.gitlab.com/user/project/releases/release_cicd_examples/#create-a-release-when-a-commit-is-merged-to-the-default-branch) als een handmatige releasejob is ondersteund.
 
@@ -97,6 +97,8 @@ Cucumber-UI-scenario's gebruiken de officiële [Playwright Java API](https://pla
 Scenario's met `@ui` draaien na beide deployments en zijn verplicht voor afronding van een release. Ze vergelijken de getoonde tabel met het werkelijke API-antwoord in de browser, vernieuwen de lijst en testen een mobiele schermgrootte. Screenshots staan in het Cucumber-rapport; bij fouten worden ook Playwright-traces bewaard. Een eigen Cucumber/Playwright-adapterdienst is niet nodig.
 
 ## Een kleine componentcatalogus houden
+
+`maven-build` volgt de gewone Maven-lifecycle: `package` omvat Surefire-unittests. Cucumber/Failsafe blijft een afzonderlijke integratieteststap. De voorbereide `maven-test`-module is hiermee samengevoegd. JUnit-rapporten horen bij de build; JaCoCo-configuratie hoort in de POM. Publicatie slaat de al uitgevoerde unit- en integratietests over en moet via `needs` van de geslaagde validatie afhangen. Zie [Mavens build-lifecycle](https://maven.apache.org/guides/introduction/introduction-to-the-lifecycle.html).
 
 Ontwerp één component per herkenbare taak voor de afnemer. GitLab staat meerdere jobs binnen één component toe. Een losse technische stap vereist daarom geen eigen publieke module. Splits alleen op bij aantoonbaar zelfstandig gebruik, verschillende rechten of verschillende uitvoeringsmomenten. Dit is onze ontwerpafspraak binnen [GitLabs componentmodel](https://docs.gitlab.com/ci/components/).
 
