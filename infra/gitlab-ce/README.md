@@ -1,6 +1,6 @@
 # Lokale GitLab Community Edition
 
-Gebruik voor de volledige demo `./infra/setup.sh install` vanuit de hoofdmap; zie de [installatiehandleiding](../../installation.md). De beheercommando's hieronder voer je vanuit deze map uit. Het Compose-bestand start GitLab CE 19.3.1 met Dockers automatische architectuurkeuze. Configuratie, logs en gegevens staan in blijvende benoemde volumes.
+Gebruik voor de volledige demo `./infra/setup.sh install` vanuit de hoofdmap; zie de [installatiehandleiding](../../installation.md). De beheercommando's hieronder voer je vanuit deze map uit. Het Compose-bestand start GitLab CE 19.3.2 met Dockers automatische architectuurkeuze. Configuratie, logs en gegevens staan in blijvende benoemde volumes.
 
 ```sh
 docker compose up -d
@@ -30,7 +30,7 @@ docker compose up -d
 docker compose logs --tail=100 gitlab
 ```
 
-`docker compose down --volumes` verwijdert de gegevens van deze instance. Gebruik dit alleen als je die bewust wilt wissen. Volg vóór een versie-upgrade GitLabs back-upadvies en ondersteunde upgradepad.
+`docker compose down --volumes` verwijdert de gegevens van deze instance. Gebruik dit alleen als je die bewust wilt wissen. Volg vóór een versie-upgrade [GitLabs upgradeprocedure voor Docker](https://docs.gitlab.com/update/docker/). Bewaar vooraf een back-up van de gegevens en `gitlab-secrets.json` buiten Docker, laat lopende CI-jobs afronden en pauzeer de runners. Werk daarna de expliciete imageversie in Compose bij en controleer na de upgrade de gezondheid van GitLab en een CI-pipeline. Versie 19.3.2 bevat [kritieke beveiligingscorrecties](https://docs.gitlab.com/releases/patches/patch-release-gitlab-19-3-2-released/).
 
 Dit installeert de GitLab-server. CI-jobs vereisen daarnaast een ingestelde GitLab Runner. Runnercontainers hebben een hostnaam/URL nodig die de server vanuit hun eigen netwerk bereikt. Hun `localhost` verwijst naar de runnercontainer zelf.
 

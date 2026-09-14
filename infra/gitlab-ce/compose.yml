@@ -2,7 +2,7 @@ name: organization-gitlab-ce
 
 services:
   gitlab:
-    image: gitlab/gitlab-ce:19.3.1-ce.0
+    image: gitlab/gitlab-ce:19.3.2-ce.0
     hostname: gitlab.local
     restart: unless-stopped
     shm_size: '256m'
