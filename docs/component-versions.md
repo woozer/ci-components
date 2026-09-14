@@ -18,3 +18,9 @@ De platformbeheerder publiceert na geslaagde moduletests en samplepipelines een 
 [Protected tags](https://docs.gitlab.com/user/project/protected_tags/) beperken het aanmaken van versietags tot bevoegde beheerders en blokkeren overschrijven via Git. Ze controleren op zichzelf niet of een commit van `main` komt. Die herkomst en de groene validatie controleren we bij publicatie. Beheerders kunnen beschermde tags nog via GitLab verwijderen; het verbod daarop is aanvullend organisatiebeleid, geen absolute technische onveranderlijkheid.
 
 Tijdens ontwikkeling test de componentpipeline de exacte `CI_COMMIT_SHA`. Zo testen we de wijziging vóórdat zij een versienummer krijgt. Volledige hashes blijven daarom toegestaan voor kandidaatvalidatie. Gebruik voor dagelijkse afname een uitgebrachte versie; `main`, `latest` en gedeeltelijke versies zoals `1` schuiven mee en zijn hier niet de gekozen aanpak. Publicatie in de CI/CD Catalog is niet nodig voor volledige Git-tags en is nog niet ingericht.
+
+## Overstappen op 2.0.0
+
+`maven-build` voert voortaan ook de unittests uit. Een mislukte unittest blokkeert de build. Publicatie slaat die tests over; Cucumber blijft de afzonderlijke integratiestap.
+
+`release-reserve` en `java-service.yml` kiezen automatische patches binnen `release-line`, standaard `0.1`. Gebruik bij een bestaande reeks, bijvoorbeeld `2.3`, de input `release-line: "2.3"` in de projectconfiguratie. De vorige automatische selectie van de hoogste versie over alle reeksen vervalt. Een handmatig releasenummer moet binnen de ingestelde reeks vallen. Deze gewijzigde defaults zijn de reden voor een nieuwe majorversie van de componentbibliotheek. De bibliotheekversie en de releaseversie van een applicatie zijn onafhankelijk.

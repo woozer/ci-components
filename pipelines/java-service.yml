@@ -6,6 +6,10 @@ spec:
       description: 'Component release version or full commit SHA; use the same value as include.ref'
     library-project:
       default: root/ci-components
+    release-line:
+      description: 'Reviewed major.minor release line; change through a project merge request'
+      default: '0.1'
+      regex: '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
     runner-tags:
       description: 'Runner tags selected by the platform team'
       type: array
@@ -213,6 +217,7 @@ include:
               chart: '$[[ inputs.chart | expand_vars ]]'
               library-ref: '$[[ inputs.library-ref ]]'
               library-project: '$[[ inputs.library-project ]]'
+              release-line: '$[[ inputs.release-line ]]'
               runner-tags: $[[ inputs.runner-tags ]]
               buildkit-runner-tags: $[[ inputs.buildkit-runner-tags ]]
               registry-plain-http: $[[ inputs.registry-plain-http ]]
@@ -246,6 +251,7 @@ include:
     inputs:
       job-name: start-release
       image: $MAVEN_BUILD_IMAGE
+      release-line: '$[[ inputs.release-line ]]'
       artifact-expire-in: never
       pipeline-config: |
         include:
@@ -254,6 +260,7 @@ include:
             file: /pipelines/java-service.yml
             inputs:
               flow: release
+              release-line: '$[[ inputs.release-line ]]'
               library-ref: '$[[ inputs.library-ref ]]'
               library-project: '$[[ inputs.library-project ]]'
               runner-tags: $[[ inputs.runner-tags ]]

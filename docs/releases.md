@@ -10,7 +10,7 @@ De Java-strategie combineert onafhankelijke Maven-, Jib-, Helm- en releasecompon
 
 ## Een release starten en publiceren
 
-Voor dagelijks gebruik zijn er [drie handelingen](../README.md#standaardpipeline-voor-de-java-sample). Na een volledige, geslaagde pipeline op protected main reserveert **start-release** een versie en tag. De standaard `version: auto` begint bij `0.1.0` en verhoogt daarna het hoogste gereserveerde patchnummer. Open de job om een versie op te geven, bijvoorbeeld `1.0.0`. De beperkte modi `validate` en `publish` geven geen toegang tot releasepublicatie.
+Voor dagelijks gebruik zijn er [drie handelingen](../README.md#standaardpipeline-voor-de-java-sample). Na een volledige, geslaagde pipeline op protected main reserveert **start-release** een versie en tag. De standaard `version: auto` kiest de volgende patch binnen `release-line`. De standaardreeks is `0.1`: eerst `0.1.0`, daarna `0.1.1`, enzovoort. Een handmatige versie moet binnen de ingestelde reeks vallen. De beperkte modi `validate` en `publish` geven geen toegang tot releasepublicatie.
 
 **release-delivery** start `Release — <version>`. Deze pipeline bouwt, test en publiceert de gereserveerde versie, deployt die naar dev en voert API-/browsertests uit. De laatste job, **publish-release**, maakt de daadwerkelijke GitLab Release aan zodra alle verplichte validatie slaagt. Alleen een tag reserveren maakt nog geen releasevermelding aan. Afnemers die een oudere bibliotheekversie gebruiken, behouden de oude jobnamen totdat zij upgraden.
 
@@ -34,9 +34,21 @@ De links wijzen naar bestaande opslag en maken geen extra artifactkopie. Serverr
 |---|---|
 | Zelfstandig `./mvnw verify` | Standaard `1.0.0-SNAPSHOT` |
 | Ontwikkelpipeline | `0.0.0-dev.<pipeline-number>.g<commit>` |
-| Officiële release | `auto`: eerst `0.1.0`, daarna de volgende patch; een expliciete SemVer-versie is mogelijk; Git-tag `v<version>` |
+| Officiële release | `release-line: "2.3"` levert `2.3.0`, `2.3.1`, enzovoort; Git-tag `v<version>` |
 
-Maven, de imagetag en de Helm-chart gebruiken dezelfde gekozen versie. Elke nieuwe ontwikkelpipeline krijgt een nieuw nummer. Een releasenummer wordt nooit hergebruikt voor een andere commit of image. Onder de reserveringslock leest de automatische versiekeuze de remote `vX.Y.Z`-tags, gesorteerd op versie. Tags van mislukte releases tellen mee. Als tags niet kunnen worden opgehaald, wordt publicatie geblokkeerd. Geef een minor- of majorversie op wanneer [Semantic Versioning](https://semver.org/) dat vereist.
+Maven, de imagetag en de Helm-chart gebruiken dezelfde gekozen versie. Elke nieuwe ontwikkelpipeline krijgt een nieuw nummer. Een releasenummer wordt nooit hergebruikt voor een andere commit of image. Onder de reserveringslock leest de automatische versiekeuze de remote `vX.Y.Z`-tags, gesorteerd op versie. Alleen tags binnen de ingestelde `release-line` tellen mee, ook die van mislukte releases. Tags uit andere reeksen en prereleasetags worden genegeerd. Als tags niet kunnen worden opgehaald, wordt publicatie geblokkeerd.
+
+Major en minor leg je vast in de configuratie van het afnemende project, als input van de bestaande `java-service.yml`-include:
+
+```yaml
+inputs:
+  # Other required inputs stay in the same include.
+  release-line: "2.3"
+```
+
+De losse `release-reserve`-module ondersteunt dezelfde input. Laat hem weg zolang de standaard `0.1` passend is. Na een wijziging naar `2.4` of `3.0` begint de patch op nul, tenzij in die reeks al tags zijn gereserveerd. De wijziging gaat via een merge request naar de protected branch. De releasejob schrijft geen versiecommit terug. Ook een handmatig ingevoerd releasenummer moet binnen de beoordeelde reeks passen; daarmee kun je bijvoorbeeld een patch overslaan, maar geen major- of minorwijziging buiten het MR-proces om doen.
+
+[Semantic Versioning](https://semver.org/) beschrijft de betekenis: major voor brekende API-wijzigingen, minor voor achterwaarts compatibele functionaliteit en patch voor achterwaarts compatibele foutcorrecties. Het team beoordeelt die impact in de merge request. De instelling `release-line` en de automatische patchverhoging zijn organisatiebeleid, geen ingebouwde GitLab-versiestrategie.
 
 Maven gebruikt `${revision}` en de standaard Flatten Maven Plugin. CI geeft de versie door via `MAVEN_ARGS`; een releasecommit of releasebranch is niet nodig. Buiten CI bouwt en test `./mvnw -Drevision=1.2.3 verify` die versie zonder iets te publiceren. Zie [Maven CI Friendly Versions](https://maven.apache.org/guides/mini/guide-maven-ci-friendly.html).
 

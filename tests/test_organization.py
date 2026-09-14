@@ -7,6 +7,7 @@ from test_contracts import PARSED, ROOT, interpolate
 class OrganizationConfigurationTests(unittest.TestCase):
     def test_organization_settings_reach_every_consumer_and_child(self):
         settings = {
+            'release-line': '2.3',
             'runner-tags': ['organization-java'],
             'buildkit-runner-tags': ['organization-buildkit'],
             'registry-plain-http': False,
@@ -27,6 +28,8 @@ class OrganizationConfigurationTests(unittest.TestCase):
             for option in ('plain-http', 'allow-insecure-registry'):
                 if option in values:
                     self.assertIs(values[option], False)
+            if entry['local'] == '/templates/release-reserve.yml':
+                self.assertEqual('2.3', values['release-line'])
             if entry['local'] == '/templates/helm-deploy.yml':
                 self.assertEqual('', values['kubeconfig-variable'])
             if 'pipeline-config' in values:
@@ -35,7 +38,7 @@ class OrganizationConfigurationTests(unittest.TestCase):
                 self.assertEqual('$MAVEN_PUBLISH_URL', values['repository-url'])
         self.assertEqual(2, len(children))
         for child in children:
-            for option in ('runner-tags', 'buildkit-runner-tags', 'registry-plain-http',
+            for option in ('release-line', 'runner-tags', 'buildkit-runner-tags', 'registry-plain-http',
                            'kubeconfig-variable', 'clusters', 'user-configs'):
                 self.assertIn(option + ':', child)
             self.assertIn('openshift-test', child)
