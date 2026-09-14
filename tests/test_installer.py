@@ -8,12 +8,28 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'infra/setup'))
-from common import architecture, ensure_env_password, save
+from common import architecture, ensure_env_password, load_module, save
 from images import helper_image
 import reset as demo_reset
+sonar_bootstrap = load_module('sonar_setup_test', ROOT / 'infra/sonarqube/bootstrap.py')
 
 
 class InstallerTests(unittest.TestCase):
+    def test_sonar_passwords_always_meet_policy_and_survive_reinstall(self):
+        with tempfile.TemporaryDirectory() as directory, \
+             patch.object(sonar_bootstrap, 'PRIVATE', Path(directory)), \
+             patch.object(sonar_bootstrap.secrets, 'token_urlsafe', return_value='x' * 32) as random:
+            credentials = sonar_bootstrap.credentials()
+            for account in ('admin', 'ci'):
+                password = credentials[account]
+                self.assertGreaterEqual(len(password), 12)
+                for pattern in ('[a-z]', '[A-Z]', '[0-9]', '[^a-zA-Z0-9]'):
+                    self.assertRegex(password, pattern)
+            random.reset_mock()
+            self.assertEqual(credentials, sonar_bootstrap.credentials())
+            random.assert_not_called()
+            self.assertEqual(0o600, (Path(directory) / 'credentials.json').stat().st_mode & 0o777)
+
     def test_architecture_aliases_select_the_matching_runner_helper(self):
         for alias in ('x86_64', 'amd64'):
             self.assertEqual('gitlab/gitlab-runner-helper:x86_64-v19.3.0', helper_image(architecture(alias)))
