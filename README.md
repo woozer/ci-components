@@ -14,7 +14,7 @@ De demo bestaat uit drie openbare repositories:
 | [hello-world](https://github.com/woozer/hello-world) | Zelfstandige Java-backend, Angular-UI, Helm-charts en applicatietests |
 | [ci-samples](https://github.com/woozer/ci-samples) | Volledige testapplicatie met een keuzelijst om de module- en pipelinevoorbeelden uit te voeren |
 
-Elke repository kan afzonderlijk worden bekeken en gecloned. Haal voor de volledige demo alle drie samen op:
+Elke repository kan afzonderlijk worden bekeken en gecloned. Volg voor een nieuwe Mac de [installatiehandleiding](installation.md): Docker-instellingen, installatie, validatie en inloggen staan daar bij elkaar. Haal voor de volledige demo alle drie samen op:
 
 ```sh
 git clone --recurse-submodules https://github.com/woozer/ci-components.git

@@ -4,13 +4,47 @@ Met deze inrichting bouw je een nieuwe lokale demo op vanuit een Git-checkout. H
 
 ## Eenmalig voorbereiden
 
-De installer herkent Apple Silicon (`arm64`) en Intel (`amd64`) automatisch aan de Docker-daemon. Je hoeft geen aparte installatievariant te kiezen. De CI-images worden voor die architectuur gebouwd; ook de GitLab Runner-helper wordt daarop afgestemd. Installeer Docker Desktop, wijs voldoende geheugen toe en schakel onder **Kubernetes** het cluster in met **kind** als provisioner. De huidige demo gebruikt 16 GB Docker-geheugen op een Mac met 32 GB RAM. Laat de Mac wakker tijdens installatie en CI-runs.
+Deze stappen zijn bedoeld voor een nieuwe Mac met Docker Desktop. Als Docker Desktop al is geïnstalleerd, open het dan en controleer de instellingen hieronder. Anders volg je eerst de [Docker-installatie voor Mac](https://docs.docker.com/desktop/setup/install/mac-install/).
+
+Controleer in Terminal of Git beschikbaar is:
+
+```sh
+git --version
+```
+
+Ontbreekt Git, installeer dan de [Apple Command Line Tools](https://developer.apple.com/documentation/xcode/installing-the-command-line-tools) en rond het installatievenster af voordat je verdergaat:
+
+```sh
+xcode-select --install
+```
+
+Stel Docker Desktop als volgt in:
+
+| Instelling | Waarde voor deze demo |
+|---|---|
+| Settings → Resources → Memory limit | 16 GB; onze geteste Mac heeft 32 GB RAM |
+| Settings → General → Use containerd for pulling and storing images | Ingeschakeld |
+| Kubernetes → Create cluster | Kies **kind** met één node en wacht tot het cluster gereed is |
+| Settings → Advanced → Allow the default Docker socket to be used | Ingeschakeld; de installer gebruikt `/var/run/docker.sock` |
+
+Zie [Docker Desktop-instellingen](https://docs.docker.com/desktop/settings-and-maintenance/settings/), [Kubernetes aanmaken](https://docs.docker.com/desktop/use-desktop/kubernetes/) en [de standaard Docker-socket](https://docs.docker.com/desktop/setup/install/mac-permission-requirements/#installing-symlinks). Laat de Mac wakker tijdens installatie en CI-runs.
+
+De installer herkent Apple Silicon (`arm64`) en Intel (`amd64`) automatisch aan de Docker-daemon. Je hoeft geen aparte installatievariant te kiezen. De CI-images worden voor die architectuur gebouwd; ook de GitLab Runner-helper wordt daarop afgestemd.
 
 De gebruikte basisimages bieden beide architecturen aan. De lokale uitvoering wordt hier op Apple Silicon gecontroleerd; een volledige installatie op een fysieke Intel-machine is nog niet uitgevoerd. Deze installer verwacht Docker Desktop met het ingebouwde kind-cluster; een losse Linux-Docker-installatie is nog geen gelijkwaardig ondersteunde variant.
 
-Docker Desktops ingebouwde cluster moet eenmaal via de instellingen worden ingeschakeld. De geïnstalleerde Desktop-CLI biedt daarvoor geen ondersteund inschakelcommando. Zie [Kubernetes in Docker Desktop](https://docs.docker.com/desktop/use-desktop/kubernetes/).
+De lokale registry gebruikt HTTP. Voeg onder **Settings → Docker Engine** de onderstaande instelling toe aan de bestaande JSON. Behoud de overige instellingen en eventuele bestaande registry-adressen en kies **Apply & restart**:
 
-De lokale registry gebruikt HTTP. Voeg in **Docker Desktop → Settings → Docker Engine** `localhost:8082` en `host.docker.internal:8082` toe aan `insecure-registries`, behoud de overige instellingen en kies **Apply & restart**. Zie [de registry-instellingen](infra/artifactory/README.md#docker-transport-en-bestaande-mirrors).
+```json
+{
+  "insecure-registries": [
+    "localhost:8082",
+    "host.docker.internal:8082"
+  ]
+}
+```
+
+Zie [de registry-instellingen](infra/artifactory/README.md#docker-transport-en-bestaande-mirrors).
 
 De beheertools draaien in een container. Python, Java, Maven en Node hoeven daarvoor niet op de Mac te worden geïnstalleerd. Internettoegang is nodig om images en dependencies op te halen.
 
@@ -29,7 +63,13 @@ Het script richt de lokale GitLab CE, Artifactory JCR, SonarQube Community Build
 
 Artifactory JCR vereist acceptatie van de licentievoorwaarden. Het script mag die keuze niet stilzwijgend maken. De installatie beschrijft hoe je de voorwaarden bekijkt en na akkoord verdergaat met `--accept-jcr-eula`.
 
-Als de installer daarop stopt, bekijk dan `infra/artifactory/eula.html` en hervat na je akkoord:
+Als de installer daarop stopt, open dan de voorwaarden op je Mac:
+
+```sh
+open infra/artifactory/eula.html
+```
+
+Hervat na het lezen en je akkoord:
 
 ```sh
 ./infra/setup.sh install --accept-jcr-eula
@@ -39,7 +79,7 @@ Als de installer daarop stopt, bekijk dan `infra/artifactory/eula.html` en herva
 
 `verify` start de applicatiepipeline en daarna alle actieve samples. De links naar de pipelines verschijnen in de terminal. Deze controle kan geruime tijd duren doordat de lokale runner één job tegelijk uitvoert. Een mislukte pipeline laat de controle falen. In `infra/.state/verification.json` staan alleen de geslaagde resultaten van die controle.
 
-Het initiële GitLab-wachtwoord staat in `infra/gitlab-ce/secrets/initial_root_password`. De beheerderscredentials voor Artifactory en SonarQube staan in hun eigen `secrets/credentials.json`. Het script toont de bestandslocaties en schrijft de wachtwoorden niet naar de terminal.
+Log in GitLab in als `root`. Het initiële wachtwoord staat in `infra/gitlab-ce/secrets/initial_root_password`. De beheerderscredentials voor Artifactory en SonarQube staan in hun eigen `secrets/credentials.json`. Het script toont de bestandslocaties en schrijft de wachtwoorden niet naar de terminal.
 
 ## Wat staat in Git?
 
