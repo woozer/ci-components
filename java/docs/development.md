@@ -79,7 +79,7 @@ Lokale Artifactory wordt apart beheerd in `../infra/artifactory`. Deze bevat een
 
 Project: <http://localhost:8929/root/hello-world>
 
-Het [CI-bestand](../.gitlab-ci.yml) bevat de centrale strategie-include, het gedeelde formulier en applicatie-instellingen. Buildjobs, releasecontroles, registry-login en deploymentaansturing staan in de CI-bibliotheek. Zie de [gedeelde releasestrategie](http://localhost:8929/root/ci-components/-/blob/main/docs/releases.md).
+Het [CI-bestand](../.gitlab-ci.yml) bevat de centrale strategie-include, het gedeelde formulier en applicatie-instellingen. Buildjobs, releasecontroles, registry-login en deploymentaansturing staan in de CI-bibliotheek. Zie de [gedeelde releasestrategie](https://github.com/woozer/ci/blob/main/docs/releases.md).
 
 Werk op een featurebranch en gebruik een merge request:
 

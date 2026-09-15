@@ -4,6 +4,23 @@ Stel zelf een pipeline samen met zelfstandig bruikbare modules, of gebruik de op
 
 **Beschikbaarheid:** 15 actieve modules hebben uitvoerbare samples. Daarnaast staan 6 modules op **TODO**: `npm-audit`, `fortify`, `image-scan`, `image-sign`, `image-verify` en `zap-baseline`. Ze draaien niet in de demo en zijn niet selecteerbaar in **CI samples**. Zie [status en resterend werk per module](docs/modules.md#todo-nog-niet-actief).
 
+## Bekijken, clonen en installeren
+
+Alle broncode staat in één openbare repository: [woozer/ci](https://github.com/woozer/ci). Iedereen kan de code bekijken en ophalen:
+
+```sh
+git clone https://github.com/woozer/ci.git
+cd ci
+```
+
+| Onderdeel | Broncode in deze repository |
+|---|---|
+| `ci-components` | [Modules](templates/), [pipelines](pipelines/) en [documentatie](docs/modules.md) |
+| `hello-world` | [Java-backend, Angular-UI en integratietests](java/) |
+| `ci-samples` | Dezelfde applicatiebroncode, met [sampleconfiguratie](infra/seed/ci-samples/) en [voorbeeldpipelines](examples/samples/) |
+
+De [installer](installation.md) maakt hiervan drie afzonderlijke projecten in een lokale GitLab. GitHub bevat de broncode; de pipelines draaien in GitLab. Links naar `localhost` in de handleidingen werken na installatie op je eigen machine. De applicatie kan ook [zelfstandig worden gebouwd en getest](java/README.md).
+
 ## Zelf een pipeline samenstellen
 
 1. Kies een module uit de [modulehandleiding](docs/modules.md).
@@ -28,7 +45,7 @@ Gebruik dezelfde [componentversie](docs/component-versions.md) voor alle modules
 
 De pipelinenamen tonen wat er gebeurt: **CI — main** (of de featurebranch), **Dev — deployment en integratietests** en **Release — 1.2.3** (de gereserveerde versie). GitLab toont childpipelines als kaarten aan de rechterkant. Hun plaats bepaalt niet de uitvoeringsvolgorde.
 
-De optionele [java-service.yml](pipelines/java-service.yml) stelt een pipeline samen met dezelfde modules. Deze ondersteunt één Java-deployable, ook binnen een Maven-reactor met meerdere modules, en een optionele Angular-UI. Voor meer Java-deployables kun je de losse modules gebruiken; automatische verdeling over een willekeurig aantal deployables is niet geïmplementeerd. Het [CI-bestand van de applicatie](http://localhost:8929/root/hello-world/-/blob/main/.gitlab-ci.yml) toont het gebruik met alleen applicatiespecifieke instellingen en doorgegeven formulierkeuzes.
+De optionele [java-service.yml](pipelines/java-service.yml) stelt een pipeline samen met dezelfde modules. Deze ondersteunt één Java-deployable, ook binnen een Maven-reactor met meerdere modules, en een optionele Angular-UI. Voor meer Java-deployables kun je de losse modules gebruiken; automatische verdeling over een willekeurig aantal deployables is niet geïmplementeerd. Het [CI-bestand van de applicatie](https://github.com/woozer/ci/blob/main/java/.gitlab-ci.yml) toont het gebruik met alleen applicatiespecifieke instellingen en doorgegeven formulierkeuzes.
 
 ## Waar vind je wat?
 

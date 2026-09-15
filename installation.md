@@ -16,10 +16,10 @@ De beheertools draaien in een container. Python, Java, Maven en Node hoeven daar
 
 ## Starten vanuit Git
 
-Haal de repository op en voer vanuit de hoofdmap het startscript uit:
+Haal de openbare repository op en voer vanuit de hoofdmap het startscript uit:
 
 ```sh
-git clone <repository-url> ci
+git clone https://github.com/woozer/ci.git
 cd ci
 ./infra/setup.sh check
 ./infra/setup.sh install

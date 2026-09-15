@@ -41,4 +41,4 @@ Op **New pipeline** zijn vier samengestelde pipelines en vijftien losse modulevo
 
 `CI_SAMPLES_PROJECT=root/ci-samples` koppelt de componentbibliotheek aan dit project. GitLabs trigger geeft de exacte bibliotheekcommit als input door en neemt met `strategy: mirror` het resultaat over. Een resourcegroep houdt deployment, tests en cleanup bij elkaar. De samplepoort voor de API is 8180 en die voor de UI 8190.
 
-De bestanden onder `tests/samples/` staan in `ci-components`; de testapplicatie en het startformulier staan in `ci-samples`. De [samplehandleiding](http://localhost:8929/root/ci-components/-/blob/main/examples/samples/README.md) beschrijft de indeling en het starten via **New pipeline**.
+De bestanden onder `tests/samples/` staan in `ci-components`; de testapplicatie en het startformulier staan in `ci-samples`. De [samplehandleiding](https://github.com/woozer/ci/blob/main/examples/samples/README.md) beschrijft de indeling en het starten via **New pipeline**.
