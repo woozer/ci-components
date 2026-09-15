@@ -16,16 +16,16 @@ De beheertools draaien in een container. Python, Java, Maven en Node hoeven daar
 
 ## Starten vanuit Git
 
-Haal de openbare repository op en voer vanuit de hoofdmap het startscript uit:
+Haal de openbare componentbibliotheek en de twee gekoppelde applicatierepositories op. Voer daarna vanuit de hoofdmap het startscript uit:
 
 ```sh
-git clone https://github.com/woozer/ci.git
-cd ci
+git clone --recurse-submodules https://github.com/woozer/ci-components.git
+cd ci-components
 ./infra/setup.sh check
 ./infra/setup.sh install
 ```
 
-Het script richt de lokale GitLab CE, Artifactory JCR, SonarQube Community Build, runners en Kubernetes-toegang in. De broncode onder `java/` vult het applicatieproject van een nieuwe GitLab. De bestanden onder `infra/seed/ci-samples/` leveren de afwijkende configuratie voor het sampleproject. Bestaande repositories en releases worden behouden.
+Het script richt de lokale GitLab CE, Artifactory JCR, SonarQube Community Build, runners en Kubernetes-toegang in. De Git-submodule `java/` verwijst naar `hello-world`; `infra/seed/ci-samples/` verwijst naar de volledige repository `ci-samples`. De installer neemt de vastgelegde commits en hun geschiedenis over naar de gelijknamige projecten in een nieuwe GitLab. Bestaande repositories en releases worden behouden.
 
 Artifactory JCR vereist acceptatie van de licentievoorwaarden. Het script mag die keuze niet stilzwijgend maken. De installatie beschrijft hoe je de voorwaarden bekijkt en na akkoord verdergaat met `--accept-jcr-eula`.
 
@@ -45,7 +45,15 @@ Het initiële GitLab-wachtwoord staat in `infra/gitlab-ce/secrets/initial_root_p
 
 Git bevat Compose-bestanden, scripts, Dockerfiles en de broncode voor het vullen van een nieuwe demo. `.env`, `secrets/`, `infra/.state/` en gegenereerde lokale imageverwijzingen worden genegeerd. Controleer deze uitsluitingen voordat je de repository naar een externe Git-server pusht.
 
-De map `java/` bevat de applicatiebroncode in deze repository. De installer maakt daarvoor een afzonderlijk GitLab-project aan. `infra/seed/ci-samples/` bevat alleen de afwijkende bestanden voor het sampleproject. Zo kan één checkout de volledige demo vullen zonder verbinding met de oude lokale GitLab.
+De broncode wordt beheerd in drie afzonderlijke repositories: [ci-components](https://github.com/woozer/ci-components), [hello-world](https://github.com/woozer/hello-world) en [ci-samples](https://github.com/woozer/ci-samples). De componentbibliotheek bewaart alleen de Git-submoduleverwijzingen naar de twee applicatierepositories. Zo kan één recursieve checkout de volledige demo vullen zonder verbinding met de oude lokale GitLab.
+
+Heb je al gecloned zonder `--recurse-submodules`, haal dan de vastgelegde applicatiecommits alsnog op:
+
+```sh
+git submodule update --init --recursive
+```
+
+Voer dit commando ook uit na een update van de componentbibliotheek. De installer controleert of beide submodules beschikbaar zijn op de vastgelegde commit. Gebruik voor installatie de actuele `main`; componenttag `1.0.0` blijft behouden voor de CI-includes.
 
 Neem bij het overzetten naar een externe remote ook de componenttag `1.0.0` mee. De bronkopieën van de applicatie en samples verwijzen naar die versie. `check` controleert of de tags lokaal beschikbaar zijn. Nieuwe GitLab-projecten worden alleen gevuld als hun repository leeg is; bestaande branchgeschiedenis wordt niet vervangen.
 

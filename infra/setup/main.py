@@ -13,6 +13,8 @@ STACKS = ('gitlab-ce', 'artifactory', 'sonarqube', 'gitlab-runner')
 
 
 def check():
+    from projects import check_sources
+    check_sources()
     info = json.loads(run(['docker', 'info', '--format', '{{json .}}'], capture=True))
     arch = architecture(info['Architecture'])
     if info['OSType'] != 'linux':
