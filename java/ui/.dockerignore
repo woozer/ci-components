@@ -1,6 +1,0 @@
-*
-!Dockerfile
-!nginx.conf
-!default.conf.template
-!dist/
-!dist/**

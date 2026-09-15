@@ -107,3 +107,11 @@ De TODO-modules zijn op drie plaatsen samengevoegd: `sonar` verzorgt analyse en 
 Gebruik bij migratie `sonar.yml` in plaats van `sonar-scan.yml` en `sonar-gate.yml`, en `fortify.yml` in plaats van de twee Fortify-bestanden. Laat vervolgjobs via `needs` op `sonar` respectievelijk `fortify` wachten. Sonar publiceert `SONAR_TASK_FILE`; het algemene `SONAR_STATUS=passed` omvat de gate. Fortify publiceert `FORTIFY_RECEIPT` en `FORTIFY_REPORT`; geef beide adapterpaden aan die ene component mee. Haal het SBOM voortaan via `IMAGE_SCAN_SBOM` en artifacts van `image-scan` op. De losse `sbom.yml` vervalt. Het uitgebreide profiel gebruikt voortaan één `fortify-image` en `fortify-job-timeout`; aparte gate- en SBOM-images vervallen.
 
 Ondertekenen en verifiëren kunnen afzonderlijk nuttig blijven vanwege verschillende rechten en zelfstandig gebruik bij deployment. Release reserveren en publiceren hebben verschillende uitvoeringsmomenten. Een interne releasecontrole hoeft daarentegen niet vanzelf een afzonderlijke publieke module te zijn. Beoordeel de winst voor afnemers vóór uitbreiding van de catalogus.
+
+## Drie broncoderepositories
+
+`ci-components`, `hello-world` en `ci-samples` hebben elk een eigen openbare GitHub-repository. De componentbibliotheek koppelt de twee applicatierepositories via [Git-submodules](https://git-scm.com/book/en/v2/Git-Tools-Submodules). Dit is een ingebouwde Git-functie: de bovenliggende repository bewaart een verwijzing naar een vaste commit. De keuze om daarmee de demo samen te stellen is onze beheerafspraak.
+
+Voor de volledige demo gebruiken we `git clone --recurse-submodules`. Alleen afnemers van de CI-bibliotheek hebben de applicatiecheckouts niet nodig. Wijzig applicatiebroncode in de betreffende repository en publiceer die commit eerst; werk daarna de submoduleverwijzing in `ci-components` bij via een beoordeelde wijziging. Een gewone update van de componentbibliotheek wordt gevolgd door `git submodule update --init --recursive`.
+
+De installer vult alleen lege GitLab-projecten met de vastgelegde lokale broncode en geschiedenis. Een wijziging op GitHub wordt dus niet automatisch naar een bestaande GitLab-repository gesynchroniseerd. De moduleversie `1.0.0` en de submodulecommits hebben verschillende doelen: de versie kiest de CI-componenten; de commits leggen de applicatiebroncode voor een nieuwe demo vast.

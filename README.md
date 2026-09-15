@@ -6,20 +6,24 @@ Stel zelf een pipeline samen met zelfstandig bruikbare modules, of gebruik de op
 
 ## Bekijken, clonen en installeren
 
-Alle broncode staat in één openbare repository: [woozer/ci](https://github.com/woozer/ci). Iedereen kan de code bekijken en ophalen:
+De demo bestaat uit drie openbare repositories:
+
+| Repository | Inhoud |
+|---|---|
+| [ci-components](https://github.com/woozer/ci-components) | Herbruikbare modules, samengestelde pipelines, voorbeelden, bibliotheektests, documentatie en de demo-installer |
+| [hello-world](https://github.com/woozer/hello-world) | Zelfstandige Java-backend, Angular-UI, Helm-charts en applicatietests |
+| [ci-samples](https://github.com/woozer/ci-samples) | Volledige testapplicatie met een keuzelijst om de module- en pipelinevoorbeelden uit te voeren |
+
+Elke repository kan afzonderlijk worden bekeken en gecloned. Haal voor de volledige demo alle drie samen op:
 
 ```sh
-git clone https://github.com/woozer/ci.git
-cd ci
+git clone --recurse-submodules https://github.com/woozer/ci-components.git
+cd ci-components
 ```
 
-| Onderdeel | Broncode in deze repository |
-|---|---|
-| `ci-components` | [Modules](templates/), [pipelines](pipelines/) en [documentatie](docs/modules.md) |
-| `hello-world` | [Java-backend, Angular-UI en integratietests](java/) |
-| `ci-samples` | Dezelfde applicatiebroncode, met [sampleconfiguratie](infra/seed/ci-samples/) en [voorbeeldpipelines](examples/samples/) |
+`ci-components` verwijst met Git-submodules naar vaste commits van `hello-world` onder `java/` en `ci-samples` onder `infra/seed/ci-samples/`. De applicatiebestanden worden in hun eigen repository beheerd. Voor alleen de CI-bibliotheek kun je `--recurse-submodules` weglaten.
 
-De [installer](installation.md) maakt hiervan drie afzonderlijke projecten in een lokale GitLab. GitHub bevat de broncode; de pipelines draaien in GitLab. Links naar `localhost` in de handleidingen werken na installatie op je eigen machine. De applicatie kan ook [zelfstandig worden gebouwd en getest](java/README.md).
+De [installer](installation.md) vult drie gelijknamige projecten in de lokale GitLab vanuit deze checkouts. Bestaande, gevulde GitLab-repositories worden behouden. GitHub bevat de openbare broncode; de pipelines draaien in GitLab. Links naar `localhost` werken na installatie op je eigen machine. De applicatie kan ook [zelfstandig worden gebouwd en getest](https://github.com/woozer/hello-world#readme).
 
 ## Zelf een pipeline samenstellen
 
@@ -45,7 +49,7 @@ Gebruik dezelfde [componentversie](docs/component-versions.md) voor alle modules
 
 De pipelinenamen tonen wat er gebeurt: **CI — main** (of de featurebranch), **Dev — deployment en integratietests** en **Release — 1.2.3** (de gereserveerde versie). GitLab toont childpipelines als kaarten aan de rechterkant. Hun plaats bepaalt niet de uitvoeringsvolgorde.
 
-De optionele [java-service.yml](pipelines/java-service.yml) stelt een pipeline samen met dezelfde modules. Deze ondersteunt één Java-deployable, ook binnen een Maven-reactor met meerdere modules, en een optionele Angular-UI. Voor meer Java-deployables kun je de losse modules gebruiken; automatische verdeling over een willekeurig aantal deployables is niet geïmplementeerd. Het [CI-bestand van de applicatie](https://github.com/woozer/ci/blob/main/java/.gitlab-ci.yml) toont het gebruik met alleen applicatiespecifieke instellingen en doorgegeven formulierkeuzes.
+De optionele [java-service.yml](pipelines/java-service.yml) stelt een pipeline samen met dezelfde modules. Deze ondersteunt één Java-deployable, ook binnen een Maven-reactor met meerdere modules, en een optionele Angular-UI. Voor meer Java-deployables kun je de losse modules gebruiken; automatische verdeling over een willekeurig aantal deployables is niet geïmplementeerd. Het [CI-bestand van de applicatie](https://github.com/woozer/hello-world/blob/main/.gitlab-ci.yml) toont het gebruik met alleen applicatiespecifieke instellingen en doorgegeven formulierkeuzes.
 
 ## Waar vind je wat?
 

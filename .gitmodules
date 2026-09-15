@@ -1,0 +1,6 @@
+[submodule "hello-world"]
+	path = java
+	url = https://github.com/woozer/hello-world.git
+[submodule "ci-samples"]
+	path = infra/seed/ci-samples
+	url = https://github.com/woozer/ci-samples.git

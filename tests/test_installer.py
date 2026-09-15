@@ -11,6 +11,7 @@ sys.path.insert(0, str(ROOT / 'infra/setup'))
 from common import architecture, ensure_env_password, load_module, save
 from images import helper_image
 import reset as demo_reset
+import projects as demo_projects
 sonar_bootstrap = load_module('sonar_setup_test', ROOT / 'infra/sonarqube/bootstrap.py')
 
 
@@ -51,7 +52,7 @@ class InstallerTests(unittest.TestCase):
             save(path, original)
             self.assertEqual(0o600, path.stat().st_mode & 0o777)
 
-    def test_generated_state_is_ignored_but_installer_and_application_sources_are_not(self):
+    def test_generated_state_is_ignored_but_installer_sources_are_not(self):
         paths = ['infra/artifactory/secrets/credentials.json', 'infra/artifactory/.env',
                  'infra/gitlab-runner/secrets/config/config.toml', 'infra/.state/installation.json',
                  'infra/gitlab-ce/secrets/setup-key', 'infra/artifactory/ci-images.json']
@@ -59,9 +60,17 @@ class InstallerTests(unittest.TestCase):
             input='\n'.join(paths), capture_output=True, text=True, check=True)
         self.assertEqual(set(paths), set(result.stdout.splitlines()))
         result = subprocess.run(['git', 'check-ignore', '--no-index', '--stdin'], cwd=ROOT,
-            input='infra/setup/main.py\ninfra/setup.sh\njava/hello-app/pom.xml\n', capture_output=True, text=True)
+            input='infra/setup/main.py\ninfra/setup.sh\n.gitmodules\n', capture_output=True, text=True)
         self.assertEqual(1, result.returncode)
         self.assertEqual('', result.stdout)
+
+    def test_installer_requires_initialized_sources_at_the_pinned_commit(self):
+        for status in ('', '-abc java', '+abc java', 'Uabc java'):
+            with self.subTest(status=status), patch.object(demo_projects, 'run', return_value=status):
+                with self.assertRaisesRegex(RuntimeError, 'git submodule update --init --recursive'):
+                    demo_projects.check_sources()
+        with patch.object(demo_projects, 'run', return_value=' abc source'):
+            demo_projects.check_sources()
 
     def test_reset_preview_never_runs_destructive_commands(self):
         with patch.object(demo_reset, 'run') as command, patch.object(demo_reset, 'compose') as compose, \

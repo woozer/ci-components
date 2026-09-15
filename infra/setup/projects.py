@@ -1,8 +1,6 @@
 """Initialize empty local GitLab projects without replacing existing history."""
-import json
 from pathlib import Path
 import shlex
-import shutil
 import tempfile
 from urllib.parse import quote
 
@@ -59,6 +57,13 @@ def ensure_projects():
         save_json(record, {'id': project['id'], 'path_with_namespace': project['path_with_namespace']})
 
 
+def check_sources():
+    for path in ('java', 'infra/seed/ci-samples'):
+        status = run(['git', 'submodule', 'status', '--', path], capture=True)
+        if not status.startswith(' '):
+            raise RuntimeError(f'{path}: initialize the pinned source with git submodule update --init --recursive.')
+
+
 def seed_projects(key):
     env = {'GIT_SSH_COMMAND': ssh_command(key)}
     manifest = load_json(INFRA / 'seed/manifest.json')
@@ -73,28 +78,14 @@ def seed_projects(key):
         with tempfile.TemporaryDirectory(prefix='seed-', dir=STATE) as directory:
             target = Path(directory)
             run(['git', 'init', '-q', '--initial-branch=main', target])
-            run(['git', 'config', 'user.name', 'Local demo setup'], cwd=target)
-            run(['git', 'config', 'user.email', 'demo@localhost.invalid'], cwd=target)
+            sources = {'ci-components': ROOT, 'hello-world': ROOT / 'java',
+                       'ci-samples': INFRA / 'seed/ci-samples'}
+            # Copy committed history from the pinned local checkout, never build output or credentials.
+            refs = ['HEAD:refs/heads/seed-source']
             if name == 'ci-components':
-                # Fetch local objects only. Published versions keep their original commits.
-                refs = ['HEAD:refs/heads/seed-source'] + [f'refs/tags/{version}:refs/tags/{version}'
-                                                        for version in manifest['component_versions']]
-                run(['git', 'fetch', '--quiet', ROOT, *refs], cwd=target)
-                run(['git', 'checkout', '-q', '-B', 'main', 'seed-source'], cwd=target)
-            else:
-                # git ls-files respects the source checkout's ignore rules; no caches or keys.
-                files = run(['git', 'ls-files', '-z', '--', 'java'], capture=True).split('\0')
-                if not any(files):
-                    raise RuntimeError('Commit the java/ source before installing a fresh demo.')
-                for relative in filter(None, files):
-                    source = ROOT / relative
-                    destination = target / source.relative_to(ROOT / 'java')
-                    destination.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copy2(source, destination)
-                if name == 'ci-samples':
-                    shutil.copytree(INFRA / 'seed/ci-samples', target, dirs_exist_ok=True)
-                run(['git', 'add', '.'], cwd=target)
-                run(['git', 'commit', '-q', '-m', 'Initialize local demo application [skip ci]'], cwd=target)
+                refs += [f'refs/tags/{version}:refs/tags/{version}' for version in manifest['component_versions']]
+            run(['git', 'fetch', '--quiet', sources[name], *refs], cwd=target)
+            run(['git', 'checkout', '-q', '-B', 'main', 'seed-source'], cwd=target)
             remote = f'ssh://git@host.docker.internal:2424/root/{name}.git'
             run(['git', 'push', '-o', 'ci.skip', remote, 'main'], cwd=target, env=env)
             if name == 'ci-components':
