@@ -49,7 +49,7 @@ Gebruik dezelfde [componentversie](docs/component-versions.md) voor alle modules
 
 De pipelinenamen tonen wat er gebeurt: **CI — main** (of de featurebranch), **Dev — deployment en integratietests** en **Release — 1.2.3** (de gereserveerde versie). GitLab toont childpipelines als kaarten aan de rechterkant. Hun plaats bepaalt niet de uitvoeringsvolgorde.
 
-De optionele [java-service.yml](pipelines/java-service.yml) stelt een pipeline samen met dezelfde modules. Deze ondersteunt één Java-deployable, ook binnen een Maven-reactor met meerdere modules, en een optionele Angular-UI. Voor meer Java-deployables kun je de losse modules gebruiken; automatische verdeling over een willekeurig aantal deployables is niet geïmplementeerd. Het [CI-bestand van de applicatie](https://github.com/woozer/hello-world/blob/main/.gitlab-ci.yml) toont het gebruik met alleen applicatiespecifieke instellingen en doorgegeven formulierkeuzes.
+De optionele [java-service.yml](pipelines/java-service.yml) blijft de enige ingang voor afnemers. De bibliotheek deelt intern build- en publicatiejobs en heeft aparte configuraties voor deployment en release; zie [de verdeling van verantwoordelijkheden](docs/releases.md#waar-het-gedrag-is-vastgelegd). De samenstelling gebruikt dezelfde losse modules. Deze ondersteunt één Java-deployable, ook binnen een Maven-reactor met meerdere modules, en een optionele Angular-UI. Voor meer Java-deployables kun je de losse modules gebruiken; automatische verdeling over een willekeurig aantal deployables is niet geïmplementeerd. Het [CI-bestand van de applicatie](https://github.com/woozer/hello-world/blob/main/.gitlab-ci.yml) toont het gebruik met alleen applicatiespecifieke instellingen en doorgegeven formulierkeuzes.
 
 ## Waar vind je wat?
 
@@ -63,6 +63,6 @@ De optionele [java-service.yml](pipelines/java-service.yml) stelt een pipeline s
 
 We volgen GitLabs advies over componenttests en hergebruik. GitLab levert jobs, afhankelijkheden, artifacts, inputs en locks; de keuzetermijn van tien seconden en automatische patchversie zijn afspraken van onze optionele standaardpipeline. Zie [standaarden en keuzes](docs/reuse-and-standards.md).
 
-De vijftien actieve modules staan in `templates/`; zes toekomstige modules staan in [modules/todo/](modules/todo/). Er is geen eigen handoff-keten of YAML-generator.
+De vijftien actieve modules staan in `templates/`; zes toekomstige modules staan in [modules/todo/](modules/todo/). GitLab verwerkt de component-YAML rechtstreeks. Profielkeuze en releasereservering leveren tijdens de uitvoering een klein configuratieartifact voor hun childpipeline op.
 
 De [scanhandleiding](docs/scanners.md) beschrijft SonarQube en Dependency-Check in de demo, zonder handmatig aangevraagde API-keys.
