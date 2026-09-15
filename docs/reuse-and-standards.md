@@ -56,7 +56,7 @@ Dit zijn onderhouden implementaties, maar niet allemaal officiële GitLab-produc
 - SonarScanner kan op de quality gate wachten. Analyse en de bijbehorende gate vormen één taak voor de afnemer; combineren vermijdt eigen pollingcode. Zie [Sonar-parameters](https://docs.sonarsource.com/sonarqube-server/2026.1/analyzing-source-code/analysis-parameters/parameters-not-settable-in-ui).
 - Fortify levert een complete AST-workflow en een fcli-component voor meer controle. Hergebruik de inrichting en scanafhandeling. Pas die aan waar organisatiebeleid of editiegebonden integratie dat vraagt.
 
-De eigen component `handoff` en het callbackprotocol `next(work)` zijn verwijderd. Extra bewerkingen zijn gewone GitLab-jobs met een eigen image en `needs`. GitLab plant de volgende verplichte job na succes; artifacts en dotenv geven resultaten door. Afnemers van een oudere vaste bibliotheekversie moeten deze component vervangen voordat ze upgraden. Zie [uitbreidingspatronen](hooks.md).
+De eigen component `handoff` en het callbackprotocol `next(work)` zijn verwijderd. Extra bewerkingen zijn gewone GitLab-jobs met een eigen image en `needs`. GitLab plant de volgende verplichte job na succes; artifacts en dotenv geven resultaten door. Afnemers van een oudere vaste bibliotheekversie moeten deze component vervangen voordat ze upgraden. Zie [uitbreidingspatronen](modules.md#eigen-gedrag-toevoegen).
 
 Eén logische component hoeft niet precies één fysieke job te betekenen. Leverancierscomponenten kunnen aparte jobs voor voorbereiding, scans en rapportage nodig hebben. Houd waar mogelijk één verantwoordelijkheid per bouwblok, zonder een geteste leveranciersworkflow alleen voor een vaste jobtelling op te splitsen.
 

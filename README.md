@@ -24,13 +24,21 @@ Gebruik dezelfde [componentversie](docs/component-versions.md) voor alle modules
 
 1. **Bouwen:** push een branch of merge een beoordeelde MR. Verplichte backend- en Angular-tests starten automatisch. Op protected `main` worden ook ontwikkelartifacts gepubliceerd, beide applicaties gedeployed en API-/browserintegratietests uitgevoerd.
 2. **Ander Helm-profiel:** start **configure-deploy** opnieuw met gewijzigde waarden, wacht op succes en kies daarna **Run again** bij **deploy-dev**. Dit deployt dezelfde images/charts opnieuw en herhaalt de integratietests. Gebruik bij de eerste uitvoering binnen tien seconden **Unschedule** om vóór de deployment waarden te kiezen; anders gelden de standaardwaarden.
-3. **Release:** start **start-release** na geslaagde dev-validatie. Deze job reserveert de volgende patchversie; open de job om voor een minor- of majorrelease een andere versie in te vullen. Volg **release-delivery**. De laatste job, **publish-release**, maakt de GitLab Release met toelichting en artifactlinks zodra de releaseartifacts de dev-validatie hebben doorstaan.
+3. **Release:** start **start-release** na geslaagde dev-validatie. Deze job reserveert de volgende patchversie binnen `release-line`. Een andere major/minor leg je vooraf vast via een beoordeelde wijziging van die instelling. Volg **release-delivery**. De laatste job, **publish-release**, maakt de GitLab Release met toelichting en artifactlinks zodra de releaseartifacts de dev-validatie hebben doorstaan.
 
 De pipelinenamen tonen wat er gebeurt: **CI — main** (of de featurebranch), **Dev — deployment en integratietests** en **Release — 1.2.3** (de gereserveerde versie). GitLab toont childpipelines als kaarten aan de rechterkant. Hun plaats bepaalt niet de uitvoeringsvolgorde.
 
 De optionele [java-service.yml](pipelines/java-service.yml) stelt een pipeline samen met dezelfde modules. Deze ondersteunt één Java-deployable, ook binnen een Maven-reactor met meerdere modules, en een optionele Angular-UI. Voor meer Java-deployables kun je de losse modules gebruiken; automatische verdeling over een willekeurig aantal deployables is niet geïmplementeerd. Het [CI-bestand van de applicatie](http://localhost:8929/root/hello-world/-/blob/main/.gitlab-ci.yml) toont het gebruik met alleen applicatiespecifieke instellingen en doorgegeven formulierkeuzes.
 
-Naslag: [modulehandleiding](docs/modules.md), [verplichte inputs](docs/inputs.md), [outputs en uitgebreid naslagwerk](docs/reference.md), [hooks en extra jobs](docs/hooks.md), [keuzes in de standaardpipeline](docs/pipeline-options.md), [releasebeleid](docs/releases.md).
+## Waar vind je wat?
+
+| Vraag | Handleiding |
+|---|---|
+| Hoe gebruik ik een module en verbind ik jobs? | [Modulehandleiding](docs/modules.md): werking, voorwaarden, inputs, defaults, outputs en hooks bij elkaar |
+| Hoe voer ik de voorbeelden uit? | [Samples gebruiken en valideren](examples/samples/README.md) |
+| Hoe bedien ik de standaardpipeline? | [Pipelinekeuzes](docs/pipeline-options.md) en [releasebeleid](docs/releases.md) |
+| Hoe richt ik het platform in? | [Lokale installatie](installation.md) of [platformvoorwaarden](docs/setup.md) en [eigen organisatie](docs/real-environment.md) |
+| Hoe onderhoud ik de bibliotheek? | [Ontwerp en onderhoud](docs/reference.md) en [standaarden en keuzes](docs/reuse-and-standards.md) |
 
 We volgen GitLabs advies over componenttests en hergebruik. GitLab levert jobs, afhankelijkheden, artifacts, inputs en locks; de keuzetermijn van tien seconden en automatische patchversie zijn afspraken van onze optionele standaardpipeline. Zie [standaarden en keuzes](docs/reuse-and-standards.md).
 
