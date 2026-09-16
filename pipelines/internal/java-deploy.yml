@@ -99,6 +99,7 @@ include:
   - local: /templates/cucumber-test.yml
     inputs:
       job-name: cucumber-dev
+      output-prefix: DEV_CUCUMBER
       image: $CUCUMBER_TEST_IMAGE
       maven-executable: mvn
       target-url-variable: DEPLOY_URL

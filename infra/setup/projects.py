@@ -4,7 +4,7 @@ import shlex
 import tempfile
 from urllib.parse import quote
 
-from common import INFRA, PROJECT_RECORDS, ROOT, STATE, announce, compose, gitlab, load_json, run, save, save_json
+from common import INFRA, PROJECT_RECORDS, ROOT, STATE, announce, compose, gitlab, load_json, local_url, request_json, run, save, save_json
 
 
 def configure_access():
@@ -62,6 +62,30 @@ def check_sources():
         status = run(['git', 'submodule', 'status', '--', path], capture=True)
         if not status.startswith(' '):
             raise RuntimeError(f'{path}: initialize the pinned source with git submodule update --init --recursive.')
+
+
+def configure_catalog():
+    """Enable native catalog publication; an ordinary tag pipeline publishes releases."""
+    pid = load_json(PROJECT_RECORDS['ci-components'])['id']
+    project = gitlab(f'/projects/{pid}')
+    if not project.get('description'):
+        gitlab(f'/projects/{pid}', 'PUT', {
+            'description': 'Herbruikbare CI/CD-componenten voor Maven, npm, images, Helm, scans en releases.'})
+
+    def graphql(query):
+        result = request_json(local_url(8929, '/api/graphql'), method='POST',
+            data={'query': query, 'variables': {'path': project['path_with_namespace']}},
+            headers={'PRIVATE-TOKEN': (INFRA / 'gitlab-ce/secrets/provisioning-token').read_text().strip()})
+        if result.get('errors'):
+            raise RuntimeError('GitLab could not configure the CI/CD Catalog project.')
+        return result['data']
+
+    status = graphql('query($path: ID!) { project(fullPath: $path) { isCatalogResource } }')
+    if not status['project']['isCatalogResource']:
+        result = graphql('mutation($path: ID!) { catalogResourcesCreate(input: {projectPath: $path}) { errors } }')
+        if result['catalogResourcesCreate']['errors']:
+            raise RuntimeError('GitLab refused CI/CD Catalog registration.')
+    announce('CI/CD Catalog project configured; publish versions with the component tag pipeline.')
 
 
 def seed_projects(key):

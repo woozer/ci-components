@@ -146,6 +146,7 @@ variables:
 
 build:
   extends: [.validation, .maven-cache]
+  dependencies: []
   interruptible: true
 
 test:
@@ -176,7 +177,9 @@ sonar:
 
 dependency-check:
   extends: .validation
-  needs: [test]
+  needs:
+    - job: test
+      artifacts: false
   cache:
     - !reference [.maven-cache, cache]
     - key: dependency-check-13
@@ -186,6 +189,7 @@ publish-maven:
   extends: [.publish, .maven-cache]
   needs:
     - job: test
+      artifacts: false
     - job: test-ui
       optional: true
       artifacts: false
@@ -196,11 +200,15 @@ publish-maven:
 
 publish-image:
   extends: [.publish, .maven-cache]
-  needs: [publish-maven]
+  needs:
+    - job: publish-maven
+      artifacts: false
 
 publish-chart:
   extends: .publish
-  needs: [publish-maven]
+  needs:
+    - job: publish-maven
+      artifacts: false
   before_script:
     - !reference [.helm-login, before_script]
 
@@ -225,19 +233,27 @@ publish-chart:
 
 build-ui:
   extends: .ui-validation
+  dependencies: []
   interruptible: true
 
 test-ui:
   extends: .ui-validation
+  dependencies: []
   interruptible: true
 
 publish-ui-image:
   extends: .ui-publish
   tags: $[[ inputs.buildkit-runner-tags ]]
-  needs: [build-ui, publish-maven]
+  needs:
+    - job: build-ui
+      artifacts: true
+    - job: publish-maven
+      artifacts: false
 
 publish-ui-chart:
   extends: .ui-publish
-  needs: [publish-maven]
+  needs:
+    - job: publish-maven
+      artifacts: false
   before_script:
     - !reference [.helm-login, before_script]

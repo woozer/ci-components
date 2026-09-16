@@ -95,7 +95,7 @@ include:
     MAVEN_EXECUTABLE: '$[[ inputs.maven-executable ]]'
     MAVEN_PROJECT_SELECTOR: '$[[ inputs.project-selector ]]'
     MAVEN_SETTINGS: '$[[ inputs.settings-file ]]'
-    JIB_IMAGE_REPOSITORY: '$[[ inputs.image-repository ]]'
+    JIB_TARGET_REPOSITORY: '$[[ inputs.image-repository ]]'
     JIB_IMAGE_TAG: '$[[ inputs.image-tag ]]'
     JIB_FROM_IMAGE: '$[[ inputs.base-image ]]'
     JIB_DIGEST_FILE: '$[[ inputs.digest-file ]]'
@@ -110,11 +110,11 @@ include:
       fi
       "$MAVEN_EXECUTABLE" --batch-mode --no-transfer-progress --settings "$MAVEN_SETTINGS" \
         -pl "$MAVEN_PROJECT_SELECTOR" compile jib:build "$@" \
-        "-Djib.to.image=$JIB_IMAGE_REPOSITORY:$JIB_IMAGE_TAG" "-Djib.from.image=$JIB_FROM_IMAGE"
+        "-Djib.to.image=$JIB_TARGET_REPOSITORY:$JIB_IMAGE_TAG" "-Djib.from.image=$JIB_FROM_IMAGE"
       digest=$(cat "$JIB_DIGEST_FILE")
       printf '%s\n' "$digest" | LC_ALL=C grep -Eq '^sha256:[a-f0-9]{64}$'
-      emit IMAGE_REF "$JIB_IMAGE_REPOSITORY@$digest"
-      emit IMAGE_REPOSITORY "$JIB_IMAGE_REPOSITORY"
+      emit IMAGE_REF "$JIB_TARGET_REPOSITORY@$digest"
+      emit IMAGE_REPOSITORY "$JIB_TARGET_REPOSITORY"
       emit IMAGE_DIGEST "$digest"
     - !reference [.ci-module, script]
   after_script:

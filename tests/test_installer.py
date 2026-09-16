@@ -72,6 +72,25 @@ class InstallerTests(unittest.TestCase):
         with patch.object(demo_projects, 'run', return_value=' abc source'):
             demo_projects.check_sources()
 
+    def test_catalog_registration_is_idempotent_and_preserves_existing_metadata(self):
+        for enabled in (False, True):
+            with self.subTest(enabled=enabled), tempfile.TemporaryDirectory() as directory:
+                private = Path(directory) / 'gitlab-ce/secrets'
+                private.mkdir(parents=True)
+                (private / 'provisioning-token').write_text('fixture-token')
+                responses = [{'data': {'project': {'isCatalogResource': enabled}}},
+                             {'data': {'catalogResourcesCreate': {'errors': []}}}]
+                with patch.object(demo_projects, 'INFRA', Path(directory)), \
+                     patch.object(demo_projects, 'load_json', return_value={'id': 2}), \
+                     patch.object(demo_projects, 'gitlab', return_value={
+                         'description': 'Existing description', 'path_with_namespace': 'team/components'}) as api, \
+                     patch.object(demo_projects, 'request_json', side_effect=responses) as graphql, \
+                     patch.object(demo_projects, 'announce'):
+                    demo_projects.configure_catalog()
+                api.assert_called_once_with('/projects/2')
+                self.assertEqual(1 if enabled else 2, graphql.call_count)
+                self.assertEqual({'path': 'team/components'}, graphql.call_args.kwargs['data']['variables'])
+
     def test_reset_preview_never_runs_destructive_commands(self):
         with patch.object(demo_reset, 'run') as command, patch.object(demo_reset, 'compose') as compose, \
              patch.object(demo_reset, 'kubectl') as kubectl, patch.object(demo_reset, 'announce'):

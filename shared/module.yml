@@ -8,6 +8,32 @@
       export CI_MODULE_OUTPUT_DIR="$CI_PROJECT_DIR/.ci-output/$CI_JOB_NAME"
       mkdir -p "$CI_MODULE_OUTPUT_DIR"
       rm -f "$CI_MODULE_OUTPUT_DIR/outputs.env"
+      # A prefix belongs to one producer. Never silently reuse an imported namespace.
+      if printenv "${MODULE_OUTPUT_PREFIX}_STATUS" >/dev/null; then
+        echo "Output prefix $MODULE_OUTPUT_PREFIX is already in use; choose a unique output-prefix" >&2
+        exit 1
+      fi
+      # Check only artifacts downloaded by GitLab; never evaluate their contents as shell code.
+      set -- "$CI_PROJECT_DIR"/.ci-output/*/outputs.env
+      if [ -f "$1" ]; then
+        awk -F= '
+          $1 !~ /^[A-Z][A-Z0-9_]*$/ { print "Invalid upstream output name"; exit 1 }
+          seen[$1]++ { print "Duplicate upstream output: " $1; exit 1 }
+        ' "$@" >&2
+        for module_input_file do
+          while IFS= read -r module_input_line; do
+            module_input_key=${module_input_line%%=*}
+            module_input_expected=${module_input_line#*=}
+            module_input_actual=$(printenv "$module_input_key") || {
+              echo "Missing imported output: $module_input_key; check needs with artifacts" >&2; exit 1;
+            }
+            if [ "$module_input_actual" != "$module_input_expected" ]; then
+              echo "Imported output overridden: $module_input_key; reserve output names for their producer" >&2
+              exit 1
+            fi
+          done < "$module_input_file"
+        done
+      fi
       export CI_MODULE_EXTRA_OUTPUTS="$CI_MODULE_OUTPUT_DIR/custom.env"
       export CI_MODULE_PARAMETERS_FILE="$CI_MODULE_OUTPUT_DIR/hook-parameters.json"
       printf '%s\n' "$MODULE_HOOK_PARAMETERS_JSON" > "$CI_MODULE_PARAMETERS_FILE"
@@ -69,6 +95,14 @@
         }
       ' "$CI_MODULE_OUTPUT_DIR/pending.env"
       test "$(wc -c < "$CI_MODULE_OUTPUT_DIR/pending.env")" -le 5120
+      # Project/group/pipeline variables must not shadow a generated output, even if equal.
+      while IFS= read -r module_output_line; do
+        module_output_key=${module_output_line%%=*}
+        if printenv "$module_output_key" >/dev/null; then
+          echo "Output name already exists in the environment: $module_output_key" >&2
+          exit 1
+        fi
+      done < "$CI_MODULE_OUTPUT_DIR/pending.env"
       mv "$CI_MODULE_OUTPUT_DIR/pending.env" "$CI_MODULE_OUTPUT_DIR/outputs.env"
   # GitLab runs cleanup in a fresh shell; it cannot fail a successful job.
   after_script:

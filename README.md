@@ -41,6 +41,8 @@ Voor één module heb je geen standaardpipeline, organisatieprofiel of releasepr
 
 Gebruik dezelfde [componentversie](docs/component-versions.md) voor alle modules, het gedeelde formulier en de centrale pipeline. Wijzigingen vóór publicatie testen we op hun exacte commit-SHA.
 
+De actieve modules zijn ook vindbaar in de [CI/CD Catalog van de lokale GitLab](http://localhost:8929/explore/catalog), onder **ci-components**. De catalogus toont de gepubliceerde versies en inputs. Zie [componentversies en cataloguspublicatie](docs/component-versions.md#publicatie-in-de-cicd-catalog) voor de inrichting en publicatiestappen.
+
 ## Standaardpipeline voor de Java-sample
 
 1. **Bouwen:** push een branch of merge een beoordeelde MR. Verplichte backend- en Angular-tests starten automatisch. Op protected `main` worden ook ontwikkelartifacts gepubliceerd, beide applicaties gedeployed en API-/browserintegratietests uitgevoerd.

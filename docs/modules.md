@@ -100,6 +100,19 @@ De producerende module levert haar afgesproken outputs; de ontvangende job contr
 
 Alle outputvariabelen zijn strings in `.ci-output/<job-name>/outputs.env`. De onderstaande namen gebruiken de standaardwaarde van `output-prefix`. Een andere prefix vervangt dat gedeelte van de naam: met `output-prefix: API` wordt `JIB_BUILD_IMAGE_REF` bijvoorbeeld `API_IMAGE_REF`. Een andere `job-name` wijzigt het artifactpad, maar niet de prefix.
 
+### Namen reserveren voor de producent
+
+Geef iedere module-instantie binnen een pipeline een unieke `output-prefix`. Stel de bijbehorende outputnamen niet zelf in als project-, groeps-, pipeline- of jobvariabele, ook niet met dezelfde waarde. De producent beheert bijvoorbeeld `API_IMAGE_REF`; een volgende module gebruikt een eigen prefix voor haar resultaten. `output-prefix` blijft optioneel wanneer de standaardprefix uniek is.
+
+De bibliotheektests controleren de prefixes in de standaardpipeline, beide interne childconfiguraties en de module- en pipelinevoorbeelden. Bij uitvoering controleert iedere module daarnaast:
+
+- Vóór haar bewerking: de eigen `<PREFIX>_STATUS` mag nog niet in de omgeving voorkomen. De opgehaalde `.ci-output/*/outputs.env`-bestanden mogen geen dubbele namen bevatten en hun waarden moeten overeenkomen met de ontvangen omgevingsvariabelen. Een ontbrekende of vervangen waarde stopt de job; de melding toont alleen de naam.
+- Vóór publicatie: een nieuwe outputnaam mag nog niet in de omgeving bestaan. Dit geldt ook voor hookoutputs. Bij een conflict verschijnt geen succesbestand `outputs.env`; eerdere externe handelingen, zoals een registry-push, worden daarmee niet teruggedraaid.
+
+Dit zijn controles van onze bibliotheek boven op GitLabs dotenv-overdracht. Ze maken variabelen niet onveranderlijk. Bij eigen pipelines controleren de modules de outputs die zij daadwerkelijk ontvangen. Twee onafhankelijke jobs met dezelfde prefix worden pas tijdens uitvoering ontdekt als een module hun outputs samen ontvangt; beoordeel daarom ook vooraf alle prefixes. De bibliotheektests zijn geen automatische lintcontrole op willekeurige afnemersconfiguraties. Hooks en andere scripts blijven vertrouwde code. GitLabs **Protected variable** bepaalt waar een variabele beschikbaar is, niet of een script haar kan wijzigen.
+
+Gebruik `needs` met `artifacts: false` voor een afhankelijkheid die alleen moet slagen. Gebruik `dependencies: []` bij een job zonder artifactinputs die wel op voorgaande stages moet wachten. Geef zo alleen de benodigde outputs door. Zie [GitLabs voorrangsregels en dotenv-overdracht](https://docs.gitlab.com/ci/variables/dotenv_variables/).
+
 Iedere module levert bij geslaagde afhandeling deze drie variabelen:
 
 | Output | Betekenis |

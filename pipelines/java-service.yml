@@ -79,6 +79,7 @@ include:
   - local: /templates/cucumber-test.yml
     inputs:
       job-name: test-custom
+      output-prefix: CUSTOM_TEST
       stage: test
       image: $CUCUMBER_TEST_IMAGE
       maven-executable: mvn
@@ -203,6 +204,7 @@ test-custom:
     - export CUCUMBER_TAGS='${{ job.inputs.tags }}'
 
 configure-deploy:
+  dependencies: []
   rules:
     - if: *deploy-condition
       when: delayed
