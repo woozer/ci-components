@@ -11,6 +11,7 @@ sys.path.insert(0, str(ROOT / 'infra/setup'))
 from common import architecture, ensure_env_password, load_module, save
 from images import helper_image
 import reset as demo_reset
+import projects as demo_projects
 sonar_bootstrap = load_module('sonar_setup_test', ROOT / 'infra/sonarqube/bootstrap.py')
 
 
@@ -51,7 +52,7 @@ class InstallerTests(unittest.TestCase):
             save(path, original)
             self.assertEqual(0o600, path.stat().st_mode & 0o777)
 
-    def test_generated_state_is_ignored_but_installer_and_application_sources_are_not(self):
+    def test_generated_state_is_ignored_but_installer_sources_are_not(self):
         paths = ['infra/artifactory/secrets/credentials.json', 'infra/artifactory/.env',
                  'infra/gitlab-runner/secrets/config/config.toml', 'infra/.state/installation.json',
                  'infra/gitlab-ce/secrets/setup-key', 'infra/artifactory/ci-images.json']
@@ -59,9 +60,36 @@ class InstallerTests(unittest.TestCase):
             input='\n'.join(paths), capture_output=True, text=True, check=True)
         self.assertEqual(set(paths), set(result.stdout.splitlines()))
         result = subprocess.run(['git', 'check-ignore', '--no-index', '--stdin'], cwd=ROOT,
-            input='infra/setup/main.py\ninfra/setup.sh\njava/hello-app/pom.xml\n', capture_output=True, text=True)
+            input='infra/setup/main.py\ninfra/setup.sh\n.gitmodules\n', capture_output=True, text=True)
         self.assertEqual(1, result.returncode)
         self.assertEqual('', result.stdout)
+
+    def test_installer_requires_initialized_sources_at_the_pinned_commit(self):
+        for status in ('', '-abc java', '+abc java', 'Uabc java'):
+            with self.subTest(status=status), patch.object(demo_projects, 'run', return_value=status):
+                with self.assertRaisesRegex(RuntimeError, 'git submodule update --init --recursive'):
+                    demo_projects.check_sources()
+        with patch.object(demo_projects, 'run', return_value=' abc source'):
+            demo_projects.check_sources()
+
+    def test_catalog_registration_is_idempotent_and_preserves_existing_metadata(self):
+        for enabled in (False, True):
+            with self.subTest(enabled=enabled), tempfile.TemporaryDirectory() as directory:
+                private = Path(directory) / 'gitlab-ce/secrets'
+                private.mkdir(parents=True)
+                (private / 'provisioning-token').write_text('fixture-token')
+                responses = [{'data': {'project': {'isCatalogResource': enabled}}},
+                             {'data': {'catalogResourcesCreate': {'errors': []}}}]
+                with patch.object(demo_projects, 'INFRA', Path(directory)), \
+                     patch.object(demo_projects, 'load_json', return_value={'id': 2}), \
+                     patch.object(demo_projects, 'gitlab', return_value={
+                         'description': 'Existing description', 'path_with_namespace': 'team/components'}) as api, \
+                     patch.object(demo_projects, 'request_json', side_effect=responses) as graphql, \
+                     patch.object(demo_projects, 'announce'):
+                    demo_projects.configure_catalog()
+                api.assert_called_once_with('/projects/2')
+                self.assertEqual(1 if enabled else 2, graphql.call_count)
+                self.assertEqual({'path': 'team/components'}, graphql.call_args.kwargs['data']['variables'])
 
     def test_reset_preview_never_runs_destructive_commands(self):
         with patch.object(demo_reset, 'run') as command, patch.object(demo_reset, 'compose') as compose, \

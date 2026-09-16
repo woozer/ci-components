@@ -37,20 +37,7 @@ De sample deployt naar lokaal Kubernetes. Voor OpenShift kun je dezelfde module 
 
 Na publicatie kiest de job `configure-deploy` de waarden van `cluster` en `user_config`, met standaard tien seconden wachttijd. `pipeline_mode` kies je vóór het aanmaken van de pipeline. De optionele job `test-custom` accepteert een Cucumber-tagselectie; verplichte tests houden hun vaste configuratie. Zie [pipelinekeuzes](pipeline-options.md).
 
-**Standaardwaarden van modules** staan in hun eigen `spec:inputs`. Afnemers kunnen deze inputs weglaten:
-
-| Input | Standaardwaarde voor de demomodules |
-|---|---|
-| `artifact-expire-in` | `7 days` |
-| `job-timeout` | `30m` |
-| `working-directory` | `.` |
-| `output-prefix` | Modulespecifiek, bijvoorbeeld `MAVEN_BUILD` |
-| `maven-executable` | `./mvnw` in Maven-, Jib- en Cucumber-modules |
-| `pre-hook`, `post-hook`, `cleanup-hook` | Leeg: geen hook |
-| `hook-parameters-json` | `{}` |
-| Cucumber `profile` | Leeg: geen Maven-profiel |
-
-Stel bijvoorbeeld alleen `artifact-expire-in: 30 days` in als een job een langere bewaartermijn nodig heeft. `image` blijft verplicht, zodat elke module expliciet een image kiest. Zie [verplichte inputs per module](inputs.md) voor het volledige overzicht en de voorwaarden bij uitvoering.
+Module-inputs en hun standaardwaarden staan op één plek beschreven in de [modulehandleiding](modules.md#inputs-en-defaults). Geef bijvoorbeeld alleen `artifact-expire-in: 30 days` mee als je van de standaard wilt afwijken.
 
 Inputdeclaraties staan in elke component, omdat hun bereik beperkt is tot het bestand dat ze declareert. GitLabs `spec:include` ondersteunt gedeelde definities voor pipeline-inputs, maar niet voor component-inputs. De gedeelde hookcode staat in `shared/module.yml`; de getypeerde inputdefinities blijven bij de modules. Er is geen extra loader of generatiestap voor standaardwaarden. Zie [het bereik van inputs](https://docs.gitlab.com/ci/inputs/) en [beperkingen van gedeelde inputs](https://docs.gitlab.com/ci/inputs/#define-pipeline-inputs-in-external-files).
 

@@ -10,7 +10,7 @@ Elke laag van de GitLab-configuratie heeft een eigen verantwoordelijkheid:
 
 Elke module blijft zelfstandig bruikbaar. De input `image` is verplicht, zodat een Maven-job niet onbedoeld een npm-image overneemt. Er is geen globale `default:image`, apart bestand met moduledefaults, configuratieloader of YAML-generatiestap.
 
-Dit toekomstige voorbeeld gebruikt modules uit `modules/todo/` en wordt niet door de Java-demo ingeladen. Het organisatieprofiel combineert Maven, npm en Kubernetes voor `examples/full-pipeline/application.gitlab-ci.yml`. Het voegt jobs toe; het applicatievoorbeeld bepaalt `workflow`, `stages` en `needs`. Gebruik losse componenten voor een kleinere pipeline of een andere architectuur. Extra stappen zijn gewone jobs met `needs`; zie [uitbreidingen](hooks.md).
+Dit toekomstige voorbeeld gebruikt modules uit `modules/todo/` en wordt niet door de Java-demo ingeladen. Het organisatieprofiel combineert Maven, npm en Kubernetes voor `examples/full-pipeline/application.gitlab-ci.yml`. Het voegt jobs toe; het applicatievoorbeeld bepaalt `workflow`, `stages` en `needs`. Gebruik losse componenten voor een kleinere pipeline of een andere architectuur. Extra stappen zijn gewone jobs met `needs`; zie [uitbreidingen](modules.md#eigen-gedrag-toevoegen).
 
 ## Goedgekeurde standaardwaarden aanpassen
 
@@ -38,7 +38,7 @@ Inputs zijn alleen beschikbaar in het bestand dat ze declareert. Het profiel gee
 
 ## Hooks en losse modules
 
-Bij een losse module geef je `pre-hook`, `post-hook`, `cleanup-hook` en `hook-parameters-json` mee als componentinputs, zoals bij [een module uitbreiden](setup.md#een-module-uitbreiden).
+Bij een losse module geef je `pre-hook`, `post-hook`, `cleanup-hook` en `hook-parameters-json` mee als componentinputs, zoals bij [een module uitbreiden](modules.md#kleine-aanvulling-binnen-een-component).
 
 Bij het volledige profiel kun je deze hookvariabelen op de applicatiejob instellen, zonder de componentscripts te vervangen:
 
@@ -51,6 +51,6 @@ maven-build:
     MODULE_HOOK_PARAMETERS_JSON: '{"label":"candidate"}'
 ```
 
-De scripts staan in de repository van de afnemer en krijgen dezelfde hookcontext en outputafspraken. Vervang `before_script`, `script` of `after_script` niet om een hook toe te voegen: GitLab vervangt lijsten en voegt ze niet samen. Jobinstellingen horen bij de vertrouwde configuratie van de applicatie. Standaardwaarden kunnen geen beveiligingsbeleid afdwingen tegenover iemand die de pipeline mag wijzigen. Bewaar toegangsgegevens in protected variabelen of een secretmanager, buiten inputs en artifacts.
+Deze overrides gebruiken dezelfde [hookafspraken](modules.md#kleine-aanvulling-binnen-een-component) als losse modules. Jobinstellingen horen bij de vertrouwde applicatieconfiguratie; een profiel dwingt geen beveiligingsbeleid af tegenover iemand die de pipeline mag wijzigen.
 
 Als later een standaardcomponent de implementatie vervangt, behoud dan de openbare input-, output- en hookafspraken in de adapter. Wijzig de componentkeuze in het organisatieprofiel; voeg daar geen build- of deploymentscripts aan toe.

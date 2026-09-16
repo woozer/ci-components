@@ -1,6 +1,6 @@
 # Gedeelde releasestrategie
 
-Applicaties nemen het [pipelineformulier](../config/pipeline-inputs.yml) en [java-service.yml](../pipelines/java-service.yml) rechtstreeks op. Ze vullen `library-ref` en `maven-project` in en geven de gekozen cluster-, gebruikers- en modusinstellingen door. Hetzelfde centrale bestand definieert de gewone pipeline, deployment-childpipeline en release-childpipeline. De interne input `flow` bepaalt de variant. De bibliotheek beheert jobs, scripts, releaseknop, controles en dev-deployment. Applicaties hoeven geen releasepipeline te kopiëren of onderhouden.
+Applicaties nemen het [pipelineformulier](../config/pipeline-inputs.yml) en [java-service.yml](../pipelines/java-service.yml) rechtstreeks op. Ze vullen `library-ref` en `maven-project` in en geven de gekozen cluster-, gebruikers- en modusinstellingen door. De openbare ingang bepaalt de gewone pipeline en start afzonderlijke interne configuraties voor deployment en release. Build- en publicatiejobs worden gedeeld; de applicatie kiest geen interne uitvoeringsvariant. De bibliotheek beheert jobs, scripts, releaseknop, controles en dev-deployment. Applicaties hoeven geen releasepipeline te kopiëren of onderhouden.
 
 Applicatienaam en namespace zijn standaard gelijk aan de GitLab-projectnaam; het standaardchartpad is `helm/<project-name>`. Helm laadt eerst `environment/cluster/<cluster>.yaml` en daarna `environment/user/<user-config>.yaml`. De centrale configuratie kiest clustercredentials, dev-URL's en HTTP-toegang tot de registry. Generieke componenten houden veilige protocoldefaults. Pas lokale infrastructuurinstellingen centraal aan. Neem optionele inputs alleen op als dat nodig is; deze demo schakelt de aparte UI in met `ui-directory: ui`.
 
@@ -61,7 +61,10 @@ De reserveringsjob maakt de Git-tag atomair aan op de exacte commit van de gekoz
 | Bestand | Verantwoordelijkheid |
 |---|---|
 | [organization.yml](../config/organization.yml) | Gedeelde serveradressen en images voor taken |
-| [java-service.yml](../pipelines/java-service.yml) | Volledige samenstelling: gewone pipeline, deployment onder een lock en release |
+| [java-service.yml](../pipelines/java-service.yml) | Openbare ingang: gewone CI, profielkeuze, releaseknop en locks rond de childpipelines |
+| [java-build.yml](../pipelines/internal/java-build.yml) | Gedeelde build-, test-, scan- en publicatiejobs voor gewone CI en releases |
+| [java-deploy.yml](../pipelines/internal/java-deploy.yml) | Bestaande artifacts deployen en API-/browsertests uitvoeren |
+| [java-release.yml](../pipelines/internal/java-release.yml) | Gereserveerde versie controleren, bouwen, deployen, testen en als release vastleggen |
 | [deployment-select.yml](../templates/deployment-select.yml) | Cluster-/gebruikerswaarden kiezen en deploymentconfiguratie vastleggen |
 | [release-reserve.yml](../templates/release-reserve.yml) | Versie kiezen, Git-tag reserveren en versie/commit publiceren als inputs voor vervolgstappen |
 | [release-check.yml](../templates/release-check.yml) | Tag, commit en bestaande artifacts controleren vóór de releasebuild |

@@ -1,6 +1,6 @@
-# Uitgebreid naslagwerk van de bibliotheek
+# Ontwerp en onderhoud van de bibliotheek
 
-Begin voor een eigen pipeline met de [modulehandleiding](modules.md) en [uitvoerbare voorbeelden](../examples/samples/README.md). Dit naslagwerk beschrijft outputs en geavanceerde mogelijkheden, ook van toekomstige modules. De standaardpipeline voor Java is optioneel.
+Deze pagina is bedoeld voor beheerders van de bibliotheek. Voor het gebruik van een actieve module staan werking, voorwaarden, inputs, outputs en hooks samen in de [modulehandleiding](modules.md). Het toekomstige uitgebreide pipelinevoorbeeld en de onderhoudsafspraken staan hieronder.
 
 Deze bibliotheek is bedoeld voor GitLab CI. Elke component voert één herkenbare taak uit, declareert inputs, publiceert benoemde outputvariabelen en artifacts en ondersteunt pre-, post- en cleanup-hooks. De applicatiepipeline bepaalt de jobvolgorde en promotie naar omgevingen.
 
@@ -10,7 +10,7 @@ De bibliotheek is een startpunt, geen volledig ingericht organisatiebeleid. Imag
 
 De [Java 25-sample](http://localhost:8929/root/hello-world) is een zelfstandig Spring Boot-project met meerdere Maven-modules, Cucumber-HTTP-tests, Jib-imagebuilds en een Helm-chart. De Maven-build werkt ook zonder deze CI-componenten. De lokale Artifactory-registry bootst imagepublicatie na.
 
-**Huidige keuze: eigen componenten gebruiken.** Actieve componenten staan als afzonderlijke YAML-bestanden in `templates/`. Ongebruikte modules staan in `modules/todo/` voor latere beoordeling. Standaardcomponenten van GitLab of leveranciers blijven een optie; zie [hergebruik en standaarden](reuse-and-standards.md). Gebruik voor uitbreidingen [GitLab-jobafhankelijkheden en kleine componenthooks](hooks.md).
+**Huidige keuze: eigen componenten gebruiken.** Actieve componenten staan als afzonderlijke YAML-bestanden in `templates/`. Ongebruikte modules staan in `modules/todo/` voor latere beoordeling. Standaardcomponenten van GitLab of leveranciers blijven een optie; zie [hergebruik en standaarden](reuse-and-standards.md). De [modulehandleiding](modules.md#eigen-gedrag-toevoegen) beschrijft uitbreidingen met jobs en hooks.
 
 ## Ontwerpafspraken
 
@@ -21,50 +21,6 @@ De [Java 25-sample](http://localhost:8929/root/hello-world) is een zelfstandig S
 - Hooks zijn POSIX-shellscripts met een pad relatief aan de repository. Ze worden met `sh` uitgevoerd, zonder `eval`. Ze draaien als subprocessen: gebruik bestanden voor overdracht. Exports en wijzigingen van de werkmap worden niet overgenomen door de componentshell.
 - Elke component laadt de gedeelde lifecycle uit `shared/module.yml` van dezelfde bibliotheekversie. GitLab verwerkt deze YAML zonder bibliotheekscripts uit te checken. Hook- en adapterpaden verwijzen naar de **repository van de afnemende applicatie**.
 - Jobnamen en outputprefixen zijn instelbaar, zodat een component vaker kan worden gebruikt. Houd prefixen uniek binnen een pipeline.
-
-## Inputs, outputs en hooks
-
-Elke component accepteert `job-name`, `stage`, `image`, `job-timeout`, `artifact-expire-in`, `working-directory`, `output-prefix`, `pre-hook`, `post-hook`, `cleanup-hook` en `hook-parameters-json`, plus taakspecifieke inputs. Standaardwaarden en typen staan in `spec:inputs`. JSON-parameters zijn beschikbaar via `CI_MODULE_PARAMETERS_FILE`.
-
-Het optionele [organisatieprofiel](../examples/full-pipeline/profile.yml) geeft elke job een aparte image en gedeelde uitvoeringsinstellingen. Applicaties kunnen profielinputs aanpassen of losse modules gebruiken. Zie [standaardwaarden en profielen](organization-profile.md) voor verantwoordelijkheden en overrides.
-
-Elke component publiceert `<PREFIX>_STATUS=passed`, `<PREFIX>_COMMIT_SHA` en `<PREFIX>_PIPELINE_ID`, gevolgd door taakspecifieke outputs. Deze staan in `.ci-output/<job-name>/outputs.env`, gedeclareerd als `artifacts:reports:dotenv`.
-
-| Hook | Uitvoering | Gevolg bij fouten |
-|---|---|---|
-| `pre-hook` | Vóór de bewerking | De job faalt; de bewerking start niet |
-| `post-hook` | Na een geslaagde bewerking, vóór publicatie van outputs | De job faalt |
-| `cleanup-hook` | In GitLabs `after_script`, ook bij ondersteunde fouten en annuleringen | Opruimen naar beste vermogen; maakt een geslaagde job niet alsnog rood |
-
-Cleanup draait in een nieuwe shell. Uitvoering is niet gegarandeerd na het stoppen van een runner of bij iedere timeout. Essentieel opruimen vereist daarom ook een extern mechanisme voor verloop of herstel. Een verplichte controle hoort in een component of post-hook. Zie [GitLab after_script](https://docs.gitlab.com/ci/yaml/#after_script).
-
-Dotenv-outputs ontstaan **tijdens de jobuitvoering**. Ze kunnen geen `include`, `spec:inputs`-validatie, jobnamen, stages of `rules` bepalen; die worden eerder verwerkt. Inputs die eindigen op `-variable` bevatten de **naam** van een aangeleverde variabele, die de component tijdens uitvoering leest. Zet geen geheimen in dotenv-artifacts. Reserveer de outputnamen: project-, groeps- en pipelinevariabelen kunnen dotenv-waarden overschrijven. Zie [dotenv-variabelen](https://docs.gitlab.com/ci/variables/dotenv_variables/).
-
-Hooks zijn vertrouwde applicatiecode en vormen geen beveiligingsgrens. Bescherm de componentrepository, CI-/hookbestanden van afnemers, runners, toegangsgegevens en deploymentomgevingen. Dwing verplicht organisatiebeleid af via platforminstellingen of centraal beheerde pipelinepolicies die bij de GitLab-editie passen.
-
-## Actieve componenten
-
-De centrale Java-pipeline gebruikt de volgende vijftien modules uit `templates/`.
-
-| Component | Verantwoordelijkheid | Aanvullende outputs met standaardprefix |
-|---|---|---|
-| `maven-build` | Java-artifacts bouwen en Surefire-unittests uitvoeren | `MAVEN_BUILD_ARTIFACT_ROOT` |
-| `maven-publish` | Reactorartifacts naar een Maven-repository publiceren | `MAVEN_PUBLISH_REPOSITORY_URL` |
-| `jib-build` | Een Java-OCI-image met Jib bouwen en publiceren | `JIB_BUILD_IMAGE_REF`, `JIB_BUILD_IMAGE_REPOSITORY`, `JIB_BUILD_IMAGE_DIGEST` |
-| `helm-publish` | Een OCI-Helm-chart met versie verpakken en publiceren | `HELM_PUBLISH_REF`, `HELM_PUBLISH_VERSION` |
-| `helm-deploy` | Een vastgelegde image-digest naar één omgeving deployen | `HELM_DEPLOY_URL`, `HELM_DEPLOY_IMAGE_REF`, `HELM_DEPLOY_RELEASE`, `HELM_DEPLOY_NAMESPACE` |
-| `cucumber-test` | Failsafe/Cucumber lokaal of tegen een gedeployde URL uitvoeren | `CUCUMBER_TEST_REPORT_ROOT`, `CUCUMBER_TEST_TARGET_URL` |
-| `npm-build` | Een npm-project met vastgelegde dependencies bouwen | `NPM_BUILD_ARTIFACT_DIR` |
-| `npm-test` | Het CI-unittestscript van de applicatie uitvoeren | `NPM_TEST_REPORT_DIR` |
-| `image-build` | Eén OCI-image vanuit een Dockerfile bouwen en publiceren | `IMAGE_BUILD_IMAGE_REF`, `IMAGE_BUILD_DIGEST` |
-| `deployment-select` | Cluster-/gebruikerskeuzes voor deployment vastleggen | `SELECTION_CLUSTER`, `SELECTION_USER_CONFIG` |
-| `release-reserve` | Een unieke versie met een Git-tag reserveren | `RELEASE_VERSION`, `RELEASE_TAG` |
-| `release-check` | Gereserveerde tag, commit en nog vrije artifactlocaties controleren | `RELEASE_CHECK_VERSION`, `RELEASE_CHECK_TAG` |
-| `gitlab-release` | Gevalideerde artifacts vastleggen als GitLab Release | `GITLAB_RELEASE_URL` |
-| `sonar` | Maven/Java-analyse uitvoeren en op de quality gate wachten | `SONAR_TASK_FILE` |
-| `dependency-check` | OWASP Dependency-Check op Maven-dependencies uitvoeren | `DEPENDENCY_CHECK_REPORT_DIR` |
-
-Zie de [scanhandleiding](scanners.md) voor de gratis inrichting, uitvoeringsvoorwaarden en beperkingen.
 
 ## Modules voor toekomstig gebruik
 
@@ -81,13 +37,7 @@ De volgende zes modules staan in [modules/todo/](../modules/todo/) en worden nie
 
 De output `STATUS` is informatief. GitLabs exitcodes en verplichte jobafhankelijkheden bepalen het verloop. Gebruik een door de aanroeper ingestelde variabele `STATUS=passed` niet als basis voor promotie.
 
-## Koppeling met de lokale applicatie
-
-De [hello-world-pipeline](http://localhost:8929/root/hello-world/-/blob/main/.gitlab-ci.yml) neemt het gedeelde inputformulier en één centrale [java-service.yml](../pipelines/java-service.yml) op met een vaste uitgebrachte versie. Het centrale bestand combineert build, verplichte tests, optionele ontwikkeltests, publicatie, deployment en release. Ook de childvarianten staan daar; er is geen apart organisatieprofiel of delivery-omhulsel nodig.
-
-De applicatie geeft de deploybare module en declaratieve Helm-values op. CI-scripts, jobvolgorde, hooks en releasebeleid blijven in de bibliotheek. Andere projecten kunnen de modules afzonderlijk gebruiken. De uitgebreidere scan-/signingvoorbeelden vereisen eerst hun diensten en beleid.
-
-## Een pipeline samenstellen
+## Toekomstige uitgebreide pipeline
 
 Het onderstaande diagram toont het uitgebreide toekomstige referentievoorbeeld, inclusief modules uit `modules/todo/`. De actieve Java-demo voert deze volledige beveiligingsketen nog niet uit.
 
@@ -129,18 +79,22 @@ Bouw de kandidaatimage één keer. Scan, onderteken, verifieer en promoveer daar
 ## Inrichten vóór uitvoering
 
 - Publiceer de repository op je GitLab-instance. Gebruik in voorbeelden het eigen componentproject en een uitgebrachte versie; voor onze demo zijn dat `root/ci-components` en `1.0.0`.
-- Stel de imagevariabelen uit `docs/setup.md` in op vaste digests. Images hebben POSIX `sh` en de genoemde tools nodig. Componenten downloaden tijdens een job geen tooling.
+- Richt images, runners en diensten in volgens de [platformhandleiding](setup.md). De vereiste tooling voor actieve modules staat per module beschreven.
 - Configureer Maven-test-/coverageprofielen, npm-CI-rapportage, een chart met ondersteuning voor image-digests en de Fortify-adapters uit `docs/fortify-adapters.md`.
 - Beheer geheimen via een secretmanager of passend beschermde GitLab-variabelen, nooit via componentinputs of outputartifacts.
 - Richt merge- en deploymentbescherming in. Voer GitLab CI Lint uit op de volledig samengevoegde pipeline van de afnemer in de eigen instance.
 - Voer lokaal `python3 -m unittest discover -s tests -p 'test_*.py'` uit. De tests lezen de component-YAML rechtstreeks en vereisen Python 3 en Ruby's standaard YAML-library. Ze vervangen geen echte validatie van scanners, runners, registries en Kubernetes.
+- `tests/test_output_names.py` controleert unieke outputprefixes in onze composities en voorbeelden en test conflicten bij de overdracht. Voor eigen pipelines blijven unieke prefixes en gerichte `needs` de afspraak; zie [gereserveerde outputnamen](modules.md#namen-reserveren-voor-de-producent).
+- Publiceer actieve componenten na validatie met de native catalogusreleasejob. De stappen en vereiste platformvariabelen staan bij [componentversies](component-versions.md#publicatie-in-de-cicd-catalog).
 
 ## Componenten onderhouden en vervangen
 
 Bewerk actieve bestanden `templates/<component-name>.yml` rechtstreeks. Toekomstige modules staan in `modules/todo/`. Verplaats een module pas naar `templates/` als er een concrete afnemer is en de integratievalidatie klaar is. Elk bestand bevat zijn eigen inputdefinities, jobimage, bewerking en artifacts. Voorbereiding, post-hook-/outputcontrole en cleanup staan gedeeld in [`shared/module.yml`](../shared/module.yml). Een generatiestap is niet nodig.
 
 ```text
-pipelines/java-service.yml   # jobvolgorde en beleid voor Java
+pipelines/java-service.yml   # openbare ingang voor Java
+pipelines/internal/         # gedeelde buildjobs, deployment en release
+shared/java-service.yml      # Maven-instellingen en cache voor deze samenstellingen
 shared/module.yml           # gedeelde joblifecycle
 templates/                  # vijftien actieve modules
 modules/todo/               # zes modules voor toekomstig gebruik

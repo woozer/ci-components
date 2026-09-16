@@ -8,6 +8,7 @@ from common import HTTP, INFRA, announce, docker_architecture, load_json, local_
 MAVEN = 'maven:3.9.12-eclipse-temurin-25@sha256:4f82a03a7d6679281952d628131299b1be88d7030a49c6a2b7d2ba2642e44e3e'
 NODE = 'node:24-bookworm-slim@sha256:2fe369e969550cde8e867afc3fe370b260140cab4a23d467074295b42163d553'
 PUBLIC_IMAGES = {
+    'release': ('registry.gitlab.com/gitlab-org/cli:v1.117.0@sha256:b0ecba5ea840e51d61666705d435e3713ba69bf796b5b878417c6efe25ad2a91', 'ci/gitlab-cli:1.117.0'),
     'node': (NODE, 'ci/node:24'),
     'nginx': ('nginxinc/nginx-unprivileged:stable-alpine@sha256:442753882674b49ae2c1de83ed67896131c0777f56df5005e356e62bc3f7e7ce', 'base/nginx:stable-alpine'),
     'helm': ('alpine/helm:4.2.4', 'ci/helm:4.2.4'),

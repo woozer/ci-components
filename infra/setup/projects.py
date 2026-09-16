@@ -1,12 +1,10 @@
 """Initialize empty local GitLab projects without replacing existing history."""
-import json
 from pathlib import Path
 import shlex
-import shutil
 import tempfile
 from urllib.parse import quote
 
-from common import INFRA, PROJECT_RECORDS, ROOT, STATE, announce, compose, gitlab, load_json, run, save, save_json
+from common import INFRA, PROJECT_RECORDS, ROOT, STATE, announce, compose, gitlab, load_json, local_url, request_json, run, save, save_json
 
 
 def configure_access():
@@ -59,6 +57,37 @@ def ensure_projects():
         save_json(record, {'id': project['id'], 'path_with_namespace': project['path_with_namespace']})
 
 
+def check_sources():
+    for path in ('java', 'infra/seed/ci-samples'):
+        status = run(['git', 'submodule', 'status', '--', path], capture=True)
+        if not status.startswith(' '):
+            raise RuntimeError(f'{path}: initialize the pinned source with git submodule update --init --recursive.')
+
+
+def configure_catalog():
+    """Enable native catalog publication; an ordinary tag pipeline publishes releases."""
+    pid = load_json(PROJECT_RECORDS['ci-components'])['id']
+    project = gitlab(f'/projects/{pid}')
+    if not project.get('description'):
+        gitlab(f'/projects/{pid}', 'PUT', {
+            'description': 'Herbruikbare CI/CD-componenten voor Maven, npm, images, Helm, scans en releases.'})
+
+    def graphql(query):
+        result = request_json(local_url(8929, '/api/graphql'), method='POST',
+            data={'query': query, 'variables': {'path': project['path_with_namespace']}},
+            headers={'PRIVATE-TOKEN': (INFRA / 'gitlab-ce/secrets/provisioning-token').read_text().strip()})
+        if result.get('errors'):
+            raise RuntimeError('GitLab could not configure the CI/CD Catalog project.')
+        return result['data']
+
+    status = graphql('query($path: ID!) { project(fullPath: $path) { isCatalogResource } }')
+    if not status['project']['isCatalogResource']:
+        result = graphql('mutation($path: ID!) { catalogResourcesCreate(input: {projectPath: $path}) { errors } }')
+        if result['catalogResourcesCreate']['errors']:
+            raise RuntimeError('GitLab refused CI/CD Catalog registration.')
+    announce('CI/CD Catalog project configured; publish versions with the component tag pipeline.')
+
+
 def seed_projects(key):
     env = {'GIT_SSH_COMMAND': ssh_command(key)}
     manifest = load_json(INFRA / 'seed/manifest.json')
@@ -73,28 +102,14 @@ def seed_projects(key):
         with tempfile.TemporaryDirectory(prefix='seed-', dir=STATE) as directory:
             target = Path(directory)
             run(['git', 'init', '-q', '--initial-branch=main', target])
-            run(['git', 'config', 'user.name', 'Local demo setup'], cwd=target)
-            run(['git', 'config', 'user.email', 'demo@localhost.invalid'], cwd=target)
+            sources = {'ci-components': ROOT, 'hello-world': ROOT / 'java',
+                       'ci-samples': INFRA / 'seed/ci-samples'}
+            # Copy committed history from the pinned local checkout, never build output or credentials.
+            refs = ['HEAD:refs/heads/seed-source']
             if name == 'ci-components':
-                # Fetch local objects only. Published versions keep their original commits.
-                refs = ['HEAD:refs/heads/seed-source'] + [f'refs/tags/{version}:refs/tags/{version}'
-                                                        for version in manifest['component_versions']]
-                run(['git', 'fetch', '--quiet', ROOT, *refs], cwd=target)
-                run(['git', 'checkout', '-q', '-B', 'main', 'seed-source'], cwd=target)
-            else:
-                # git ls-files respects the source checkout's ignore rules; no caches or keys.
-                files = run(['git', 'ls-files', '-z', '--', 'java'], capture=True).split('\0')
-                if not any(files):
-                    raise RuntimeError('Commit the java/ source before installing a fresh demo.')
-                for relative in filter(None, files):
-                    source = ROOT / relative
-                    destination = target / source.relative_to(ROOT / 'java')
-                    destination.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copy2(source, destination)
-                if name == 'ci-samples':
-                    shutil.copytree(INFRA / 'seed/ci-samples', target, dirs_exist_ok=True)
-                run(['git', 'add', '.'], cwd=target)
-                run(['git', 'commit', '-q', '-m', 'Initialize local demo application [skip ci]'], cwd=target)
+                refs += [f'refs/tags/{version}:refs/tags/{version}' for version in manifest['component_versions']]
+            run(['git', 'fetch', '--quiet', sources[name], *refs], cwd=target)
+            run(['git', 'checkout', '-q', '-B', 'main', 'seed-source'], cwd=target)
             remote = f'ssh://git@host.docker.internal:2424/root/{name}.git'
             run(['git', 'push', '-o', 'ci.skip', remote, 'main'], cwd=target, env=env)
             if name == 'ci-components':

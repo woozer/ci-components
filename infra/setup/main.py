@@ -13,6 +13,8 @@ STACKS = ('gitlab-ce', 'artifactory', 'sonarqube', 'gitlab-runner')
 
 
 def check():
+    from projects import check_sources
+    check_sources()
     info = json.loads(run(['docker', 'info', '--format', '{{json .}}'], capture=True))
     arch = architecture(info['Architecture'])
     if info['OSType'] != 'linux':
@@ -57,6 +59,7 @@ def install(accept_eula):
     projects.ensure_projects()
     projects.seed_projects(key)
     projects.protect_projects()
+    projects.configure_catalog()
 
     def registry_ready():
         with HTTP.open(local_url(8082, '/artifactory/api/system/ping'), timeout=10) as response:
