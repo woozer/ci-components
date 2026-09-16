@@ -3,7 +3,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from test_contracts import COMPONENTS, Harness, PARSED, ROOT, interpolate, pipeline_config
+from test_contracts import COMPONENTS, Harness, PARSED, ROOT, interpolate
 
 
 def assert_unique_prefixes(test, body):
@@ -30,10 +30,6 @@ def assert_unique_prefixes(test, body):
 
 class OutputNameTests(unittest.TestCase):
     def test_compositions_and_consumer_examples_have_unique_prefixes(self):
-        for path in ('pipelines/java-service.yml', 'pipelines/internal/java-deploy.yml',
-                     'pipelines/internal/java-release.yml'):
-            with self.subTest(path=path):
-                assert_unique_prefixes(self, pipeline_config(path))
         for path in [*ROOT.glob('examples/samples/*.yml'), *ROOT.glob('examples/modules/*.yml'),
                      ROOT / 'examples/full-pipeline/profile.yml']:
             with self.subTest(path=path):
@@ -101,15 +97,6 @@ class OutputNameTests(unittest.TestCase):
                     self.assertIn('Output name already exists in the environment: ' + key, result.stderr)
                     self.assertFalse(h.output_file.exists())
 
-    def test_standard_pipeline_fetches_only_needed_artifacts(self):
-        parent = pipeline_config()
-        for name in ('build', 'build-ui', 'test-ui', 'configure-deploy'):
-            self.assertEqual([], parent[name]['dependencies'])
-            self.assertNotIn('needs', parent[name], 'Keep stage barriers, including release checks')
-        for name in ('dependency-check', 'publish-maven', 'publish-image', 'publish-chart', 'publish-ui-chart'):
-            self.assertTrue(all(need['artifacts'] is False for need in parent[name]['needs']))
-        self.assertEqual([{'job': 'build-ui', 'artifacts': True},
-                          {'job': 'publish-maven', 'artifacts': False}], parent['publish-ui-image']['needs'])
 
 
 if __name__ == '__main__':

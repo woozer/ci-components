@@ -1,6 +1,6 @@
 # Componentversies
 
-Afnemers gebruiken een volledige versie zoals `1.0.0`. Die Git-tag wijst naar één geteste commit van `root/ci-components`. Alle componenten, gedeelde configuratie, voorbeelden en de centrale pipeline in deze repository krijgen samen dezelfde versie. Dit volgt [GitLabs componentmodel](https://docs.gitlab.com/ci/components/#component-versions).
+Afnemers gebruiken een volledige versie zoals `1.0.0`. Die Git-tag wijst naar één geteste commit van `root/ci-components`. Alle componenten, gedeelde moduleconfiguratie en voorbeelden in deze repository krijgen samen dezelfde versie. De standaardpipeline wordt afzonderlijk uitgebracht vanuit [ci-pipelines](https://github.com/woozer/ci-pipelines). Dit volgt [GitLabs componentmodel](https://docs.gitlab.com/ci/components/#component-versions).
 
 Voor één module:
 
@@ -11,7 +11,7 @@ include:
       image: $JAVA_CI_IMAGE
 ```
 
-Voor `include:project` gebruik je `ref: '1.0.0'`. Geef dezelfde versie door als `library-ref` wanneer het opgenomen voorbeeld of de standaardpipeline dat vraagt. Het formulier in `spec:include` moet ook die versie gebruiken. Containerimages blijven centraal vastgezet op digest; een componentversie en een applicatierelease zijn afzonderlijke versies.
+Voor `include:project` gebruik je `ref: '1.0.0'`. Geef dezelfde versie door als `library-ref` wanneer het opgenomen voorbeeld of de standaardpipeline dat vraagt. Het formulier van `java-service` gebruikt juist de versie van **ci-pipelines**, gelijk aan de opgenomen pipelinecomponent. Containerimages blijven centraal vastgezet op digest; een componentversie en een applicatierelease zijn afzonderlijke versies.
 
 De platformbeheerder publiceert na geslaagde moduletests en samplepipelines een nieuwe tag op een beoordeelde commit van `main`. We beginnen met `1.0.0` en volgen [Semantic Versioning](https://semver.org/lang/nl/): een patch voor compatibele fixes, een minor voor compatibele uitbreidingen en een major voor brekende wijzigingen. Een bestaande versie wordt niet verplaatst, verwijderd of opnieuw gebruikt. Afnemers kiezen een upgrade via hun eigen merge request.
 
@@ -21,7 +21,7 @@ Tijdens ontwikkeling test de componentpipeline de exacte `CI_COMMIT_SHA`. Zo tes
 
 ## Publicatie in de CI/CD Catalog
 
-De vijftien actieve componenten worden samen gepubliceerd vanuit het project `root/ci-components`. Open [de lokale catalogus](http://localhost:8929/explore/catalog) en kies **ci-components** om versies, componenten en hun inputs te bekijken. GitHub bevat de openbare broncode; de cataloguspublicatie gebeurt op de GitLab-instance die de componenten uitvoert. Voor een catalogus op GitLab.com is een afzonderlijke publicatie daar nodig. De interne bestanden onder `shared/` en `pipelines/internal/` en de TODO-modules worden geen aparte cataloguscomponenten. De standaardpipeline blijft voorlopig beschikbaar als `include:project`.
+De vijftien actieve componenten worden samen gepubliceerd vanuit het project `root/ci-components`. Open [de lokale catalogus](http://localhost:8929/explore/catalog) en kies **ci-components** om versies, componenten en hun inputs te bekijken. GitHub bevat de openbare broncode; de cataloguspublicatie gebeurt op de GitLab-instance die de componenten uitvoert. Voor een catalogus op GitLab.com is een afzonderlijke publicatie daar nodig. De interne bestanden onder `shared/` en de TODO-modules worden geen aparte cataloguscomponenten. De standaardpipeline staat als `java-service` in het afzonderlijke catalogusproject **ci-pipelines**.
 
 Voor de eerste publicatie stelt de platformbeheerder bij **Settings → General → Visibility, project features, permissions** de optie **CI/CD Catalog project** in en vult een projectomschrijving in. De demo-installer doet dit via GitLabs GraphQL-API. Die instelling alleen maakt het project nog niet vindbaar; daarvoor moet een versie worden gepubliceerd.
 
@@ -36,3 +36,9 @@ De bibliotheekpipeline vereist `CI_VALIDATION_IMAGE`, `CI_RELEASE_IMAGE` en `CI_
 Een tag buiten protected refs of een commit buiten `main` kan niet via deze publicatiejob worden uitgebracht. Dit is onze releaseafspraak boven op GitLabs catalogusfunctionaliteit. Een bestaande release opnieuw uitvoeren wordt geweigerd; maak voor gewijzigde componenten een nieuwe versie. De applicatiemodule `gitlab-release` blijft de Releases API gebruiken voor applicatiereleases. Cataloguspublicatie vereist juist `release:`. Zie [GitLabs publicatieprocedure](https://docs.gitlab.com/ci/components/#publish-a-component-project).
 
 Versie `1.2.0` voegt de cataloguspublicatie en controles op outputconflicten toe. In de Java-strategie gebruiken de optionele test en de test na deployment voortaan respectievelijk `CUSTOM_TEST` en `DEV_CUCUMBER`; de gewone test behoudt `CUCUMBER_TEST`. Dit herstelt dubbele prefixes. Controleer eventuele eigen verwijzingen naar deze outputs vóór een upgrade. De bestaande tag `1.0.0` blijft intact.
+
+## Scheiding tussen bouwblokken en standaardpipeline
+
+`ci-components@1.2.0` bevat de vaste bouwblokken waarop `ci-pipelines/java-service@1.0.0` steunt. Een nieuwe pipelineversie vereist geen nieuwe moduleversie. Een module-upgrade wordt pas onderdeel van de standaardpipeline nadat de combinatie is getest en als nieuwe pipelineversie is uitgebracht. Deze tweedeling is onze beheerkeuze; GitLab ondersteunt [meerdere componenten per project met gezamenlijke versies](https://docs.gitlab.com/ci/components/#component-project).
+
+De huidige broncode bevat de standaardpipeline niet meer als eigen bestand onder `pipelines/java-service.yml`. Bestaande tags, waaronder `1.0.0` en `1.2.0`, blijven intact en kunnen de oude include blijven leveren. Migreer nieuwe configuraties naar `include:component` met `root/ci-pipelines/java-service@1.0.0`. Verwijder daarbij `library-ref` en neem het formulier uit **ci-pipelines** op dezelfde pipelineversie op. Een toekomstige componentrelease die de oude bestandspaden verwijdert, vereist een nieuwe majorversie voor afnemers van die paden.

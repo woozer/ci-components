@@ -17,6 +17,7 @@ HTTP = build_opener(ProxyHandler({}))
 PROJECT_RECORDS = {
     'hello-world': INFRA / 'gitlab-ce/secrets/project.json',
     'ci-components': INFRA / 'gitlab-ce/secrets/components-project.json',
+    'ci-pipelines': INFRA / 'gitlab-ce/secrets/pipelines-project.json',
     'ci-samples': INFRA / 'gitlab-runner/secrets/samples-project.json',
 }
 

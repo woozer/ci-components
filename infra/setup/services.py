@@ -52,9 +52,12 @@ def runners(images):
     configure.variable('MAVEN_SETTINGS_FILE', '<settings><servers><server><id>maven-repository</id>'
         '<username>gitlab-ci-token</username><password>${env.CI_JOB_TOKEN}</password>'
         '</server></servers></settings>', file=True, project=samples)
-    configure.variable('CI_SAMPLES_PROJECT', 'root/ci-samples', project=project_id('ci-components'))
+    for library in ('ci-components', 'ci-pipelines'):
+        configure.variable('CI_SAMPLES_PROJECT', 'root/ci-samples', project=project_id(library))
     # Native multi-project triggers need an allowlist entry for their CI_JOB_TOKEN.
-    for target, source in [('ci-samples', 'ci-components'), ('ci-components', 'ci-samples'), ('ci-components', 'hello-world')]:
+    for target, source in [('ci-samples', 'ci-components'), ('ci-components', 'ci-samples'), ('ci-components', 'hello-world'),
+                           ('ci-samples', 'ci-pipelines'), ('ci-components', 'ci-pipelines'),
+                           ('ci-pipelines', 'ci-samples'), ('ci-pipelines', 'hello-world')]:
         pid, source_id = project_id(target), project_id(source)
         path = f'/projects/{pid}/job_token_scope/allowlist'
         if not any(item['id'] == source_id for item in gitlab(path + '?per_page=100')):

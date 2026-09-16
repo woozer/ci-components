@@ -58,19 +58,19 @@ def ensure_projects():
 
 
 def check_sources():
-    for path in ('java', 'infra/seed/ci-samples'):
+    for path in ('java', 'infra/seed/ci-samples', 'pipelines'):
         status = run(['git', 'submodule', 'status', '--', path], capture=True)
         if not status.startswith(' '):
             raise RuntimeError(f'{path}: initialize the pinned source with git submodule update --init --recursive.')
 
 
-def configure_catalog():
+def configure_catalog_project(name, description):
     """Enable native catalog publication; an ordinary tag pipeline publishes releases."""
-    pid = load_json(PROJECT_RECORDS['ci-components'])['id']
+    pid = load_json(PROJECT_RECORDS[name])['id']
     project = gitlab(f'/projects/{pid}')
     if not project.get('description'):
         gitlab(f'/projects/{pid}', 'PUT', {
-            'description': 'Herbruikbare CI/CD-componenten voor Maven, npm, images, Helm, scans en releases.'})
+            'description': description})
 
     def graphql(query):
         result = request_json(local_url(8929, '/api/graphql'), method='POST',
@@ -85,7 +85,12 @@ def configure_catalog():
         result = graphql('mutation($path: ID!) { catalogResourcesCreate(input: {projectPath: $path}) { errors } }')
         if result['catalogResourcesCreate']['errors']:
             raise RuntimeError('GitLab refused CI/CD Catalog registration.')
-    announce('CI/CD Catalog project configured; publish versions with the component tag pipeline.')
+    announce(f'{name}: CI/CD Catalog configured; publish versions with the tag pipeline.')
+
+
+def configure_catalog():
+    configure_catalog_project('ci-components', 'Herbruikbare CI/CD-componenten voor Maven, npm, images, Helm, scans en releases.')
+    configure_catalog_project('ci-pipelines', 'Standaardpipelines met vastgezette componentversies voor Java en Angular.')
 
 
 def seed_projects(key):
@@ -102,18 +107,18 @@ def seed_projects(key):
         with tempfile.TemporaryDirectory(prefix='seed-', dir=STATE) as directory:
             target = Path(directory)
             run(['git', 'init', '-q', '--initial-branch=main', target])
-            sources = {'ci-components': ROOT, 'hello-world': ROOT / 'java',
+            sources = {'ci-components': ROOT, 'ci-pipelines': ROOT / 'pipelines', 'hello-world': ROOT / 'java',
                        'ci-samples': INFRA / 'seed/ci-samples'}
             # Copy committed history from the pinned local checkout, never build output or credentials.
             refs = ['HEAD:refs/heads/seed-source']
-            if name == 'ci-components':
-                refs += [f'refs/tags/{version}:refs/tags/{version}' for version in manifest['component_versions']]
+            versions = manifest.get({'ci-components': 'component_versions', 'ci-pipelines': 'pipeline_versions'}.get(name), [])
+            refs += [f'refs/tags/{version}:refs/tags/{version}' for version in versions]
             run(['git', 'fetch', '--quiet', sources[name], *refs], cwd=target)
             run(['git', 'checkout', '-q', '-B', 'main', 'seed-source'], cwd=target)
             remote = f'ssh://git@host.docker.internal:2424/root/{name}.git'
             run(['git', 'push', '-o', 'ci.skip', remote, 'main'], cwd=target, env=env)
-            if name == 'ci-components':
-                run(['git', 'push', '-o', 'ci.skip', remote, *[f'refs/tags/{v}' for v in manifest['component_versions']]], cwd=target, env=env)
+            if versions:
+                run(['git', 'push', '-o', 'ci.skip', remote, *[f'refs/tags/{v}' for v in versions]], cwd=target, env=env)
             announce(f'Initialized root/{name}.')
 
 
@@ -131,6 +136,7 @@ def protect_projects():
         gitlab(f'/projects/{project}', 'PUT', {'only_allow_merge_if_pipeline_succeeds': True,
             'only_allow_merge_if_all_discussions_are_resolved': True,
             'ci_pipeline_variables_minimum_override_role': 'no_one_allowed'})
-    project = load_json(PROJECT_RECORDS['ci-components'])['id']
-    if not any(tag['name'] == '*' for tag in gitlab(f'/projects/{project}/protected_tags')):
-        gitlab(f'/projects/{project}/protected_tags', 'POST', {'name': '*', 'create_access_level': 40})
+    for name in ('ci-components', 'ci-pipelines'):
+        project = load_json(PROJECT_RECORDS[name])['id']
+        if not any(tag['name'] == '*' for tag in gitlab(f'/projects/{project}/protected_tags')):
+            gitlab(f'/projects/{project}/protected_tags', 'POST', {'name': '*', 'create_access_level': 40})

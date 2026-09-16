@@ -1,5 +1,5 @@
 # Future-stack reference: includes modules/todo; not one of the runnable samples.
-# Start with examples/samples/ or the standard pipelines/java-service.yml.
+# Start with examples/samples/ or the ci-pipelines/java-service catalog component.
 # This file supplies include inputs, but defines no New pipeline form.
 # For this broader stack, first configure the services described in docs/setup.md.
 # This full delivery example runs on the protected default branch.

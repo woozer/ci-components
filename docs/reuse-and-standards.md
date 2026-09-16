@@ -27,7 +27,7 @@ Pipelinenamen gebruiken [`workflow:name`](https://docs.gitlab.com/ci/yaml/#workf
 
 ## Samenstelling van de Java-pipeline
 
-Afnemers nemen alleen `pipelines/java-service.yml` op. De bestanden onder `pipelines/internal/` verdelen het onderhoud over build/publicatie, deployment/integratietests en release. Die indeling is onze beheerkeuze. Ze gebruikt [GitLab-includes en beperkte overerving](https://docs.gitlab.com/ci/yaml/yaml_optimization/); er is geen `flow`-schakelaar meer en de pipeline neemt zichzelf niet opnieuw op.
+Afnemers nemen de cataloguscomponent `ci-pipelines/java-service` op. De bestanden onder `internal/` in dat afzonderlijke project verdelen het onderhoud over build/publicatie, deployment/integratietests en release. Die indeling is onze beheerkeuze. Ze gebruikt [GitLab-includes en beperkte overerving](https://docs.gitlab.com/ci/yaml/yaml_optimization/); er is geen `flow`-schakelaar meer en de pipeline neemt zichzelf niet opnieuw op.
 
 Het aantal YAML-bestanden neemt toe. Elke interne configuratie houdt een expliciet, getypeerd inputcontract; daardoor verdwijnen niet alle herhaalde inputdefinities. De winst zit in afgebakende verantwoordelijkheden en minder voorwaarden. We gebruiken hier geen gedeelde `spec:include`-definities: de benodigde resolutie vanuit opgenomen bestanden in een ander project is in GitLab 19.4 geïntroduceerd achter een feature flag; de demo draait op 19.3. Zie [GitLabs uitleg over externe inputbestanden](https://docs.gitlab.com/ci/inputs/#use-external-input-files-in-configuration-from-another-project).
 
@@ -120,8 +120,14 @@ Ondertekenen en verifiëren kunnen afzonderlijk nuttig blijven vanwege verschill
 
 ## Drie broncoderepositories
 
-`ci-components`, `hello-world` en `ci-samples` hebben elk een eigen openbare GitHub-repository. De componentbibliotheek koppelt de twee applicatierepositories via [Git-submodules](https://git-scm.com/book/en/v2/Git-Tools-Submodules). Dit is een ingebouwde Git-functie: de bovenliggende repository bewaart een verwijzing naar een vaste commit. De keuze om daarmee de demo samen te stellen is onze beheerafspraak.
+`ci-components`, `ci-pipelines`, `hello-world` en `ci-samples` hebben elk een eigen openbare GitHub-repository. De componentbibliotheek koppelt de pipeline- en applicatierepositories via [Git-submodules](https://git-scm.com/book/en/v2/Git-Tools-Submodules). Dit is een ingebouwde Git-functie: de bovenliggende repository bewaart een verwijzing naar een vaste commit. De keuze om daarmee de demo samen te stellen is onze beheerafspraak.
 
 Voor de volledige demo gebruiken we `git clone --recurse-submodules`. Alleen afnemers van de CI-bibliotheek hebben de applicatiecheckouts niet nodig. Wijzig applicatiebroncode in de betreffende repository en publiceer die commit eerst; werk daarna de submoduleverwijzing in `ci-components` bij via een beoordeelde wijziging. Een gewone update van de componentbibliotheek wordt gevolgd door `git submodule update --init --recursive`.
 
 De installer vult alleen lege GitLab-projecten met de vastgelegde lokale broncode en geschiedenis. Een wijziging op GitHub wordt dus niet automatisch naar een bestaande GitLab-repository gesynchroniseerd. De moduleversie `1.0.0` en de submodulecommits hebben verschillende doelen: de versie kiest de CI-componenten; de commits leggen de applicatiebroncode voor een nieuwe demo vast.
+
+## Afzonderlijke pipelinebibliotheek
+
+De losse taken blijven samen in **ci-components**; de standaardpipeline staat in **ci-pipelines**. GitLab ondersteunt componenten die andere componenten opnemen en adviseert vaste releases voor externe afhankelijkheden. Onze pipeline gebruikt daarom overal dezelfde geteste componentversie. De gescheiden releasecycli en het gebruik van een Git-submodule voor de lokale installer zijn onze beheerkeuzes. De installer is geen runtimeafhankelijkheid van een module of pipeline. Zie [GitLabs afhankelijkhedenadvies](https://docs.gitlab.com/ci/components/#manage-dependencies).
+
+De complete pipeline beheert bewust globale `workflow`, `stages` en defaults. GitLab raadt globale instellingen af voor vrij combineerbare taakcomponenten; onze samengestelde pipeline wordt eenmaal opgenomen en beheert de gehele applicatiepipeline. Afnemers die zelf willen combineren, kiezen de losse modules.

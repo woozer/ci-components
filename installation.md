@@ -50,7 +50,7 @@ De beheertools draaien in een container. Python, Java, Maven en Node hoeven daar
 
 ## Starten vanuit Git
 
-Haal de openbare componentbibliotheek en de twee gekoppelde applicatierepositories op. Voer daarna vanuit de hoofdmap het startscript uit:
+Haal de openbare componentbibliotheek en de gekoppelde pipeline- en applicatierepositories op. Voer daarna vanuit de hoofdmap het startscript uit:
 
 ```sh
 git clone --recurse-submodules https://github.com/woozer/ci-components.git
@@ -59,7 +59,7 @@ cd ci-components
 ./infra/setup.sh install
 ```
 
-Het script richt de lokale GitLab CE, Artifactory JCR, SonarQube Community Build, runners en Kubernetes-toegang in. De Git-submodule `java/` verwijst naar `hello-world`; `infra/seed/ci-samples/` verwijst naar de volledige repository `ci-samples`. De installer neemt de vastgelegde commits en hun geschiedenis over naar de gelijknamige projecten in een nieuwe GitLab. Bestaande repositories en releases worden behouden.
+Het script richt de lokale GitLab CE, Artifactory JCR, SonarQube Community Build, runners en Kubernetes-toegang in. De Git-submodule `pipelines/` verwijst naar `ci-pipelines`; `java/` verwijst naar `hello-world`; `infra/seed/ci-samples/` verwijst naar de volledige repository `ci-samples`. De installer neemt de vastgelegde commits en hun geschiedenis over naar de gelijknamige projecten in een nieuwe GitLab. Bestaande repositories en releases worden behouden.
 
 Artifactory JCR vereist acceptatie van de licentievoorwaarden. Het script mag die keuze niet stilzwijgend maken. De installatie beschrijft hoe je de voorwaarden bekijkt en na akkoord verdergaat met `--accept-jcr-eula`.
 
@@ -85,17 +85,17 @@ Log in GitLab in als `root`. Het initiële wachtwoord staat in `infra/gitlab-ce/
 
 Git bevat Compose-bestanden, scripts, Dockerfiles en de broncode voor het vullen van een nieuwe demo. `.env`, `secrets/`, `infra/.state/` en gegenereerde lokale imageverwijzingen worden genegeerd. Controleer deze uitsluitingen voordat je de repository naar een externe Git-server pusht.
 
-De broncode wordt beheerd in drie afzonderlijke repositories: [ci-components](https://github.com/woozer/ci-components), [hello-world](https://github.com/woozer/hello-world) en [ci-samples](https://github.com/woozer/ci-samples). De componentbibliotheek bewaart alleen de Git-submoduleverwijzingen naar de twee applicatierepositories. Zo kan één recursieve checkout de volledige demo vullen zonder verbinding met de oude lokale GitLab.
+De broncode wordt beheerd in vier afzonderlijke repositories: [ci-components](https://github.com/woozer/ci-components), [ci-pipelines](https://github.com/woozer/ci-pipelines), [hello-world](https://github.com/woozer/hello-world) en [ci-samples](https://github.com/woozer/ci-samples). De componentbibliotheek bewaart alleen de Git-submoduleverwijzingen naar de pipeline- en applicatierepositories. Zo kan één recursieve checkout de volledige demo vullen zonder verbinding met de oude lokale GitLab.
 
-Heb je al gecloned zonder `--recurse-submodules`, haal dan de vastgelegde applicatiecommits alsnog op:
+Heb je al gecloned zonder `--recurse-submodules`, haal dan de vastgelegde submodulecommits alsnog op:
 
 ```sh
 git submodule update --init --recursive
 ```
 
-Voer dit commando ook uit na een update van de componentbibliotheek. De installer controleert of beide submodules beschikbaar zijn op de vastgelegde commit. Gebruik voor installatie de actuele `main`; componenttag `1.0.0` blijft behouden voor de CI-includes.
+Voer dit commando ook uit na een update van de componentbibliotheek. De installer controleert of alle drie submodules beschikbaar zijn op de vastgelegde commit. Gebruik voor installatie de actuele `main`; de benodigde tags staan in `infra/seed/manifest.json`.
 
-Neem bij het overzetten naar een externe remote ook de componenttag `1.0.0` mee. De bronkopieën van de applicatie en samples verwijzen naar die versie. `check` controleert of de tags lokaal beschikbaar zijn. Nieuwe GitLab-projecten worden alleen gevuld als hun repository leeg is; bestaande branchgeschiedenis wordt niet vervangen.
+Neem bij het overzetten naar een externe remote ook de componenttags `1.0.0` en `1.2.0` en de tag `1.0.0` van **ci-pipelines** mee. De applicatie gebruikt de pipelineversie; de pipeline zet haar moduleversies zelf vast. `check` controleert of de tags lokaal beschikbaar zijn. Nieuwe GitLab-projecten worden alleen gevuld als hun repository leeg is; bestaande branchgeschiedenis wordt niet vervangen.
 
 ## Opnieuw installeren of verhuizen
 
@@ -115,7 +115,7 @@ Wil je de huidige gebruikers, merge requests, artifacts en scanresultaten behoud
 
 ## Lokale adressen
 
-De installer registreert `ci-components` als catalogusproject. Op een lege installatie ontbreken nog de GitLab-releases, ook als de broncodetags al zijn overgezet. Open bij **ci-components → Build → Pipelines → New pipeline** de tag `1.2.0` en start de pipeline. Na de contracttests, alle samples en **publish-catalog** verschijnt deze versie in de [lokale CI/CD Catalog](http://localhost:8929/explore/catalog). Doe dit alleen als die catalogusrelease nog niet bestaat; bestaande versies blijven behouden. Zie [cataloguspublicatie](docs/component-versions.md#publicatie-in-de-cicd-catalog).
+De installer registreert `ci-components` en `ci-pipelines` als afzonderlijke catalogusprojecten. Op een lege installatie ontbreken nog de GitLab-releases, ook als de broncodetags al zijn overgezet. Open bij **ci-components → Build → Pipelines → New pipeline** de tag `1.2.0` en start de pipeline. Na de contracttests, alle samples en **publish-catalog** verschijnt deze versie in de [lokale CI/CD Catalog](http://localhost:8929/explore/catalog). Voer daarna bij **ci-pipelines** hetzelfde uit voor de tag `1.0.0`; die pipeline valideert de standaardpipeline in **ci-samples** en publiceert `java-service`. Doe dit alleen als die catalogusreleases nog niet bestaan; bestaande versies blijven behouden. Zie [cataloguspublicatie](docs/component-versions.md#publicatie-in-de-cicd-catalog).
 
 | Dienst | Adres |
 |---|---|
