@@ -28,11 +28,11 @@ Voor de eerste publicatie stelt de platformbeheerder bij **Settings → General 
 Publiceer daarna een nieuwe versie als volgt:
 
 1. Merge de beoordeelde wijziging naar protected `main`. Houd de Git-tags beschermd; hergebruik bestaande tags niet.
-2. Maak een nieuwe tag zoals `1.1.0` op de gekozen commit van `main`. De tagpipeline voert de contracttests en alle negentien samples uit op precies die componentcommit.
+2. Maak een nieuwe tag zoals `1.2.0` op de gekozen commit van `main`. De tagpipeline voert de contracttests en alle negentien samples uit op precies die componentcommit.
 3. Na geslaagde validatie controleert **publish-catalog** dat de commit op `main` voorkomt. GitLabs standaardveld `release:` maakt vervolgens de release en publiceert de componenten in de catalogus.
 
 De bibliotheekpipeline vereist `CI_VALIDATION_IMAGE`, `CI_RELEASE_IMAGE` en `CI_SAMPLES_PROJECT`. De release-image bevat `glab` en Git; de lokale installer spiegelt de officiële, op digest vastgezette CLI-image naar Artifactory. Alleen in de lokale Docker-demo stelt hij ook `GITLAB_API_HOST=host.docker.internal:8929` in, zodat de CLI de API kan bereiken zonder de openbare browser-URL te wijzigen. De aanmelding gebruikt het tijdelijke `CI_JOB_TOKEN`; een aparte releasetoken is niet nodig.
 
 Een tag buiten protected refs of een commit buiten `main` kan niet via deze publicatiejob worden uitgebracht. Dit is onze releaseafspraak boven op GitLabs catalogusfunctionaliteit. Een bestaande release opnieuw uitvoeren wordt geweigerd; maak voor gewijzigde componenten een nieuwe versie. De applicatiemodule `gitlab-release` blijft de Releases API gebruiken voor applicatiereleases. Cataloguspublicatie vereist juist `release:`. Zie [GitLabs publicatieprocedure](https://docs.gitlab.com/ci/components/#publish-a-component-project).
 
-Versie `1.1.0` voegt de cataloguspublicatie en controles op outputconflicten toe. In de Java-strategie gebruiken de optionele test en de test na deployment voortaan respectievelijk `CUSTOM_TEST` en `DEV_CUCUMBER`; de gewone test behoudt `CUCUMBER_TEST`. Dit herstelt dubbele prefixes. Controleer eventuele eigen verwijzingen naar deze outputs vóór een upgrade. De bestaande tag `1.0.0` blijft intact.
+Versie `1.2.0` voegt de cataloguspublicatie en controles op outputconflicten toe. In de Java-strategie gebruiken de optionele test en de test na deployment voortaan respectievelijk `CUSTOM_TEST` en `DEV_CUCUMBER`; de gewone test behoudt `CUCUMBER_TEST`. Dit herstelt dubbele prefixes. Controleer eventuele eigen verwijzingen naar deze outputs vóór een upgrade. De bestaande tag `1.0.0` blijft intact.

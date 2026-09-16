@@ -115,7 +115,7 @@ Wil je de huidige gebruikers, merge requests, artifacts en scanresultaten behoud
 
 ## Lokale adressen
 
-De installer registreert `ci-components` als catalogusproject. Op een lege installatie ontbreken nog de GitLab-releases, ook als de broncodetags al zijn overgezet. Open bij **ci-components → Build → Pipelines → New pipeline** de tag `1.1.0` en start de pipeline. Na de contracttests, alle samples en **publish-catalog** verschijnt deze versie in de [lokale CI/CD Catalog](http://localhost:8929/explore/catalog). Doe dit alleen als die catalogusrelease nog niet bestaat; bestaande versies blijven behouden. Zie [cataloguspublicatie](docs/component-versions.md#publicatie-in-de-cicd-catalog).
+De installer registreert `ci-components` als catalogusproject. Op een lege installatie ontbreken nog de GitLab-releases, ook als de broncodetags al zijn overgezet. Open bij **ci-components → Build → Pipelines → New pipeline** de tag `1.2.0` en start de pipeline. Na de contracttests, alle samples en **publish-catalog** verschijnt deze versie in de [lokale CI/CD Catalog](http://localhost:8929/explore/catalog). Doe dit alleen als die catalogusrelease nog niet bestaat; bestaande versies blijven behouden. Zie [cataloguspublicatie](docs/component-versions.md#publicatie-in-de-cicd-catalog).
 
 | Dienst | Adres |
 |---|---|
