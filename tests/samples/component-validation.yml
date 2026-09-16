@@ -10,11 +10,13 @@ validate-samples:
   stage: integration
   needs: [validate-components]
   rules:
+    - if: '$CI_COMMIT_TAG'
     - if: '$CI_SAMPLES_PROJECT && $CI_PIPELINE_SOURCE == "web"'
     - if: '$CI_SAMPLES_PROJECT'
       changes:
         - templates/**/*
         - shared/**/*
+        - pipelines/**/*
         - examples/samples/**/*
         - examples/modules/**/*
         - tests/samples/**/*

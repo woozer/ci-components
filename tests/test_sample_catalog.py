@@ -33,7 +33,20 @@ class SampleCatalogTests(unittest.TestCase):
 
     def test_example_changes_trigger_real_validation(self):
         config = PARSED[str(ROOT / 'tests/samples/component-validation.yml')][1]
-        self.assertIn('examples/modules/**/*', config['validate-samples']['rules'][1]['changes'])
+        changes = next(rule['changes'] for rule in config['validate-samples']['rules'] if 'changes' in rule)
+        self.assertIn('examples/modules/**/*', changes)
+        self.assertIn('pipelines/**/*', changes)
+
+    def test_catalog_publication_requires_tests_and_a_protected_main_commit(self):
+        job = PARSED[str(ROOT / '.gitlab-ci.yml')][0]['publish-catalog']
+        self.assertEqual(['validate-components', 'validate-samples'], job['needs'])
+        self.assertEqual('$CI_COMMIT_TAG', job['release']['tag_name'])
+        self.assertEqual('$CI_RELEASE_IMAGE', job['image']['name'])
+        self.assertIn('$CI_COMMIT_REF_PROTECTED == "true"', job['rules'][0]['if'])
+        self.assertIn('git merge-base --is-ancestor "$CI_COMMIT_SHA" FETCH_HEAD', job['script'])
+        samples = PARSED[str(ROOT / 'tests/samples/component-validation.yml')][1]['validate-samples']
+        self.assertEqual({'if': '$CI_COMMIT_TAG'}, samples['rules'][0])
+        self.assertEqual('mirror', samples['trigger']['strategy'])
 
 
 if __name__ == '__main__':

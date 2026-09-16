@@ -128,11 +128,13 @@ test-ui:
 
 check-release:
   extends: .publish
+  dependencies: []
   variables:
     GIT_DEPTH: '0'
 
 check-ui-release:
   extends: .publish
+  dependencies: []
   rules:
     - if: '"$[[ inputs.ui-directory ]]" != ""'
   variables:

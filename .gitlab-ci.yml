@@ -6,7 +6,7 @@ workflow:
       when: never
     - when: always
 
-stages: [test, integration]
+stages: [test, integration, release]
 
 validate-components:
   stage: test
@@ -19,3 +19,27 @@ validate-components:
 
 include:
   - local: /tests/samples/component-validation.yml
+
+# Catalog publication requires the native release keyword, not a Releases API script.
+publish-catalog:
+  stage: release
+  tags: [local-docker]
+  image:
+    name: $CI_RELEASE_IMAGE
+    entrypoint: [""]
+  variables:
+    GIT_DEPTH: '0'
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/ && $CI_COMMIT_REF_PROTECTED == "true"'
+  needs: [validate-components, validate-samples]
+  script:
+    - git fetch --no-tags origin "$CI_DEFAULT_BRANCH"
+    - git merge-base --is-ancestor "$CI_COMMIT_SHA" FETCH_HEAD
+  release:
+    tag_name: $CI_COMMIT_TAG
+    name: 'CI-componenten $CI_COMMIT_TAG'
+    description: 'Geteste Maven-, npm-, image-, Helm-, scan- en releasecomponenten. Zie de README en modulehandleiding op deze tag voor inputs, outputs en voorbeelden.'
+    assets:
+      links:
+        - name: Modulehandleiding
+          url: '$CI_PROJECT_URL/-/blob/$CI_COMMIT_TAG/docs/modules.md'

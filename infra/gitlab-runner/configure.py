@@ -143,6 +143,10 @@ def main():
                                 "Local CI component validation", mirrors.get("helper"))
         variable("CI_VALIDATION_IMAGE", json.loads(validation.read_text())["image"],
                  project=component_project)
+        if mirrors.get("release"):
+            variable("CI_RELEASE_IMAGE", mirrors["release"], project=component_project)
+        # Keep GitLab's public localhost URL; glab reaches its API through Docker's host.
+        variable("GITLAB_API_HOST", "host.docker.internal:8929", project=component_project)
         if auth.exists():
             variable("DOCKER_AUTH_CONFIG", auth.read_text(), masked=True,
                      project=component_project)

@@ -84,6 +84,8 @@ Bouw de kandidaatimage één keer. Scan, onderteken, verifieer en promoveer daar
 - Beheer geheimen via een secretmanager of passend beschermde GitLab-variabelen, nooit via componentinputs of outputartifacts.
 - Richt merge- en deploymentbescherming in. Voer GitLab CI Lint uit op de volledig samengevoegde pipeline van de afnemer in de eigen instance.
 - Voer lokaal `python3 -m unittest discover -s tests -p 'test_*.py'` uit. De tests lezen de component-YAML rechtstreeks en vereisen Python 3 en Ruby's standaard YAML-library. Ze vervangen geen echte validatie van scanners, runners, registries en Kubernetes.
+- `tests/test_output_names.py` controleert unieke outputprefixes in onze composities en voorbeelden en test conflicten bij de overdracht. Voor eigen pipelines blijven unieke prefixes en gerichte `needs` de afspraak; zie [gereserveerde outputnamen](modules.md#namen-reserveren-voor-de-producent).
+- Publiceer actieve componenten na validatie met de native catalogusreleasejob. De stappen en vereiste platformvariabelen staan bij [componentversies](component-versions.md#publicatie-in-de-cicd-catalog).
 
 ## Componenten onderhouden en vervangen
 
