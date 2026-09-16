@@ -90,7 +90,9 @@ Bouw de kandidaatimage één keer. Scan, onderteken, verifieer en promoveer daar
 Bewerk actieve bestanden `templates/<component-name>.yml` rechtstreeks. Toekomstige modules staan in `modules/todo/`. Verplaats een module pas naar `templates/` als er een concrete afnemer is en de integratievalidatie klaar is. Elk bestand bevat zijn eigen inputdefinities, jobimage, bewerking en artifacts. Voorbereiding, post-hook-/outputcontrole en cleanup staan gedeeld in [`shared/module.yml`](../shared/module.yml). Een generatiestap is niet nodig.
 
 ```text
-pipelines/java-service.yml   # jobvolgorde en beleid voor Java
+pipelines/java-service.yml   # openbare ingang voor Java
+pipelines/internal/         # gedeelde buildjobs, deployment en release
+shared/java-service.yml      # Maven-instellingen en cache voor deze samenstellingen
 shared/module.yml           # gedeelde joblifecycle
 templates/                  # vijftien actieve modules
 modules/todo/               # zes modules voor toekomstig gebruik

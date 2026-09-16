@@ -36,7 +36,7 @@ Deze keuze selecteert Cucumber-scenario's. Het is geen Spring- of Maven-profiel.
 
 Kies vóór het verstrijken van de timer **Unschedule**, open de job en start deze met de gewenste inputs. Na **Unschedule** blijft de timer gestopt tot de gebruiker de job start. Dit is onze gebruiksafspraak op basis van GitLabs uitgestelde jobs; er verschijnt geen automatische popup. Zie [uitgestelde jobs](https://docs.gitlab.com/ci/jobs/job_control/#run-a-job-after-a-delay).
 
-**deploy-dev** start één childpipeline met **helm-deploy** en **cucumber-dev**. Deze gebruikt dezelfde centrale YAML en haalt image-digest en chartreferentie op uit de exacte parentpipeline. De parenttrigger houdt de dev-lock vast tot beide jobs klaar zijn. Zie [artifacts van parentpipelines](https://docs.gitlab.com/ci/yaml/#needspipelinejob) en [resourcegroepen](https://docs.gitlab.com/ci/resource_groups/).
+**deploy-dev** start één childpipeline met **helm-deploy** en **cucumber-dev**. Deze gebruikt de interne [deploymentconfiguratie](../pipelines/internal/java-deploy.yml) en haalt image-digest en chartreferentie op uit de exacte parentpipeline. De parenttrigger houdt de dev-lock vast tot beide jobs klaar zijn. Zie [artifacts van parentpipelines](https://docs.gitlab.com/ci/yaml/#needspipelinejob) en [resourcegroepen](https://docs.gitlab.com/ci/resource_groups/).
 
 Met `ui-directory` deployt de childpipeline ook de UI en voert hij **cucumber-ui** uit. Beide Cucumber-jobs wachten op beide geslaagde Helm-deployments. Dit geldt ook voor releases. De tests tijdens de build worden nog steeds vóór de deployment uitgevoerd.
 
