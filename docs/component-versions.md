@@ -11,7 +11,7 @@ include:
       image: $JAVA_CI_IMAGE
 ```
 
-Voor `include:project` gebruik je `ref: '1.0.0'`. Geef dezelfde versie door als `library-ref` wanneer het opgenomen voorbeeld of de standaardpipeline dat vraagt. Het formulier van `java-service` gebruikt juist de versie van **ci-pipelines**, gelijk aan de opgenomen pipelinecomponent. Containerimages blijven centraal vastgezet op digest; een componentversie en een applicatierelease zijn afzonderlijke versies.
+Voor `include:project` gebruik je `ref: '1.0.0'`. Geef dezelfde versie door als `library-ref` wanneer het opgenomen componentvoorbeeld dat vraagt. De standaardpipeline zet haar componentversies zelf vast. Het formulier van `java-service` gebruikt de versie van **ci-pipelines**, gelijk aan de opgenomen pipelinecomponent. Containerimages blijven centraal vastgezet op digest; een componentversie en een applicatierelease zijn afzonderlijke versies.
 
 De platformbeheerder publiceert na geslaagde moduletests en samplepipelines een nieuwe tag op een beoordeelde commit van `main`. We beginnen met `1.0.0` en volgen [Semantic Versioning](https://semver.org/lang/nl/): een patch voor compatibele fixes, een minor voor compatibele uitbreidingen en een major voor brekende wijzigingen. Een bestaande versie wordt niet verplaatst, verwijderd of opnieuw gebruikt. Afnemers kiezen een upgrade via hun eigen merge request.
 
