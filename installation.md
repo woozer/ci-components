@@ -81,6 +81,29 @@ Hervat na het lezen en je akkoord:
 
 Log in GitLab in als `root`. Het initiële wachtwoord staat in `infra/gitlab-ce/secrets/initial_root_password`. De beheerderscredentials voor Artifactory en SonarQube staan in hun eigen `secrets/credentials.json`. Het script toont de bestandslocaties en schrijft de wachtwoorden niet naar de terminal.
 
+## Waar staan de gegenereerde geheimen?
+
+De onderstaande paden zijn relatief aan de hoofdmap van je checkout. De installer maakt deze bestanden lokaal aan en hergebruikt ze bij een volgende uitvoering. Ze staan niet in Git en worden niet meegeleverd door een clone.
+
+| Dienst of doel | Lokale bestanden |
+|---|---|
+| Eerste GitLab-login als `root` | `infra/gitlab-ce/secrets/initial_root_password`. Dit is het **initiële** wachtwoord; na een handmatige wijziging is dit bestand geen registratie van je nieuwe wachtwoord. |
+| GitLab-beheer door de installer | `infra/gitlab-ce/secrets/provisioning-token` bevat de API-token. `setup-key` in dezelfde map is de private SSH-sleutel waarmee de installer repositories vult. |
+| Artifactory-accounts | `infra/artifactory/secrets/credentials.json` bevat de gegenereerde beheer-, lees- en publicatieaccounts. |
+| Artifactory-toegang vanuit Docker en Maven | `infra/artifactory/secrets/docker-read.json`, `docker-publisher/config.json`, `maven-settings.xml` en `publisher-password`. Dit zijn afgeleide inlogbestanden voor dezelfde lokale inrichting. |
+| Artifactory-database | `infra/artifactory/.env` bevat `ARTIFACTORY_DB_PASSWORD`. |
+| GitLab Runners | `infra/gitlab-runner/secrets/runner.json` en de overige `*-runner.json` bevatten runnerregistraties met authenticatietokens. De actieve runnerconfiguratie met tokens staat in `infra/gitlab-runner/secrets/config/config.toml`. |
+| Kubernetes-toegang voor CI | `infra/gitlab-runner/secrets/kubeconfig.json` en `samples-kubeconfig.json` bevatten de verbinding en serviceaccounttoken voor respectievelijk de applicatie en samples. |
+| Applicatie- en samplereleases | `infra/gitlab-runner/secrets/release-deploy-key` en `samples-release-key` zijn private SSH-sleutels voor releasetags. `release-registry.json` en `samples-registry.json` bevatten de bijbehorende registry-accounts. |
+| SonarQube-accounts en database | `infra/sonarqube/secrets/credentials.json` bevat de gegenereerde accounts en het databasewachtwoord. `infra/sonarqube/.env` levert onder meer `SONAR_DB_PASSWORD` aan Compose. |
+| SonarQube-analyse vanuit CI | `infra/sonarqube/secrets/gitlab-analysis-token` en `samples-analysis-token` bevatten de afzonderlijke analysetokens. |
+
+Bestanden zoals `project.json`, `*-project.json`, `known_hosts` en `*.pub` zijn lokale metadata of openbare sleutels. Niet ieder bestand onder `secrets/` is dus zelf een geheim. GitLab krijgt daarnaast de benodigde CI-variabelen via de API; die staan bij **Settings → CI/CD → Variables** van het betreffende project, deels als bestandsvariabele en deels met een omgevingsscope.
+
+De diensten bewaren ook eigen encryptiesleutels in hun Docker-volumes. GitLabs `/etc/gitlab/gitlab-secrets.json` hoort bij het Compose-volume `config`; Artifactory bewaart eigen beveiligingssleutels in zijn `data`-volume. De bestanden onder `infra/` alleen zijn daarom geen volledige back-up van een bestaande installatie.
+
+Voor een **nieuwe, lege installatie** hoef je deze geheimen niet over te zetten: de installer genereert nieuwe waarden. Voor het **behouden van de bestaande installatie** bewaar je de lokale geheime bestanden samen met de databases, volumes en encryptiesleutels volgens de herstelprocedure. Commit deze bestanden niet in de openbare repositories. Zie [opnieuw installeren of verhuizen](#opnieuw-installeren-of-verhuizen).
+
 ## Wat staat in Git?
 
 Git bevat Compose-bestanden, scripts, Dockerfiles en de broncode voor het vullen van een nieuwe demo. `.env`, `secrets/`, `infra/.state/` en gegenereerde lokale imageverwijzingen worden genegeerd. Controleer deze uitsluitingen voordat je de repository naar een externe Git-server pusht.
