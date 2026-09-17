@@ -23,6 +23,7 @@ printf '%s\n' "$@" > "$CI_PROJECT_DIR/maven-args"
 printf 'scan\n' >> "$CI_PROJECT_DIR/events"
 if [ "${FAKE_METADATA:-yes}" = yes ]; then
   printf 'ceTaskId=exact-task\n' > "$CI_MODULE_OUTPUT_DIR/report-task.txt"
+  printf 'dashboardUrl=%s\n' "${FAKE_DASHBOARD_URL-https://sonar.example.com/dashboard?id=example}" >> "$CI_MODULE_OUTPUT_DIR/report-task.txt"
 fi
 exit "${FAKE_MAVEN_EXIT:-0}"
 ''')
@@ -41,6 +42,10 @@ exit "${FAKE_MAVEN_EXIT:-0}"
         self.assertEqual(['scan', 'post', 'cleanup'], h.events())
         self.assertEqual('passed', h.outputs()['SONAR_STATUS'])
         self.assertIn('ceTaskId=exact-task', (self.root / h.outputs()['SONAR_TASK_FILE']).read_text())
+        self.assertEqual(0, h.cleanup.returncode, h.cleanup.stderr)
+        self.assertEqual({'sonar': [{'external_link': {
+            'label': 'Open SonarQube', 'url': 'https://sonar.example.com/dashboard?id=example'}}]},
+            json.loads((h.output_file.parent / 'annotations.json').read_text()))
 
     def test_sonar_scanner_or_gate_failure_blocks_post_hook_and_outputs(self):
         h = self.sonar(**{'maven-executable': 'mvn'})
@@ -49,12 +54,39 @@ exit "${FAKE_MAVEN_EXIT:-0}"
         self.assertEqual(['scan', 'cleanup'], h.events())
         self.assertTrue((h.output_file.parent / 'report-task.txt').exists())
         self.assertFalse(h.output_file.exists())
+        self.assertEqual(0, h.cleanup.returncode, h.cleanup.stderr)
+        self.assertTrue(json.loads((h.output_file.parent / 'annotations.json').read_text())['sonar'])
 
     def test_sonar_missing_metadata_is_not_success(self):
         h = self.sonar(**{'maven-executable': 'mvn'})
         h.env['FAKE_METADATA'] = 'no'
         self.assertNotEqual(0, h.run().returncode)
         self.assertFalse(h.output_file.exists())
+        self.assertEqual(0, h.cleanup.returncode, h.cleanup.stderr)
+        self.assertFalse((h.output_file.parent / 'annotations.json').exists())
+
+    def test_sonar_dashboard_link_preserves_url_and_works_with_custom_job_and_workdir(self):
+        h = self.sonar(**{'maven-executable': 'mvn', 'job-name': 'backend-sonar',
+                         'working-directory': 'backend'})
+        (self.root / 'backend').mkdir()
+        url = 'https://sonar.example.com/dashboard?id=team:app&branch=main&extra="quoted"\\path'
+        h.env['FAKE_DASHBOARD_URL'] = url
+        result = h.run()
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertEqual(0, h.cleanup.returncode, h.cleanup.stderr)
+        report = json.loads((h.output_file.parent / 'annotations.json').read_text())
+        self.assertEqual(url, report['sonar'][0]['external_link']['url'])
+
+    def test_sonar_metadata_without_dashboard_url_does_not_invent_a_link(self):
+        for url in ('', 'javascript:alert(1)', 'https://sonar.example.com/invalid\tpath'):
+            with self.subTest(url=url):
+                h = self.sonar(**{'maven-executable': 'mvn'})
+                h.env['FAKE_DASHBOARD_URL'] = url
+                result = h.run()
+                self.assertEqual(0, result.returncode, result.stderr)
+                self.assertEqual(0, h.cleanup.returncode, h.cleanup.stderr)
+                self.assertEqual({'sonar': []},
+                                 json.loads((h.output_file.parent / 'annotations.json').read_text()))
 
     def dependency_check(self):
         h = Harness(self.root, 'dependency-check', inputs={'maven-executable': 'mvn'})

@@ -108,7 +108,9 @@ include:
   artifacts:
     when: 'always'
     expire_in: '$[[ inputs.artifact-expire-in ]]'
+    expose_as: 'Dependency-Check report'
     paths:
-      - '.ci-output/$CI_JOB_NAME/'
+      # MR artifact links require a path resolved before the job runs.
+      - '.ci-output/$[[ inputs.job-name ]]/'
     reports:
       dotenv: '.ci-output/$CI_JOB_NAME/outputs.env'

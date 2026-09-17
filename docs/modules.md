@@ -147,6 +147,8 @@ Bouwt een Maven-project of reactor en voert de unittests uit.
 
 **Bestanden:** `<workdir>/**/target/`. Surefire-rapporten uit `<workdir>/**/target/surefire-reports/TEST-*.xml` zijn ook als JUnit-rapporten gedeclareerd. De POM bepaalt welke JARs, andere packages en coveragebestanden ontstaan.
 
+**Zichtbaar in GitLab:** de JUnit-resultaten verschijnen onder **Tests** bij de pipeline en in de testsamenvatting van een MR. Bestaande JaCoCo-rapporten uit `<workdir>/**/target/site/jacoco/jacoco.xml` worden via `artifacts:reports:coverage_report` ingelezen. Daarmee toont GitLab in de MR-diff welke gewijzigde regels door tests worden afgedekt. Gebruik bij meerdere Maven-modules afzonderlijke rapporten; GitLab ondersteunt hiervoor geen geaggregeerd JaCoCo-reactorrapport. Dit stelt geen minimale testdekking in en toont op zichzelf geen coveragepercentage. Zonder JaCoCo-rapport blijft de build bruikbaar, maar ontbreekt de coverageweergave. Zie [GitLabs JaCoCo-weergave](https://docs.gitlab.com/ci/testing/code_coverage/jacoco/).
+
 **Vervolgjob:** haal de buildjob op via `needs` met artifacts voor classes, packages of coverage, bijvoorbeeld voor Sonar. Gebruik het bij de applicatie afgesproken pad binnen `target/`.
 
 ## maven-publish
@@ -327,13 +329,15 @@ Analyseert het Maven-project met SonarScanner for Maven en wacht op de quality g
 
 Houd `gate-timeout` binnen `job-timeout`. De lokale Community Build draait in onze standaardpipeline alleen op protected `main` en tijdens releases; zie [scannerinrichting](scanners.md).
 
-**Werking en controles:** De module vereist een geslaagde analyse met `sonar.qualitygate.wait=true` en een niet-leeg taakbestand. De Sonar-opdracht bepaalt of de gate slaagt; de module parseert het taakbestand niet zelf.
+**Werking en controles:** De module vereist een geslaagde analyse met `sonar.qualitygate.wait=true` en een niet-leeg taakbestand. De Sonar-opdracht bepaalt of de gate slaagt. De module leest alleen de dashboard-URL uit het taakbestand voor de rapportlink; zij leidt daar geen quality-gatestatus uit af.
 
 | Output | Betekenis |
 |---|---|
 | `SONAR_TASK_FILE` | Bestand `<output-dir>/report-task.txt` met metadata van de scantaak |
 
-**Bestanden en opslag:** `report-task.txt` is een jobartifact. De analyse en quality-gatestatus staan in SonarQube; dit bestand is geen volledige export van de bevindingen.
+**Bestanden en opslag:** `report-task.txt` is een jobartifact. `annotations.json` wordt in `after_script` aangemaakt als het taakbestand beschikbaar is. Via `artifacts:reports:annotations` verschijnt **Open SonarQube** op de jobpagina zodra het taakbestand een HTTP(S)-dashboard-URL bevat. Dit gebeurt ook bij een afgekeurde quality gate; zonder dashboard-URL verschijnt geen link. De gedeelde cleanup-hook blijft beschikbaar. De analyse en quality-gatestatus staan in SonarQube; deze artifacts zijn geen volledige export van de bevindingen. Zie [GitLab-joblinks](https://docs.gitlab.com/ci/yaml/artifacts_reports/#artifactsreportsannotations).
+
+**Zichtbaar in GitLab:** de jobstatus geeft aan of de analyse en quality gate geslaagd zijn; de link opent het dashboard. Dit voegt geen Sonar-analyse van een MR toe: Community Build ondersteunt geen branch- of MR-analyse. Een dashboard van `main` beoordeelt dus niet de wijzigingen van een open MR.
 
 **Vervolgjob:** gebruik `needs` met artifacts als taakmetadata nodig is. Voor alleen de verplichte quality gate gebruik je de geslaagde job als afhankelijkheid met `artifacts: false`.
 
@@ -356,6 +360,8 @@ De optionele OSS Index-controle staat uit. De lokale mirror, uitzonderingen en b
 | `DEPENDENCY_CHECK_REPORT_DIR` | Map `<output-dir>` met de scanrapporten |
 
 **Bestanden:** `<output-dir>/dependency-check-report.json` en `<output-dir>/dependency-check-report.html`. Dit zijn gewone jobartifacts, geen CycloneDX-SBOM of GitLab dependency-scanningrapport.
+
+**Zichtbaar in GitLab:** `artifacts:expose_as` voegt in de MR de link **Dependency-Check report** toe. Die opent de artifactmap met het HTML- en JSON-rapport. Buiten een MR zijn dezelfde bestanden bij de job beschikbaar. Het pad wordt uit `job-name` ingevuld wanneer GitLab de configuratie samenstelt; zo werkt de link ook bij een aangepaste jobnaam. Beschikbare rapporten blijven bij een mislukte scan bewaard. Of HTML in de browser kan worden bekeken of wordt gedownload, hangt af van de GitLab Pages-inrichting. De ingebouwde dependency-scanningweergave met bevindingen vereist GitLab Ultimate. Zie [GitLab-rapportlinks](https://docs.gitlab.com/ci/yaml/#artifactsexpose_as) en [dependency-scanningrapporten](https://docs.gitlab.com/ci/yaml/artifacts_reports/#artifactsreportsdependency_scanning).
 
 **Vervolgjob:** haal deze job op via `needs` met artifacts om de rapporten te verwerken. Gebruik `artifacts: false` als alleen de scan moet slagen.
 

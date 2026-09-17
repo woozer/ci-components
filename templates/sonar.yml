@@ -99,6 +99,28 @@ include:
       emit TASK_FILE ".ci-output/$CI_JOB_NAME/report-task.txt"
     - !reference [.ci-module, script]
   after_script:
+    # Keep the dashboard link available even when the scanner's quality gate fails.
+    - |
+      sonar_report_dir="$CI_PROJECT_DIR/.ci-output/$CI_JOB_NAME"
+      if [ -s "$sonar_report_dir/report-task.txt" ]; then
+        awk '
+          BEGIN { printf "{\"sonar\":[" }
+          /^dashboardUrl=https?:\/\// {
+            sub(/^dashboardUrl=/, "")
+            sub(/\r$/, "")
+            if ($0 ~ /[[:cntrl:]]/) next
+            url = ""
+            for (i = 1; i <= length($0); i++) {
+              c = substr($0, i, 1)
+              if (c == "\\" || c == "\"") url = url "\\"
+              url = url c
+            }
+            printf "{\"external_link\":{\"label\":\"Open SonarQube\",\"url\":\"%s\"}}", url
+            exit
+          }
+          END { print "]}" }
+        ' "$sonar_report_dir/report-task.txt" > "$sonar_report_dir/annotations.json"
+      fi
     - !reference [.ci-module, after_script]
   artifacts:
     when: 'always'
@@ -107,3 +129,4 @@ include:
       - '.ci-output/$CI_JOB_NAME/'
     reports:
       dotenv: '.ci-output/$CI_JOB_NAME/outputs.env'
+      annotations: '.ci-output/$CI_JOB_NAME/annotations.json'
