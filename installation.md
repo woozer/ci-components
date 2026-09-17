@@ -100,6 +100,8 @@ De onderstaande paden zijn relatief aan de hoofdmap van je checkout. De installe
 
 Bestanden zoals `project.json`, `*-project.json`, `known_hosts` en `*.pub` zijn lokale metadata of openbare sleutels. Niet ieder bestand onder `secrets/` is dus zelf een geheim. GitLab krijgt daarnaast de benodigde CI-variabelen via de API; die staan bij **Settings → CI/CD → Variables** van het betreffende project, deels als bestandsvariabele en deels met een omgevingsscope.
 
+Bij opnieuw uitvoeren hergebruikt de installer opgeslagen credentials, maar werkt hij de door hem beheerde CI-variabelen en runnerconfiguratie bij naar de lokale demo-instellingen. Handmatige wijzigingen aan dezelfde variabelen, zoals een ander image of serveradres, kunnen daardoor worden vervangen. Gebruik voor eigen organisatiediensten de [inrichting voor de eigen organisatie](docs/real-environment.md); de demo-installer beheert uitsluitend deze lokale omgeving.
+
 De diensten bewaren ook eigen encryptiesleutels in hun Docker-volumes. GitLabs `/etc/gitlab/gitlab-secrets.json` hoort bij het Compose-volume `config`; Artifactory bewaart eigen beveiligingssleutels in zijn `data`-volume. De bestanden onder `infra/` alleen zijn daarom geen volledige back-up van een bestaande installatie.
 
 Voor een **nieuwe, lege installatie** hoef je deze geheimen niet over te zetten: de installer genereert nieuwe waarden. Voor het **behouden van de bestaande installatie** bewaar je de lokale geheime bestanden samen met de databases, volumes en encryptiesleutels volgens de herstelprocedure. Commit deze bestanden niet in de openbare repositories. Zie [opnieuw installeren of verhuizen](#opnieuw-installeren-of-verhuizen).
