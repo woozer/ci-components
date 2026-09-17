@@ -95,12 +95,13 @@ include:
     - |
       "$MAVEN_EXECUTABLE" --batch-mode --no-transfer-progress -DskipTests -DskipITs install \
         "org.owasp:dependency-check-maven:$DEPENDENCY_CHECK_VERSION:aggregate" \
-        "-DfailBuildOnCVSS=$DEPENDENCY_CHECK_CVSS" -DfailOnError=true \
+        "-DfailBuildOnCVSS=$DEPENDENCY_CHECK_CVSS" "-DjunitFailOnCVSS=$DEPENDENCY_CHECK_CVSS" -DfailOnError=true \
         "-DnvdDatafeedUrl=$DEPENDENCY_CHECK_FEED_URL" \
         "-DdataDirectory=$CI_PROJECT_DIR/$DEPENDENCY_CHECK_DATA_DIR" \
-        -DossIndexAnalyzerEnabled=false -Dformats=HTML,JSON \
+        -DossIndexAnalyzerEnabled=false -Dformats=HTML,JSON,JUNIT \
         "-Dodc.outputDirectory=$CI_MODULE_OUTPUT_DIR"
       test -s "$CI_MODULE_OUTPUT_DIR/dependency-check-report.json"
+      test -s "$CI_MODULE_OUTPUT_DIR/dependency-check-junit.xml"
       emit REPORT_DIR ".ci-output/$CI_JOB_NAME"
     - !reference [.ci-module, script]
   after_script:
@@ -114,3 +115,4 @@ include:
       - '.ci-output/$[[ inputs.job-name ]]/'
     reports:
       dotenv: '.ci-output/$CI_JOB_NAME/outputs.env'
+      junit: '.ci-output/$CI_JOB_NAME/dependency-check-junit.xml'

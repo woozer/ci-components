@@ -97,6 +97,7 @@ De onderstaande paden zijn relatief aan de hoofdmap van je checkout. De installe
 | Applicatie- en samplereleases | `infra/gitlab-runner/secrets/release-deploy-key` en `samples-release-key` zijn private SSH-sleutels voor releasetags. `release-registry.json` en `samples-registry.json` bevatten de bijbehorende registry-accounts. |
 | SonarQube-accounts en database | `infra/sonarqube/secrets/credentials.json` bevat de gegenereerde accounts en het databasewachtwoord. `infra/sonarqube/.env` levert onder meer `SONAR_DB_PASSWORD` aan Compose. |
 | SonarQube-analyse vanuit CI | `infra/sonarqube/secrets/gitlab-analysis-token` en `samples-analysis-token` bevatten de afzonderlijke analysetokens. |
+| SonarQube-rapportage naar GitLab | Onder `infra/sonarqube/secrets/` staan per project `<project>-report-account.json`, `<project>-report-token` en `<project>-gitlab-report-token.json`. `<project>` is `hello-world` of `ci-samples`. Deze bestanden bevatten het Sonar-leesaccount en de tokens voor lezen en het plaatsen van een commitreactie. Het GitLab-token heeft een vervaldatum; zie [de Sonar-inrichting](infra/sonarqube/README.md). |
 
 Bestanden zoals `project.json`, `*-project.json`, `known_hosts` en `*.pub` zijn lokale metadata of openbare sleutels. Niet ieder bestand onder `secrets/` is dus zelf een geheim. GitLab krijgt daarnaast de benodigde CI-variabelen via de API; die staan bij **Settings → CI/CD → Variables** van het betreffende project, deels als bestandsvariabele en deels met een omgevingsscope.
 

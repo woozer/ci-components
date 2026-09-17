@@ -5,7 +5,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from test_contracts import Harness
+from test_contracts import Harness, ROOT
 
 
 class ScannerTests(unittest.TestCase):
@@ -18,6 +18,10 @@ class ScannerTests(unittest.TestCase):
         h = Harness(self.root, 'sonar', inputs=inputs, env={
             'SONAR_HOST_URL': 'https://sonar.example.com', 'SONAR_TOKEN': 'test-only',
             'SONAR_PROJECT_KEY': 'example'})
+        h.env.pop('SONAR_REPORT_TOKEN', None)
+        h.env.pop('GITLAB_REPORT_TOKEN', None)
+        h.job['after_script'] = [command.replace('/opt/ci/sonar_report.py',
+                                 str(ROOT / 'scripts/sonar_report.py')) for command in h.job['after_script']]
         h.write('bin/mvn', '''#!/bin/sh
 printf '%s\n' "$@" > "$CI_PROJECT_DIR/maven-args"
 printf 'scan\n' >> "$CI_PROJECT_DIR/events"
@@ -95,6 +99,9 @@ exit "${FAKE_MAVEN_EXIT:-0}"
 printf '%s\n' "$@" > "$CI_PROJECT_DIR/maven-args"
 if [ "${FAKE_REPORT:-yes}" = yes ]; then
   printf '{}' > "$CI_MODULE_OUTPUT_DIR/dependency-check-report.json"
+  if [ "${FAKE_JUNIT:-yes}" = yes ]; then
+    printf '<testsuites/>\n' > "$CI_MODULE_OUTPUT_DIR/dependency-check-junit.xml"
+  fi
 fi
 exit "${FAKE_MAVEN_EXIT:-0}"
 ''')
@@ -110,8 +117,9 @@ exit "${FAKE_MAVEN_EXIT:-0}"
         self.assertIn('-DdataDirectory=' + str(self.root / '.cache/dependency-check'), args)
         self.assertIn('-DfailOnError=true', args)
         self.assertIn('-DfailBuildOnCVSS=7', args)
+        self.assertIn('-DjunitFailOnCVSS=7', args)
         self.assertIn('-DossIndexAnalyzerEnabled=false', args)
-        self.assertIn('-Dformats=HTML,JSON', args)
+        self.assertIn('-Dformats=HTML,JSON,JUNIT', args)
         self.assertFalse(any('ApiKey' in arg for arg in args))
         self.assertEqual('passed', h.outputs()['DEPENDENCY_CHECK_STATUS'])
 
@@ -125,6 +133,12 @@ exit "${FAKE_MAVEN_EXIT:-0}"
     def test_dependency_check_requires_a_report(self):
         h = self.dependency_check()
         h.env['FAKE_REPORT'] = 'no'
+        self.assertNotEqual(0, h.run().returncode)
+        self.assertFalse(h.output_file.exists())
+
+    def test_dependency_check_requires_junit_for_the_promised_gitlab_report(self):
+        h = self.dependency_check()
+        h.env['FAKE_JUNIT'] = 'no'
         self.assertNotEqual(0, h.run().returncode)
         self.assertFalse(h.output_file.exists())
 

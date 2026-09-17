@@ -1,0 +1,3 @@
+**
+!infra/sonarqube/Dockerfile
+!scripts/sonar_report.py

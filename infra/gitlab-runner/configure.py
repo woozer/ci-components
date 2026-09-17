@@ -107,7 +107,7 @@ def main():
         virtual = json.loads(hub_path.read_text())["virtual_repository"]
         mirrors = {name: ref.replace("/docker-local/", f"/{virtual}/", 1)
                    for name, ref in mirrors.items()}
-    config = "concurrent = 1\ncheck_interval = 3\nshutdown_timeout = 30\n"
+    config = "concurrent = 2\ncheck_interval = 3\nshutdown_timeout = 30\n"
     config += runner_config(PROJECT, PRIVATE / "runner.json",
                             "Local Docker Desktop", mirrors.get("helper"))
     if mirrors.get("buildkit"):

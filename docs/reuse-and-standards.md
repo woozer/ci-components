@@ -110,6 +110,12 @@ Scenario's met `@ui` draaien na beide deployments en zijn verplicht voor afrondi
 
 `maven-build` volgt de gewone Maven-lifecycle: `package` omvat Surefire-unittests. Cucumber/Failsafe blijft een afzonderlijke integratieteststap. De voorbereide `maven-test`-module is hiermee samengevoegd. JUnit-rapporten horen bij de build; JaCoCo-configuratie hoort in de POM. Publicatie slaat de al uitgevoerde unit- en integratietests over en moet via `needs` van de geslaagde validatie afhangen. Zie [Mavens build-lifecycle](https://maven.apache.org/guides/introduction/introduction-to-the-lifecycle.html).
 
+### Rapportage in GitLab
+
+We gebruiken GitLabs jobstatus, JUnit-rapporten, JaCoCo-diffweergave en rapportlinks. Voor Sonar heeft de ingebouwde MR-integratie de voorkeur wanneer de editie dit ondersteunt. Community Build analyseert geen open MR's. Onze centrale Python-helper voor een **commitreactie** is daarom bewust maatwerk: hij gebruikt de officiële API's en koppelt het resultaat aan de werkelijk geanalyseerde commit. We onderhouden en testen die helper zelf; hij vervangt geen Sonar MR-analyse.
+
+Dependency-Check ondersteunt zelf JUnit-uitvoer. De keuze om dependencybevindingen onder GitLabs **Tests** te tonen is onze praktische afspraak voor CE, geen formele securitystandaard. De volledige scanrapporten blijven jobartifacts. Zie [rapportage en beperkingen](scanners.md#waar-vind-je-de-resultaten).
+
 Ontwerp één component per herkenbare taak voor de afnemer. GitLab staat meerdere jobs binnen één component toe. Een losse technische stap vereist daarom geen eigen publieke module. Splits alleen op bij aantoonbaar zelfstandig gebruik, verschillende rechten of verschillende uitvoeringsmomenten. Dit is onze ontwerpafspraak binnen [GitLabs componentmodel](https://docs.gitlab.com/ci/components/).
 
 De TODO-modules zijn op drie plaatsen samengevoegd: `sonar` verzorgt analyse en de native quality gate, `fortify` combineert scan en beleidscontrole, en `image-scan` maakt ook het CycloneDX-SBOM. Daarmee vervallen drie losse componenten en de eigen Sonar-pollingcode. Dit is een keuze voor eenvoud, geen voorgeschreven industriestandaard. `sonar` is met Dependency-Check opgenomen in de actieve verzameling. `fortify` en `image-scan` blijven in `modules/todo/` voor latere integratie. Zie de [scanhandleiding](scanners.md) voor de gratis demo-inrichting.

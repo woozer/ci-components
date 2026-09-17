@@ -9,9 +9,25 @@ De standaardpipeline voert scans uit vóór publicatie. Je hoeft hiervoor geen e
 
 Publicatie wacht op beide controles. Een afgekeurde controle, toolfout of timeout laat de job falen. Er is geen aparte gatejob. Rapporten blijven voor foutonderzoek beschikbaar als GitLab-artifacts; outputvariabelen verschijnen pas na succes.
 
+## Waar vind je de resultaten?
+
+| Weergave | Doel |
+|---|---|
+| Job- en pipelinestatus | Geslaagd, mislukt of nog bezig. Met **Pipelines must succeed** blokkeert een mislukte verplichte pipeline het mergen. |
+| Testrapport in de MR | GitLabs testsamenvatting toont aantallen en aanklikbare foutdetails uit JUnit. Dezelfde rapporten blijven onder **Tests** en bij de jobs beschikbaar. |
+| Sonar-reactie | Bij een geschikte Sonar-editie verzorgt de ingebouwde GitLab-integratie de MR-samenvatting. Onze Community-inrichting plaatst alleen een samenvatting bij de werkelijk geanalyseerde commit. |
+| Volledig rapport | De joblink **Open SonarQube** opent het dashboard; Dependency-Check bewaart HTML en JSON als jobartifacts. |
+| Badge op de projectpagina of in de README | Optioneel overzicht van bijvoorbeeld de laatste buildstatus. Geen vervanging voor het resultaat van een specifieke MR. |
+
+Dependency-Check levert ook zijn native JUnit-formaat aan. Daardoor kun je scanbevindingen lezen in GitLabs testoverzicht zonder eerst HTML te downloaden. De controles staan bij de job `dependency-check` en zijn geen functionele tests. Dit is onze CE-keuze; het is geen vervanging voor de uitgebreidere securityweergave van GitLab Ultimate.
+
+De rapporten moeten uit de pipeline van het betreffende project komen. Een validatiepipeline die samples in een **ander project** start, neemt hun testrapporten niet over in de bibliotheek-MR. Childpipelines binnen hetzelfde project ondersteunen die weergave wel; onze samples gebruiken daarvoor `strategy: mirror`. Zie [GitLabs testrapporten](https://docs.gitlab.com/ci/testing/unit_test_reports/) en [childpipelines](https://docs.gitlab.com/ci/pipelines/downstream_pipelines/#view-child-pipeline-reports-in-merge-requests).
+
 ## SonarQube
 
-SonarQube Community Build is gratis en draait lokaal op [localhost:9000](http://localhost:9000). De inrichting maakt automatisch een beperkt CI-account en een analysetoken voor `hello-world` aan. Alleen GitLab krijgt dat token, als gemaskeerde en beschermde variabele `SONAR_TOKEN`. `SONAR_HOST_URL` en `SONAR_PROJECT_KEY` bepalen de lokale bestemming.
+SonarQube Community Build is gratis en draait lokaal op [localhost:9000](http://localhost:9000). De inrichting maakt automatisch beperkte accounts en analysetokens voor `hello-world` en `ci-samples` aan. GitLab krijgt het analysetoken als gemaskeerde en beschermde variabele `SONAR_TOKEN`. `SONAR_HOST_URL` en `SONAR_PROJECT_KEY` bepalen de lokale bestemming.
+
+De installer regelt ook afzonderlijke rapportagetokens: `SONAR_REPORT_TOKEN` voor lezen en `GITLAB_REPORT_TOKEN` voor een reactie bij de geanalyseerde commit. De centrale Python-helper draait vanuit de scanimage in `after_script`, bewaart `summary.md` en werkt bij een retry zijn eigen reactie bij. Hij controleert de analyse-ID en commit voordat hij meetwaarden publiceert. Ontbrekende of verouderde gegevens krijgen geen groen oordeel. Een fout bij het plaatsen van de reactie verandert de scanstatus niet. De precieze afspraken staan bij [de Sonar-module](modules.md#sonar).
 
 De component gebruikt SonarScanner for Maven en wacht met `sonar.qualitygate.wait=true` op het resultaat. `gate-timeout` staat standaard op 300 seconden. De standaardpipeline schakelt `sonar.maven.scanAll` in om ook niet-Java-bronnen, waaronder de Angular-UI, mee te nemen. Gegenereerde bestanden en dependencycaches zijn uitgesloten. Testdekking kan alleen worden beoordeeld als de applicatie ook coverage-rapporten aanlevert; een geslaagde analyse is geen bewijs dat zulke rapporten aanwezig zijn.
 
