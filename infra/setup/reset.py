@@ -1,7 +1,7 @@
 """Explicitly reset demo-owned data while retaining source code and Git history."""
 import shutil
 
-from common import INFRA, STATE, announce, compose, kubectl, load_json, run
+from common import INFRA, ROOT, STATE, announce, compose, kubectl, load_json, run
 
 STACKS = ('gitlab-runner', 'sonarqube', 'artifactory', 'gitlab-ce')
 FILES = ('artifactory/ci-images.json', 'artifactory/docker-hub.json', 'artifactory/eula.html',
@@ -19,8 +19,10 @@ def reset(delete_data=False):
     check = run(['git', 'status', '--porcelain'], capture=True)
     if check.strip():
         raise RuntimeError('Commit the source changes before resetting the demo.')
-    for version in load_json(INFRA / 'seed/manifest.json')['component_versions']:
-        run(['git', 'rev-parse', '--verify', f'refs/tags/{version}^{{commit}}'], capture=True)
+    manifest = load_json(INFRA / 'seed/manifest.json')
+    for source, key in ((ROOT, 'component_versions'), (ROOT / 'pipelines', 'pipeline_versions')):
+        for version in manifest[key]:
+            run(['git', 'rev-parse', '--verify', f'refs/tags/{version}^{{commit}}'], cwd=source, capture=True)
     compose('gitlab-runner', 'stop', 'runner')
     for namespace in ('hello-world', 'ci-samples'):
         kubectl('delete', 'namespace', namespace, '--ignore-not-found', '--timeout=120s')

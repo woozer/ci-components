@@ -16,7 +16,6 @@ validate-samples:
       changes:
         - templates/**/*
         - shared/**/*
-        - pipelines/**/*
         - examples/samples/**/*
         - examples/modules/**/*
         - tests/samples/**/*

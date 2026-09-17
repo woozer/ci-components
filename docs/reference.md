@@ -84,7 +84,7 @@ Bouw de kandidaatimage één keer. Scan, onderteken, verifieer en promoveer daar
 - Beheer geheimen via een secretmanager of passend beschermde GitLab-variabelen, nooit via componentinputs of outputartifacts.
 - Richt merge- en deploymentbescherming in. Voer GitLab CI Lint uit op de volledig samengevoegde pipeline van de afnemer in de eigen instance.
 - Voer lokaal `python3 -m unittest discover -s tests -p 'test_*.py'` uit. De tests lezen de component-YAML rechtstreeks en vereisen Python 3 en Ruby's standaard YAML-library. Ze vervangen geen echte validatie van scanners, runners, registries en Kubernetes.
-- `tests/test_output_names.py` controleert unieke outputprefixes in onze composities en voorbeelden en test conflicten bij de overdracht. Voor eigen pipelines blijven unieke prefixes en gerichte `needs` de afspraak; zie [gereserveerde outputnamen](modules.md#namen-reserveren-voor-de-producent).
+- `tests/test_output_names.py` controleert unieke outputprefixes in onze modulevoorbeelden en test conflicten bij de overdracht. Voor eigen pipelines blijven unieke prefixes en gerichte `needs` de afspraak; zie [gereserveerde outputnamen](modules.md#namen-reserveren-voor-de-producent).
 - Publiceer actieve componenten na validatie met de native catalogusreleasejob. De stappen en vereiste platformvariabelen staan bij [componentversies](component-versions.md#publicatie-in-de-cicd-catalog).
 
 ## Componenten onderhouden en vervangen
@@ -92,9 +92,7 @@ Bouw de kandidaatimage één keer. Scan, onderteken, verifieer en promoveer daar
 Bewerk actieve bestanden `templates/<component-name>.yml` rechtstreeks. Toekomstige modules staan in `modules/todo/`. Verplaats een module pas naar `templates/` als er een concrete afnemer is en de integratievalidatie klaar is. Elk bestand bevat zijn eigen inputdefinities, jobimage, bewerking en artifacts. Voorbereiding, post-hook-/outputcontrole en cleanup staan gedeeld in [`shared/module.yml`](../shared/module.yml). Een generatiestap is niet nodig.
 
 ```text
-pipelines/java-service.yml   # openbare ingang voor Java
-pipelines/internal/         # gedeelde buildjobs, deployment en release
-shared/java-service.yml      # Maven-instellingen en cache voor deze samenstellingen
+pipelines/                  # Git-submodule: aparte repository ci-pipelines
 shared/module.yml           # gedeelde joblifecycle
 templates/                  # vijftien actieve modules
 modules/todo/               # zes modules voor toekomstig gebruik

@@ -33,8 +33,9 @@ def check():
     if 'config_path = "/etc/containerd/certs.d"' not in containerd:
         raise RuntimeError('The Docker Desktop node does not enable the expected containerd registry configuration directory.')
     manifest = load_json(INFRA / 'seed/manifest.json')
-    for version in manifest['component_versions']:
-        run(['git', 'rev-parse', '--verify', f'refs/tags/{version}^{{commit}}'], capture=True)
+    for source, key in ((ROOT, 'component_versions'), (ROOT / 'pipelines', 'pipeline_versions')):
+        for version in manifest[key]:
+            run(['git', 'rev-parse', '--verify', f'refs/tags/{version}^{{commit}}'], cwd=source, capture=True)
     announce(f'Prerequisites ready: linux/{arch}, {len(nodes)} Kubernetes node(s), '
              f'{info["MemTotal"] / (1024 ** 3):.1f} GiB Docker memory.')
     return arch

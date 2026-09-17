@@ -1,6 +1,6 @@
 # Instellingen van de demo
 
-Het organisatiebestand [config/organization.yml](../config/organization.yml) bevat gedeelde serveradressen en imagekeuzes. Het voegt geen jobs toe. De applicatie neemt [java-service.yml](../pipelines/java-service.yml) rechtstreeks op. Die samenstelling bepaalt de modules, jobvolgorde en standaardwaarden op basis van de projectnaam.
+Het organisatiebestand [config/organization.yml](../config/organization.yml) bevat gedeelde serveradressen en imagekeuzes. Het voegt geen jobs toe. De applicatie neemt de cataloguscomponent [java-service](https://github.com/woozer/ci-pipelines/blob/main/templates/java-service.yml) rechtstreeks op. Die samenstelling bepaalt de modules, jobvolgorde en standaardwaarden op basis van de projectnaam.
 
 Voor eigen serveradressen, credentials en OpenShift beschrijft [gebruik in de eigen organisatie](real-environment.md) de verdeling van instellingen en de configureerbare platformkeuzes.
 
@@ -33,7 +33,7 @@ GitLab-variabelen selecteren images voor Java/Maven, Node, BuildKit, Helm en Pla
 
 De sample deployt naar lokaal Kubernetes. Voor OpenShift kun je dezelfde module `helm-deploy` gebruiken met een OpenShift-kubeconfig. Beperk deploymentcredentials tot de bijbehorende GitLab-omgeving, bijvoorbeeld `dev/local`, `dev/openshift-test` of `release/dev/openshift-test`, en geef alleen toegang tot de benodigde namespace. Publicatiejobs moeten ook over hun registry-credentials kunnen beschikken. Zet geen toegangsgegevens in de organisatie-YAML, hookparameters of outputartifacts.
 
-**De vaste applicatie-instellingen zijn de verplichte inputs `library-ref` en `maven-project`.** De demo schakelt de aparte UI in met `ui-directory: ui`. Daarnaast geeft de applicatie keuzes uit het gedeelde formulier **New pipeline** door. De standaardpipeline gebruikt `$CI_PROJECT_NAME` als applicatienaam en namespace, `helm/$CI_PROJECT_NAME` als chartpad en `environment/` als configuratiemap. Lokale URL's, HTTP-toegang tot de registry en de koppeling tussen cluster en kubeconfig staan centraal bij de organisatie-instellingen. De applicatie herhaalt geen standaardwaarden. Stages, afhankelijkheden en hooks staan in de centrale strategie.
+**Alleen `maven-project` is een verplichte componentinput van `java-service`.** De demo schakelt de aparte UI in met `ui-directory: ui`. Daarnaast geeft de applicatie keuzes uit het gedeelde formulier **New pipeline** door. De standaardpipeline gebruikt `$CI_PROJECT_NAME` als applicatienaam en namespace, `helm/$CI_PROJECT_NAME` als chartpad en `environment/` als configuratiemap. Lokale URL's, HTTP-toegang tot de registry en de koppeling tussen cluster en kubeconfig staan centraal bij de organisatie-instellingen. De applicatie herhaalt geen standaardwaarden. Stages, afhankelijkheden en hooks staan in de centrale strategie.
 
 Na publicatie kiest de job `configure-deploy` de waarden van `cluster` en `user_config`, met standaard tien seconden wachttijd. `pipeline_mode` kies je vóór het aanmaken van de pipeline. De optionele job `test-custom` accepteert een Cucumber-tagselectie; verplichte tests houden hun vaste configuratie. Zie [pipelinekeuzes](pipeline-options.md).
 

@@ -512,6 +512,6 @@ Verplaats een module pas naar `templates/` nadat er een concrete afnemer is en d
 
 ## Optionele standaardpipeline
 
-[java-service.yml](../pipelines/java-service.yml) is een kant-en-klare samenstelling van dezelfde modules. Deze ondersteunt één Java-applicatie of een Maven-reactor met één deploybare Java-module, eventueel met een Angular-UI. Meerdere Maven-modules betekenen niet automatisch meerdere deployables. Gebruik voor meer deployables expliciete module-instanties zoals in de voorbeelden; automatische verdeling over een willekeurig aantal deployables is niet geïmplementeerd.
+[java-service.yml](https://github.com/woozer/ci-pipelines/blob/main/templates/java-service.yml) is een kant-en-klare samenstelling van dezelfde modules. Deze ondersteunt één Java-applicatie of een Maven-reactor met één deploybare Java-module, eventueel met een Angular-UI. Meerdere Maven-modules betekenen niet automatisch meerdere deployables. Gebruik voor meer deployables expliciete module-instanties zoals in de voorbeelden; automatische verdeling over een willekeurig aantal deployables is niet geïmplementeerd.
 
 De uitgestelde Helm-keuze, dev-lock en handmatige patchrelease van de standaardpipeline zijn optioneel organisatiebeleid. Losse modules vereisen deze afspraken niet. [GitLabs componentadvies](https://docs.gitlab.com/ci/components/#write-a-component) beveelt configureerbare jobs, weinig afhankelijkheden en duidelijke gebruiksvoorbeelden aan; daarop baseren we deze bibliotheek.

@@ -50,7 +50,7 @@ De beheertools draaien in een container. Python, Java, Maven en Node hoeven daar
 
 ## Starten vanuit Git
 
-Haal de openbare componentbibliotheek en de twee gekoppelde applicatierepositories op. Voer daarna vanuit de hoofdmap het startscript uit:
+Haal de openbare componentbibliotheek en de gekoppelde pipeline- en applicatierepositories op. Voer daarna vanuit de hoofdmap het startscript uit:
 
 ```sh
 git clone --recurse-submodules https://github.com/woozer/ci-components.git
@@ -59,7 +59,7 @@ cd ci-components
 ./infra/setup.sh install
 ```
 
-Het script richt de lokale GitLab CE, Artifactory JCR, SonarQube Community Build, runners en Kubernetes-toegang in. De Git-submodule `java/` verwijst naar `hello-world`; `infra/seed/ci-samples/` verwijst naar de volledige repository `ci-samples`. De installer neemt de vastgelegde commits en hun geschiedenis over naar de gelijknamige projecten in een nieuwe GitLab. Bestaande repositories en releases worden behouden.
+Het script richt de lokale GitLab CE, Artifactory JCR, SonarQube Community Build, runners en Kubernetes-toegang in. De Git-submodule `pipelines/` verwijst naar `ci-pipelines`; `java/` verwijst naar `hello-world`; `infra/seed/ci-samples/` verwijst naar de volledige repository `ci-samples`. De installer neemt de vastgelegde commits en hun geschiedenis over naar de gelijknamige projecten in een nieuwe GitLab. Bestaande repositories en releases worden behouden.
 
 Artifactory JCR vereist acceptatie van de licentievoorwaarden. Het script mag die keuze niet stilzwijgend maken. De installatie beschrijft hoe je de voorwaarden bekijkt en na akkoord verdergaat met `--accept-jcr-eula`.
 
@@ -81,21 +81,46 @@ Hervat na het lezen en je akkoord:
 
 Log in GitLab in als `root`. Het initiële wachtwoord staat in `infra/gitlab-ce/secrets/initial_root_password`. De beheerderscredentials voor Artifactory en SonarQube staan in hun eigen `secrets/credentials.json`. Het script toont de bestandslocaties en schrijft de wachtwoorden niet naar de terminal.
 
+## Waar staan de gegenereerde geheimen?
+
+De onderstaande paden zijn relatief aan de hoofdmap van je checkout. De installer maakt deze bestanden lokaal aan en hergebruikt ze bij een volgende uitvoering. Ze staan niet in Git en worden niet meegeleverd door een clone.
+
+| Dienst of doel | Lokale bestanden |
+|---|---|
+| Eerste GitLab-login als `root` | `infra/gitlab-ce/secrets/initial_root_password`. Dit is het **initiële** wachtwoord; na een handmatige wijziging is dit bestand geen registratie van je nieuwe wachtwoord. |
+| GitLab-beheer door de installer | `infra/gitlab-ce/secrets/provisioning-token` bevat de API-token. `setup-key` in dezelfde map is de private SSH-sleutel waarmee de installer repositories vult. |
+| Artifactory-accounts | `infra/artifactory/secrets/credentials.json` bevat de gegenereerde beheer-, lees- en publicatieaccounts. |
+| Artifactory-toegang vanuit Docker en Maven | `infra/artifactory/secrets/docker-read.json`, `docker-publisher/config.json`, `maven-settings.xml` en `publisher-password`. Dit zijn afgeleide inlogbestanden voor dezelfde lokale inrichting. |
+| Artifactory-database | `infra/artifactory/.env` bevat `ARTIFACTORY_DB_PASSWORD`. |
+| GitLab Runners | `infra/gitlab-runner/secrets/runner.json` en de overige `*-runner.json` bevatten runnerregistraties met authenticatietokens. De actieve runnerconfiguratie met tokens staat in `infra/gitlab-runner/secrets/config/config.toml`. |
+| Kubernetes-toegang voor CI | `infra/gitlab-runner/secrets/kubeconfig.json` en `samples-kubeconfig.json` bevatten de verbinding en serviceaccounttoken voor respectievelijk de applicatie en samples. |
+| Applicatie- en samplereleases | `infra/gitlab-runner/secrets/release-deploy-key` en `samples-release-key` zijn private SSH-sleutels voor releasetags. `release-registry.json` en `samples-registry.json` bevatten de bijbehorende registry-accounts. |
+| SonarQube-accounts en database | `infra/sonarqube/secrets/credentials.json` bevat de gegenereerde accounts en het databasewachtwoord. `infra/sonarqube/.env` levert onder meer `SONAR_DB_PASSWORD` aan Compose. |
+| SonarQube-analyse vanuit CI | `infra/sonarqube/secrets/gitlab-analysis-token` en `samples-analysis-token` bevatten de afzonderlijke analysetokens. |
+
+Bestanden zoals `project.json`, `*-project.json`, `known_hosts` en `*.pub` zijn lokale metadata of openbare sleutels. Niet ieder bestand onder `secrets/` is dus zelf een geheim. GitLab krijgt daarnaast de benodigde CI-variabelen via de API; die staan bij **Settings → CI/CD → Variables** van het betreffende project, deels als bestandsvariabele en deels met een omgevingsscope.
+
+Bij opnieuw uitvoeren hergebruikt de installer opgeslagen credentials, maar werkt hij de door hem beheerde CI-variabelen en runnerconfiguratie bij naar de lokale demo-instellingen. Handmatige wijzigingen aan dezelfde variabelen, zoals een ander image of serveradres, kunnen daardoor worden vervangen. Gebruik voor eigen organisatiediensten de [inrichting voor de eigen organisatie](docs/real-environment.md); de demo-installer beheert uitsluitend deze lokale omgeving.
+
+De diensten bewaren ook eigen encryptiesleutels in hun Docker-volumes. GitLabs `/etc/gitlab/gitlab-secrets.json` hoort bij het Compose-volume `config`; Artifactory bewaart eigen beveiligingssleutels in zijn `data`-volume. De bestanden onder `infra/` alleen zijn daarom geen volledige back-up van een bestaande installatie.
+
+Voor een **nieuwe, lege installatie** hoef je deze geheimen niet over te zetten: de installer genereert nieuwe waarden. Voor het **behouden van de bestaande installatie** bewaar je de lokale geheime bestanden samen met de databases, volumes en encryptiesleutels volgens de herstelprocedure. Commit deze bestanden niet in de openbare repositories. Zie [opnieuw installeren of verhuizen](#opnieuw-installeren-of-verhuizen).
+
 ## Wat staat in Git?
 
 Git bevat Compose-bestanden, scripts, Dockerfiles en de broncode voor het vullen van een nieuwe demo. `.env`, `secrets/`, `infra/.state/` en gegenereerde lokale imageverwijzingen worden genegeerd. Controleer deze uitsluitingen voordat je de repository naar een externe Git-server pusht.
 
-De broncode wordt beheerd in drie afzonderlijke repositories: [ci-components](https://github.com/woozer/ci-components), [hello-world](https://github.com/woozer/hello-world) en [ci-samples](https://github.com/woozer/ci-samples). De componentbibliotheek bewaart alleen de Git-submoduleverwijzingen naar de twee applicatierepositories. Zo kan één recursieve checkout de volledige demo vullen zonder verbinding met de oude lokale GitLab.
+De broncode wordt beheerd in vier afzonderlijke repositories: [ci-components](https://github.com/woozer/ci-components), [ci-pipelines](https://github.com/woozer/ci-pipelines), [hello-world](https://github.com/woozer/hello-world) en [ci-samples](https://github.com/woozer/ci-samples). De componentbibliotheek bewaart alleen de Git-submoduleverwijzingen naar de pipeline- en applicatierepositories. Zo kan één recursieve checkout de volledige demo vullen zonder verbinding met de oude lokale GitLab.
 
-Heb je al gecloned zonder `--recurse-submodules`, haal dan de vastgelegde applicatiecommits alsnog op:
+Heb je al gecloned zonder `--recurse-submodules`, haal dan de vastgelegde submodulecommits alsnog op:
 
 ```sh
 git submodule update --init --recursive
 ```
 
-Voer dit commando ook uit na een update van de componentbibliotheek. De installer controleert of beide submodules beschikbaar zijn op de vastgelegde commit. Gebruik voor installatie de actuele `main`; componenttag `1.0.0` blijft behouden voor de CI-includes.
+Voer dit commando ook uit na een update van de componentbibliotheek. De installer controleert of alle drie submodules beschikbaar zijn op de vastgelegde commit. Gebruik voor installatie de actuele `main`; de benodigde tags staan in `infra/seed/manifest.json`.
 
-Neem bij het overzetten naar een externe remote ook de componenttag `1.0.0` mee. De bronkopieën van de applicatie en samples verwijzen naar die versie. `check` controleert of de tags lokaal beschikbaar zijn. Nieuwe GitLab-projecten worden alleen gevuld als hun repository leeg is; bestaande branchgeschiedenis wordt niet vervangen.
+Neem bij het overzetten naar een externe remote ook de componenttags `1.0.0` en `1.2.0` en de tag `1.0.0` van **ci-pipelines** mee. De applicatie gebruikt de pipelineversie; de pipeline zet haar moduleversies zelf vast. `check` controleert of de tags lokaal beschikbaar zijn. Nieuwe GitLab-projecten worden alleen gevuld als hun repository leeg is; bestaande branchgeschiedenis wordt niet vervangen.
 
 ## Opnieuw installeren of verhuizen
 
@@ -115,7 +140,7 @@ Wil je de huidige gebruikers, merge requests, artifacts en scanresultaten behoud
 
 ## Lokale adressen
 
-De installer registreert `ci-components` als catalogusproject. Op een lege installatie ontbreken nog de GitLab-releases, ook als de broncodetags al zijn overgezet. Open bij **ci-components → Build → Pipelines → New pipeline** de tag `1.2.0` en start de pipeline. Na de contracttests, alle samples en **publish-catalog** verschijnt deze versie in de [lokale CI/CD Catalog](http://localhost:8929/explore/catalog). Doe dit alleen als die catalogusrelease nog niet bestaat; bestaande versies blijven behouden. Zie [cataloguspublicatie](docs/component-versions.md#publicatie-in-de-cicd-catalog).
+De installer registreert `ci-components` en `ci-pipelines` als afzonderlijke catalogusprojecten. Op een lege installatie ontbreken nog de GitLab-releases, ook als de broncodetags al zijn overgezet. Open bij **ci-components → Build → Pipelines → New pipeline** de tag `1.2.0` en start de pipeline. Na de contracttests, alle samples en **publish-catalog** verschijnt deze versie in de [lokale CI/CD Catalog](http://localhost:8929/explore/catalog). Voer daarna bij **ci-pipelines** hetzelfde uit voor de tag `1.0.0`; die pipeline valideert de standaardpipeline in **ci-samples** en publiceert `java-service`. Doe dit alleen als die catalogusreleases nog niet bestaan; bestaande versies blijven behouden. Zie [cataloguspublicatie](docs/component-versions.md#publicatie-in-de-cicd-catalog).
 
 | Dienst | Adres |
 |---|---|
