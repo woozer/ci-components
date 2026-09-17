@@ -86,7 +86,7 @@ class InstallerTests(unittest.TestCase):
                          'description': 'Existing description', 'path_with_namespace': 'team/components'}) as api, \
                      patch.object(demo_projects, 'request_json', side_effect=responses) as graphql, \
                      patch.object(demo_projects, 'announce'):
-                    demo_projects.configure_catalog()
+                    demo_projects.configure_catalog_project('ci-components', 'Default description')
                 api.assert_called_once_with('/projects/2')
                 self.assertEqual(1 if enabled else 2, graphql.call_count)
                 self.assertEqual({'path': 'team/components'}, graphql.call_args.kwargs['data']['variables'])

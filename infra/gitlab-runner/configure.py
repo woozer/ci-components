@@ -23,6 +23,7 @@ def project_id(name):
     records = {
         "hello-world": ROOT.parent / "gitlab-ce/secrets/project.json",
         "ci-components": ROOT.parent / "gitlab-ce/secrets/components-project.json",
+        "ci-pipelines": ROOT.parent / "gitlab-ce/secrets/pipelines-project.json",
         "ci-samples": PRIVATE / "samples-project.json",
     }
     return json.loads(records[name].read_text())["id"]
@@ -135,21 +136,20 @@ def main():
     kube = PRIVATE / "kubeconfig.json"
     if kube.exists():
         variable("LOCAL_KUBECONFIG", kube.read_text(), file=True, protected=True)
-    components = ROOT.parent / "gitlab-ce/secrets/components-project.json"
     validation = ROOT / "validation-image.json"
-    if components.exists() and validation.exists():
-        component_project = json.loads(components.read_text())["id"]
-        config += runner_config(component_project, PRIVATE / "components-runner.json",
-                                "Local CI component validation", mirrors.get("helper"))
-        variable("CI_VALIDATION_IMAGE", json.loads(validation.read_text())["image"],
-                 project=component_project)
+    for library in ("components", "pipelines"):
+        record = ROOT.parent / f"gitlab-ce/secrets/{library}-project.json"
+        if not (record.exists() and validation.exists()):
+            continue
+        library_project = json.loads(record.read_text())["id"]
+        config += runner_config(library_project, PRIVATE / f"{library}-runner.json",
+                                f"Local CI {library} validation", mirrors.get("helper"))
+        variable("CI_VALIDATION_IMAGE", json.loads(validation.read_text())["image"], project=library_project)
         if mirrors.get("release"):
-            variable("CI_RELEASE_IMAGE", mirrors["release"], project=component_project)
-        # Keep GitLab's public localhost URL; glab reaches its API through Docker's host.
-        variable("GITLAB_API_HOST", "host.docker.internal:8929", project=component_project)
+            variable("CI_RELEASE_IMAGE", mirrors["release"], project=library_project)
+        variable("GITLAB_API_HOST", "host.docker.internal:8929", project=library_project)
         if auth.exists():
-            variable("DOCKER_AUTH_CONFIG", auth.read_text(), masked=True,
-                     project=component_project)
+            variable("DOCKER_AUTH_CONFIG", auth.read_text(), masked=True, project=library_project)
     samples = PRIVATE / "samples-project.json"
     if samples.exists():
         sample_project = json.loads(samples.read_text())["id"]

@@ -35,7 +35,6 @@ class SampleCatalogTests(unittest.TestCase):
         config = PARSED[str(ROOT / 'tests/samples/component-validation.yml')][1]
         changes = next(rule['changes'] for rule in config['validate-samples']['rules'] if 'changes' in rule)
         self.assertIn('examples/modules/**/*', changes)
-        self.assertIn('pipelines/**/*', changes)
 
     def test_catalog_publication_requires_tests_and_a_protected_main_commit(self):
         job = PARSED[str(ROOT / '.gitlab-ci.yml')][0]['publish-catalog']

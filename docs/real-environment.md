@@ -61,7 +61,7 @@ De standaardpipeline houdt lokale defaults voor de demo, maar accepteert nu expl
 | `user-configs`, `user-config` | De toegestane Helm-profielen en de beginselectie |
 | `namespace` | De vooraf ingerichte doelnamespace |
 
-Deze zijn inputs van de standaardsamenstelling, geen nieuwe verplichte inputs van de losse modules. De platforminstellingen worden ook aan deployment- en release-childpipelines doorgegeven. De defaults hoeven in de demo niet te worden herhaald. Werk bij een eigen keuzelijst ook het gedeelde formulier `config/pipeline-inputs.yml` bij; GitLab kan de opties daar niet uit runtimevariabelen afleiden.
+Deze zijn inputs van de standaardsamenstelling, geen nieuwe verplichte inputs van de losse modules. De platforminstellingen worden ook aan deployment- en release-childpipelines doorgegeven. De defaults hoeven in de demo niet te worden herhaald. Werk bij een eigen keuzelijst ook het gedeelde formulier `config/pipeline-inputs.yml` in **ci-pipelines** bij; GitLab kan de opties daar niet uit runtimevariabelen afleiden.
 
 Deploymentjobs gebruiken `dev/<cluster>`; de dev-validatie van releaseartifacts gebruikt `release/dev/<cluster>`. Stel de context of kubeconfig en de test-URL's in voor de overeenkomende omgevingsscope. Gebruik bijvoorbeeld `dev/openshift-test` en `release/dev/openshift-test` voor dezelfde testomgeving. Hiermee kiezen verbinding, credentials en test-URL dezelfde bestemming als `environment/cluster/openshift-test.yaml`. De keuze zelf verleent geen rechten: die blijven in GitLab en cluster-RBAC geregeld.
 

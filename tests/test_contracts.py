@@ -14,7 +14,7 @@ RUBY_YAML = '''require "yaml"; require "json"
 YAML.add_domain_type("", "reference") { |_, value| {"$reference" => value} }
 puts JSON.generate(ARGV.to_h { |p| [p, YAML.load_stream(File.read(p))] })'''
 MODULE_FILES = sorted(ROOT.glob("templates/*.yml")) + sorted(ROOT.glob("modules/todo/*.yml"))
-FILES = MODULE_FILES + sorted(ROOT.glob("config/*.yml")) + sorted(ROOT.glob("pipelines/**/*.yml")) + [ROOT / "examples/full-pipeline/profile.yml"] + sorted(ROOT.glob("shared/*.yml")) + [ROOT / "examples/full-pipeline/application.gitlab-ci.yml", ROOT / ".gitlab-ci.yml"]
+FILES = MODULE_FILES + sorted(ROOT.glob("config/*.yml")) + [ROOT / "examples/full-pipeline/profile.yml"] + sorted(ROOT.glob("shared/*.yml")) + [ROOT / "examples/full-pipeline/application.gitlab-ci.yml", ROOT / ".gitlab-ci.yml"]
 FILES += sorted(ROOT.glob("examples/samples/*.yml")) + sorted(ROOT.glob("examples/modules/*.yml")) + sorted(ROOT.glob("tests/samples/*.yml"))
 PARSED = json.loads(subprocess.check_output(["ruby", "-e", RUBY_YAML, *map(str, FILES)], text=True))
 COMPONENTS = {path.stem: PARSED[str(path)] for path in MODULE_FILES}
@@ -72,31 +72,6 @@ def profile_includes(overrides=None):
     return interpolate(PARSED[str(ROOT / "examples/full-pipeline/profile.yml")], overrides)["include"]
 
 
-def pipeline_config(path='pipelines/java-service.yml', overrides=None):
-    """Expand local composition files for assertions; leave component includes intact."""
-    documents = PARSED[str(ROOT / path)]
-    body = interpolate(documents, overrides) if len(documents) == 2 else copy.deepcopy(documents[0])
-    includes = []
-    result = {}
-
-    def merge(target, source):
-        for key, value in source.items():
-            if isinstance(value, dict) and isinstance(target.get(key), dict):
-                merge(target[key], value)
-            else:
-                target[key] = copy.deepcopy(value)
-
-    for entry in body.pop('include', []):
-        local = entry['local'].lstrip('/')
-        if local.startswith(('pipelines/', 'config/', 'shared/')):
-            child = pipeline_config(local, entry.get('inputs'))
-            includes.extend(child.pop('include', []))
-            merge(result, child)
-        else:
-            includes.append(entry)
-    merge(result, body)
-    result['include'] = includes
-    return result
 
 
 class Harness:
@@ -159,18 +134,6 @@ class ComponentContractTests(unittest.TestCase):
             for name in job.get('inputs', {}):
                 self.assertRegex(name, r'^[a-z_][a-z0-9_]*$')
 
-    def test_pipeline_rules_do_not_depend_on_disabled_variable_inheritance(self):
-        for path in ROOT.glob('pipelines/*.yml'):
-            body = PARSED[str(path)][-1]
-            for name, job in body.items():
-                if not isinstance(job, dict) or job.get('inherit', {}).get('variables') is not False:
-                    continue
-                unavailable = set(body.get('variables', {})) - set(job.get('variables', {}))
-                for rule in job.get('rules', []):
-                    referenced = set(re.findall(r'\$([A-Z][A-Z0-9_]*)', rule.get('if', '')))
-                    with self.subTest(pipeline=path.name, job=name):
-                        self.assertFalse(unavailable & referenced,
-                                         f'Rule reads excluded variables: {unavailable & referenced}')
 
     def test_every_component_is_one_job_with_an_explicit_image_and_output_contract(self):
         for name, (header, body) in COMPONENTS.items():
@@ -447,21 +410,6 @@ PYTHON
                 self.assertFalse(h.output_file.exists())
                 self.assertEqual([], h.events())
 
-    def test_deployed_integration_suites_wait_for_every_deployable(self):
-        for path in ('pipelines/internal/java-deploy.yml', 'pipelines/internal/java-release.yml'):
-            body = pipeline_config(path, {'deployment-timeout': '8m'})
-            for name in ('cucumber-dev', 'cucumber-ui'):
-                needs = {need['job']: need for need in body[name]['needs']}
-                self.assertEqual({'helm-deploy', 'helm-deploy-ui'}, set(needs))
-                self.assertFalse(needs['helm-deploy'].get('optional', False))
-            self.assertTrue(body['cucumber-dev']['needs'][1]['optional'])
-            for include in body['include']:
-                if include['local'] == '/templates/helm-deploy.yml':
-                    self.assertEqual('8m', include['inputs']['timeout'])
-        parent = pipeline_config(overrides={'deployment-timeout': '8m'})
-        for include in parent['include']:
-            if include['local'] in ('/templates/deployment-select.yml', '/templates/release-reserve.yml'):
-                self.assertIn("deployment-timeout: '8m'", include['inputs']['pipeline-config'])
 
     def test_selection_defaults_emit_settings_and_bind_the_next_pipeline(self):
         h = Harness(self.root, 'deployment-select', inputs={

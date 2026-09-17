@@ -70,7 +70,7 @@ Alle voorbeeld- en validatiebestanden staan in de componentbibliotheek `ci-compo
 | [`examples/modules/`](../modules/) | Een minimaal, uitvoerbaar gebruiksvoorbeeld per actieve module |
 | [`examples/samples/`](./) | Complete pipelines die afnemers kunnen overnemen |
 | [`tests/samples/launcher.yml`](../../tests/samples/launcher.yml) | De samplekeuze afhandelen en de gekozen voorbeelden als childpipelines starten |
-| [`tests/samples/options.yml`](../../tests/samples/options.yml) | De centrale keuzelijst voor het startformulier |
+| [`tests/samples/options.yml`](../../tests/samples/options.yml) | De keuzelijst voor componentvoorbeelden; het gecombineerde formulier staat in ci-samples |
 | [`tests/samples/module-runtime.yml`](../../tests/samples/module-runtime.yml) | Lokale voorwaarden en outputcontroles voor losse modules |
 | [`tests/samples/runtime.yml`](../../tests/samples/runtime.yml) | De testomgeving instellen en outputs controleren |
 | [`tests/samples/deployment-runtime.yml`](../../tests/samples/deployment-runtime.yml) | Tijdelijke Helm-deployments opruimen |
@@ -78,3 +78,5 @@ Alle voorbeeld- en validatiebestanden staan in de componentbibliotheek `ci-compo
 Het aparte project `ci-samples` bevat de testapplicatie en de `.gitlab-ci.yml` met het startformulier. Dat bestand laadt `tests/samples/launcher.yml` uit `ci-components` via `include: project`. De launcher staat onder `tests/` omdat hij onze validatie organiseert. Dit is onze mappenindeling; GitLab schrijft die niet voor.
 
 `include:inputs` geeft instellingen door aan een opgenomen bestand. Keuzevelden op **New pipeline** komen uit `spec:inputs` van de hoofdconfiguratie, eventueel via `spec:include`. Daarom krijgt een afnemer de samplekeuzelijst niet automatisch wanneer die alleen een module of voorbeeld opneemt.
+
+De standaardpipeline wordt afzonderlijk getest vanuit [ci-pipelines](https://github.com/woozer/ci-pipelines). Kies in **ci-samples** `sample: java-service` en de gewenste `pipeline_ref`. `all` blijft de negentien componentvoorbeelden uitvoeren. Zo kan iedere bibliotheek haar eigen kandidaatversie valideren.

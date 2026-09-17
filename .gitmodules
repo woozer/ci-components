@@ -4,3 +4,6 @@
 [submodule "ci-samples"]
 	path = infra/seed/ci-samples
 	url = https://github.com/woozer/ci-samples.git
+[submodule "ci-pipelines"]
+	path = pipelines
+	url = https://github.com/woozer/ci-pipelines.git
