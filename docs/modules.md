@@ -339,7 +339,7 @@ Houd `gate-timeout` binnen `job-timeout`. De lokale Community Build draait in on
 
 **Zichtbaar in GitLab:** de jobstatus geeft aan of de analyse en quality gate geslaagd zijn; de link opent het dashboard. Met `SONAR_REPORT_TOKEN` schrijft de helper bovendien `summary.md` met de gate, projectmeetwaarden en commit. Dit token heeft alleen leesrechten nodig op het Sonar-project. Met ook `GITLAB_REPORT_TOKEN` plaatst de helper dezelfde samenvatting als discussie bij de geanalyseerde commit. Gebruik een project access token met de rol Reporter en scope `api`. Standaard gebruikt de helper `CI_API_V4_URL`; `GITLAB_REPORT_API_URL` kan een intern bereikbaar adres opgeven. Bewaar beide tokens als gemaskeerde, beschermde variabelen. De installer regelt dit lokaal.
 
-Een retry werkt de eigen reactie voor dezelfde job en pipeline bij; reacties van anderen blijven behouden. Een nieuwe pipeline krijgt een eigen resultaat. Community Build ondersteunt geen branch- of MR-analyse: deze commitreactie is dus geen beoordeling van een open MR. Gebruik bij een geschikte Sonar-editie bij voorkeur de ingebouwde MR-integratie; zie [rapportagekeuzes](scanners.md#waar-vind-je-de-resultaten).
+Een retry werkt de eigen reactie voor dezelfde job en pipeline bij; reacties van anderen blijven behouden. Een nieuwe pipeline krijgt een eigen resultaat. Na een analyse van `main` plaatst de helper de samenvatting ook in de bijbehorende **gemergede MR**, als de geanalyseerde commit exact overeenkomt met de merge-, squash- of eindcommit. Community Build ondersteunt geen branch- of MR-analyse: dit resultaat is pas na het mergen beschikbaar. Gebruik bij een geschikte Sonar-editie bij voorkeur de ingebouwde MR-integratie; zie [rapportagekeuzes](scanners.md#waar-vind-je-de-resultaten).
 
 **Vervolgjob:** gebruik `needs` met artifacts als taakmetadata nodig is. Voor alleen de verplichte quality gate gebruik je de geslaagde job als afhankelijkheid met `artifacts: false`.
 
@@ -352,6 +352,8 @@ Controleert Maven-dependencies met OWASP Dependency-Check en blokkeert op de ing
 [Voorbeeld](../examples/modules/dependency-check.yml) · [Inputdefinitie en implementatie](../templates/dependency-check.yml)
 
 **Vooraf:** Een JDK die bij de gekozen plugin past, Maven en toegang tot de NVD-feed. De module gebruikt standaard een openbare JSON-feed zonder API-key; `nvd-datafeed-url` kan een interne mirror aanwijzen. Configureer een cache voor `.cache/dependency-check/` om de database te hergebruiken. De eerste uitvoering kan langer duren. De npm-lockfile wordt niet door deze module gecontroleerd.
+
+Voor MR-reacties bevat de image ook Python 3, `/opt/ci/dependency_report.py` en de gedeelde helper `report_api.py`. Onze demo gebruikt hiervoor dezelfde Maven-scanimage als Sonar. Met de gemaskeerde variabele `GITLAB_MR_REPORT_TOKEN` kan de helper een reactie plaatsen; gebruik een project access token met Reporter en scope `api`. Het token moet voor de MR-branch beschikbaar zijn. De lokale installer maakt een afzonderlijk, niet-beschermd rapportagetoken voor vertrouwde branches binnen hetzelfde project. Stel dit in een organisatie bewust in volgens het beleid voor branchcode en credentials; forks zijn geen doel voor deze rapportage.
 
 De optionele OSS Index-controle staat uit. De lokale mirror, uitzonderingen en beperkingen staan bij [scannerinrichting](scanners.md#dependency-check-zonder-api-key).
 
@@ -366,6 +368,8 @@ De optionele OSS Index-controle staat uit. De lokale mirror, uitzonderingen en b
 **Zichtbaar in GitLab:** het native JUnit-rapport verschijnt via `artifacts:reports:junit` onder **Tests** bij de pipeline en in de testsamenvatting van de MR, met aanklikbare foutdetails. Dit zijn dependencycontroles, geen applicatie-unittests. OWASP ondersteunt dit uitvoerformaat; presentatie onder Tests is onze praktische keuze voor GitLab CE. De ingebouwde dependency-scanningweergave vereist GitLab Ultimate.
 
 Daarnaast voegt `artifacts:expose_as` de MR-link **Dependency-Check report** toe naar de volledige artifactmap. Buiten een MR blijven de bestanden bij de job beschikbaar, ook als de scan mislukt. Het pad wordt bij het samenstellen van de configuratie uit `job-name` ingevuld. Of HTML in de browser opent of wordt gedownload, hangt af van de GitLab Pages-inrichting. Zie [GitLabs testrapporten](https://docs.gitlab.com/ci/testing/unit_test_reports/), [rapportlinks](https://docs.gitlab.com/ci/yaml/#artifactsexpose_as) en [OWASPs JUnit-instellingen](https://dependency-check.github.io/DependencyCheck/dependency-check-maven/aggregate-mojo.html).
+
+De helper schrijft in `after_script` ook `summary.md` met de jobstatus, aantallen, maximaal twintig unieke bevindingen en links. In een MR-pipeline plaatst hij die samenvatting als reactie, ook bij een mislukte scan met een beschikbaar rapport. Hij controleert of de MR nog openstaat en dezelfde commit bevat. Retries werken alleen de eigen reactie voor die job en pipeline bij. Ontbrekende credentials of een rapportagefout veranderen de scanstatus niet. Deze reactie is onze eigen integratie via de GitLab Notes API.
 
 **Vervolgjob:** haal deze job op via `needs` met artifacts om de rapporten te verwerken. Gebruik `artifacts: false` als alleen de scan moet slagen.
 

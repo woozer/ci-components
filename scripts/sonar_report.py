@@ -6,9 +6,8 @@ import os
 from pathlib import Path
 import re
 import sys
-from urllib.error import HTTPError, URLError
-from urllib.parse import quote, urlencode, urlsplit
-from urllib.request import HTTPRedirectHandler, Request, build_opener
+from urllib.parse import quote
+from report_api import Api, NoRedirect, ReportError, http_url, link, markdown, publish_mr
 
 
 METRICS = {
@@ -18,57 +17,6 @@ METRICS = {
     'software_quality_security_issues': 'Beveiligingsbevindingen',
     'software_quality_maintainability_issues': 'Onderhoudbaarheidsbevindingen',
 }
-
-
-class ReportError(Exception):
-    """An unavailable or unverifiable report must not change the scanner result."""
-
-
-class NoRedirect(HTTPRedirectHandler):
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        # Credentials must remain with the configured server.
-        return None
-
-
-class Api:
-    def __init__(self, base_url, token, header='Authorization'):
-        self.base_url = http_url(base_url).rstrip('/')
-        self.headers = {header: ('Bearer ' if header == 'Authorization' else '') + token}
-        self.http = build_opener(NoRedirect())
-
-    def request(self, path, method='GET', values=None):
-        url, data = self.base_url + path, None
-        if method == 'GET' and values:
-            url += '?' + urlencode(values)
-        elif values is not None:
-            data = json.dumps(values).encode()
-        request = Request(url, method=method, data=data,
-                          headers={**self.headers, 'Content-Type': 'application/json'})
-        try:
-            with self.http.open(request, timeout=10) as response:
-                return json.load(response)
-        except HTTPError as error:
-            raise ReportError(f'Report API returned HTTP {error.code}.') from None
-        except (URLError, TimeoutError, OSError, ValueError):
-            raise ReportError('Report API is unavailable or returned invalid JSON.') from None
-
-
-def http_url(value):
-    parsed = urlsplit(value)
-    if (parsed.scheme not in ('http', 'https') or not parsed.hostname or parsed.username
-            or parsed.password or re.search(r'[\x00-\x20\x7f]', value)):
-        raise ReportError('Expected an HTTP(S) URL without credentials or whitespace.')
-    return value
-
-
-def markdown(value):
-    return str(value).replace('\\', '\\\\').replace('`', '\\`').replace('|', '\\|').replace('\n', ' ')
-
-
-def link(label, url):
-    # Angle-bracket links preserve query strings and parentheses in dashboard URLs.
-    target = quote(http_url(url), safe=":/?#[]@!$&'()+,;=%-._~")
-    return f'[{label}](<{target}>)'
 
 
 def latest_analysis(sonar, project, analysis_id, commit):
@@ -134,6 +82,25 @@ def publish(gitlab, project_id, commit, body, marker):
     return 'created'
 
 
+def publish_merged_mrs(gitlab, env, body, marker):
+    if env.get('CI_COMMIT_BRANCH') != env.get('CI_DEFAULT_BRANCH') or not env.get('CI_DEFAULT_BRANCH'):
+        return
+    project, commit = env['CI_PROJECT_ID'], env['CI_COMMIT_SHA']
+    path = f'/projects/{quote(project, safe="")}/repository/commits/{commit}/merge_requests'
+    page = 1
+    while True:
+        requests = gitlab.request(path, values={'state': 'merged', 'per_page': 100, 'page': page})
+        for mr in requests:
+            if (mr.get('state') == 'merged' and str(mr.get('target_project_id')) == project
+                    and mr.get('target_branch') == env['CI_DEFAULT_BRANCH']
+                    and commit in (mr.get('merge_commit_sha'), mr.get('squash_commit_sha'), mr.get('sha'))):
+                result = publish_mr(gitlab, project, mr['iid'], body, marker)
+                print(f"Sonar summary for merged MR !{mr['iid']} {result}.")
+        if len(requests) < 100:
+            break
+        page += 1
+
+
 def run(env):
     directory = Path(env['CI_PROJECT_DIR']) / '.ci-output' / env['CI_JOB_NAME']
     task_file = directory / 'report-task.txt'
@@ -169,6 +136,7 @@ def run(env):
                  env['GITLAB_REPORT_TOKEN'], 'PRIVATE-TOKEN')
     result = publish(gitlab, env['CI_PROJECT_ID'], commit, body, marker)
     print(f'Sonar commit summary {result}.')
+    publish_merged_mrs(gitlab, env, body, marker)
 
 
 def main():

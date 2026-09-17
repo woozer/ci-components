@@ -47,7 +47,7 @@ class InstallerTests(unittest.TestCase):
                     self.assertEqual(0o600, path.stat().st_mode & 0o777)
                 for call in gitlab.variable.call_args_list:
                     if call.args[0].endswith('_TOKEN'):
-                        self.assertTrue(call.kwargs['protected'])
+                        self.assertEqual(call.args[0] != 'GITLAB_MR_REPORT_TOKEN', call.kwargs['protected'])
                         self.assertTrue(call.kwargs['masked'])
 
     def test_sonar_passwords_always_meet_policy_and_survive_reinstall(self):

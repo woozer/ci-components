@@ -94,6 +94,15 @@ def configure_reporting(gitlab, project):
     gitlab.variable('SONAR_REPORT_TOKEN', sonar_path.read_text().strip(), project=project, protected=True, masked=True)
     gitlab.variable('GITLAB_REPORT_TOKEN', json.loads(gitlab_path.read_text())['token'],
                     project=project, protected=True, masked=True)
+    mr_path = PRIVATE / (PROJECT + '-gitlab-mr-report-token.json')
+    if not mr_path.exists():
+        token = gitlab.api(f'/projects/{project}/access_tokens', 'POST', {
+            'name': 'MR scan reports', 'scopes': ['api'], 'access_level': 20,
+            'expires_at': (date.today() + timedelta(days=365)).isoformat()})
+        save(mr_path, json.dumps(token))
+    # This demo accepts trusted same-project branches; forks are not report targets.
+    gitlab.variable('GITLAB_MR_REPORT_TOKEN', json.loads(mr_path.read_text())['token'],
+                    project=project, protected=False, masked=True)
     gitlab.variable('GITLAB_REPORT_API_URL', 'http://host.docker.internal:8929/api/v4', project=project)
 
 

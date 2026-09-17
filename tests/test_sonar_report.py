@@ -158,6 +158,24 @@ class SonarReportTests(unittest.TestCase):
                 api.request('/api/ce/task', values={'id': 'task'})
         self.assertIsNone(report.NoRedirect().redirect_request(None, None, 302, '', {}, 'https://other.example'))
 
+    def test_main_analysis_only_comments_on_matching_merged_requests(self):
+        self.env.update(CI_COMMIT_BRANCH='main', CI_DEFAULT_BRANCH='main')
+        api = Mock()
+        base = {'state': 'merged', 'target_project_id': 7, 'target_branch': 'main', 'merge_commit_sha': COMMIT}
+        api.request.return_value = [
+            {**base, 'iid': 1}, {**base, 'iid': 2, 'state': 'opened'},
+            {**base, 'iid': 3, 'merge_commit_sha': 'b' * 40},
+            {**base, 'iid': 4, 'target_branch': 'other'}, {**base, 'iid': 5, 'target_project_id': 99}]
+        with patch.object(report, 'publish_mr') as publish, patch('sys.stdout', new=io.StringIO()):
+            report.publish_merged_mrs(api, self.env, 'body', 'marker')
+        publish.assert_called_once_with(api, '7', 1, 'body', 'marker')
+
+    def test_branch_analysis_does_not_post_a_merge_result(self):
+        api = Mock()
+        self.env.update(CI_COMMIT_BRANCH='feature', CI_DEFAULT_BRANCH='main')
+        report.publish_merged_mrs(api, self.env, 'body', 'marker')
+        api.request.assert_not_called()
+
 
 if __name__ == '__main__':
     unittest.main()

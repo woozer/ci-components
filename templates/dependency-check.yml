@@ -105,6 +105,8 @@ include:
       emit REPORT_DIR ".ci-output/$CI_JOB_NAME"
     - !reference [.ci-module, script]
   after_script:
+    - |
+      python3 /opt/ci/dependency_report.py || printf '%s\n' 'Dependency summary could not be published; see the reporting error above.' >&2
     - !reference [.ci-module, after_script]
   artifacts:
     when: 'always'

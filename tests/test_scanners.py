@@ -93,12 +93,17 @@ exit "${FAKE_MAVEN_EXIT:-0}"
                                  json.loads((h.output_file.parent / 'annotations.json').read_text()))
 
     def dependency_check(self):
-        h = Harness(self.root, 'dependency-check', inputs={'maven-executable': 'mvn'})
+        h = Harness(self.root, 'dependency-check', inputs={'maven-executable': 'mvn'}, env={
+            'CI_PIPELINE_URL': 'https://gitlab.example/project/-/pipelines/99',
+            'CI_JOB_URL': 'https://gitlab.example/project/-/jobs/42'})
         h.env.pop('NVD_API_KEY', None)
+        h.env.pop('GITLAB_MR_REPORT_TOKEN', None)
+        h.job['after_script'] = [command.replace('/opt/ci/dependency_report.py',
+                                 str(ROOT / 'scripts/dependency_report.py')) for command in h.job['after_script']]
         h.write('bin/mvn', '''#!/bin/sh
 printf '%s\n' "$@" > "$CI_PROJECT_DIR/maven-args"
 if [ "${FAKE_REPORT:-yes}" = yes ]; then
-  printf '{}' > "$CI_MODULE_OUTPUT_DIR/dependency-check-report.json"
+  printf '{"scanInfo":{},"dependencies":[]}' > "$CI_MODULE_OUTPUT_DIR/dependency-check-report.json"
   if [ "${FAKE_JUNIT:-yes}" = yes ]; then
     printf '<testsuites/>\n' > "$CI_MODULE_OUTPUT_DIR/dependency-check-junit.xml"
   fi
@@ -122,6 +127,7 @@ exit "${FAKE_MAVEN_EXIT:-0}"
         self.assertIn('-Dformats=HTML,JSON,JUNIT', args)
         self.assertFalse(any('ApiKey' in arg for arg in args))
         self.assertEqual('passed', h.outputs()['DEPENDENCY_CHECK_STATUS'])
+        self.assertIn('**Geslaagd**', (h.output_file.parent / 'summary.md').read_text())
 
     def test_dependency_check_feed_or_scan_error_blocks_success(self):
         h = self.dependency_check()

@@ -15,7 +15,7 @@ Publicatie wacht op beide controles. Een afgekeurde controle, toolfout of timeou
 |---|---|
 | Job- en pipelinestatus | Geslaagd, mislukt of nog bezig. Met **Pipelines must succeed** blokkeert een mislukte verplichte pipeline het mergen. |
 | Testrapport in de MR | GitLabs testsamenvatting toont aantallen en aanklikbare foutdetails uit JUnit. Dezelfde rapporten blijven onder **Tests** en bij de jobs beschikbaar. |
-| Sonar-reactie | Bij een geschikte Sonar-editie verzorgt de ingebouwde GitLab-integratie de MR-samenvatting. Onze Community-inrichting plaatst alleen een samenvatting bij de werkelijk geanalyseerde commit. |
+| Scannerreacties | Dependency-Check plaatst een samenvatting in de open MR. Onze Sonar-helper plaatst na analyse van main een samenvatting bij de commit en de bijbehorende gemergede MR. Voor Sonar-reacties vóór het mergen is een geschikte editie met MR-analyse nodig. |
 | Volledig rapport | De joblink **Open SonarQube** opent het dashboard; Dependency-Check bewaart HTML en JSON als jobartifacts. |
 | Badge op de projectpagina of in de README | Optioneel overzicht van bijvoorbeeld de laatste buildstatus. Geen vervanging voor het resultaat van een specifieke MR. |
 
@@ -27,7 +27,7 @@ De rapporten moeten uit de pipeline van het betreffende project komen. Een valid
 
 SonarQube Community Build is gratis en draait lokaal op [localhost:9000](http://localhost:9000). De inrichting maakt automatisch beperkte accounts en analysetokens voor `hello-world` en `ci-samples` aan. GitLab krijgt het analysetoken als gemaskeerde en beschermde variabele `SONAR_TOKEN`. `SONAR_HOST_URL` en `SONAR_PROJECT_KEY` bepalen de lokale bestemming.
 
-De installer regelt ook afzonderlijke rapportagetokens: `SONAR_REPORT_TOKEN` voor lezen en `GITLAB_REPORT_TOKEN` voor een reactie bij de geanalyseerde commit. De centrale Python-helper draait vanuit de scanimage in `after_script`, bewaart `summary.md` en werkt bij een retry zijn eigen reactie bij. Hij controleert de analyse-ID en commit voordat hij meetwaarden publiceert. Ontbrekende of verouderde gegevens krijgen geen groen oordeel. Een fout bij het plaatsen van de reactie verandert de scanstatus niet. De precieze afspraken staan bij [de Sonar-module](modules.md#sonar).
+De installer regelt ook afzonderlijke rapportagetokens: `SONAR_REPORT_TOKEN` voor lezen en `GITLAB_REPORT_TOKEN` voor reacties bij de geanalyseerde commit en de bijbehorende gemergede MR. De centrale Python-helper draait vanuit de scanimage in `after_script`, bewaart `summary.md` en werkt bij een retry zijn eigen reactie bij. Hij controleert de analyse-ID en commit voordat hij meetwaarden publiceert. Ontbrekende of verouderde gegevens krijgen geen groen oordeel. Een fout bij het plaatsen van de reactie verandert de scanstatus niet. De precieze afspraken staan bij [de Sonar-module](modules.md#sonar).
 
 De component gebruikt SonarScanner for Maven en wacht met `sonar.qualitygate.wait=true` op het resultaat. `gate-timeout` staat standaard op 300 seconden. De standaardpipeline schakelt `sonar.maven.scanAll` in om ook niet-Java-bronnen, waaronder de Angular-UI, mee te nemen. Gegenereerde bestanden en dependencycaches zijn uitgesloten. Testdekking kan alleen worden beoordeeld als de applicatie ook coverage-rapporten aanlevert; een geslaagde analyse is geen bewijs dat zulke rapporten aanwezig zijn.
 
@@ -38,6 +38,8 @@ Community Build ondersteunt geen afzonderlijke analyse van featurebranches en me
 De component ondersteunt NVD-feeds in JSON 2.0-formaat via `nvd-datafeed-url`. Los gebruikt zij standaard de openbare NVD-feed. De lokale organisatieconfiguratie kiest de dagelijks bijgewerkte mirror van de Dependency-Check-beheerders. Daarmee is geen NVD-account nodig. GitLab bewaart de lokale database in `.cache/dependency-check/`; de eerste uitvoering duurt langer omdat de database dan nog gevuld moet worden.
 
 De grens `fail-cvss` is standaard 7. Dit is onze beleidskeuze, geen universele norm. De optionele Sonatype OSS Index-controle staat uit omdat we voor deze demo geen extra account instellen. De NVD-controle blijft verplicht. Dit controleert Maven-dependencies; de npm-lockfile wordt hiermee niet geaudit.
+
+Naast JUnit en de volledige rapporten levert de centrale helper een MR-reactie met aantallen en bevindingen. De installer maakt hiervoor `GITLAB_MR_REPORT_TOKEN` aan. Dit afzonderlijke Reporter-token is beschikbaar op de vertrouwde MR-branches van de lokale demo; de Sonar- en publicatiecredentials blijven beschermd. Zie [de moduleafspraken](modules.md#dependency-check).
 
 Feedgebruik is een ondersteunde Dependency-Check-optie. De keuze voor de publieke mirror is een demo-afspraak: de beheerders werken deze naar beste vermogen dagelijks bij, zonder beschikbaarheidsgarantie. Gegevens kunnen achterlopen. Kies in een echte organisatie een beheerde bron en afspraken over actualiteit, caching en uitzonderingen. Zie [Dependency-Check-feeds](https://dependency-check.github.io/DependencyCheck/data/mirrornvd.html) en [Maven-instellingen](https://dependency-check.github.io/DependencyCheck/dependency-check-maven/check-mojo.html).
 

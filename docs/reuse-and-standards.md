@@ -112,7 +112,7 @@ Scenario's met `@ui` draaien na beide deployments en zijn verplicht voor afrondi
 
 ### Rapportage in GitLab
 
-We gebruiken GitLabs jobstatus, JUnit-rapporten, JaCoCo-diffweergave en rapportlinks. Voor Sonar heeft de ingebouwde MR-integratie de voorkeur wanneer de editie dit ondersteunt. Community Build analyseert geen open MR's. Onze centrale Python-helper voor een **commitreactie** is daarom bewust maatwerk: hij gebruikt de officiële API's en koppelt het resultaat aan de werkelijk geanalyseerde commit. We onderhouden en testen die helper zelf; hij vervangt geen Sonar MR-analyse.
+We gebruiken GitLabs jobstatus, JUnit-rapporten, JaCoCo-diffweergave en rapportlinks. Voor Sonar heeft de ingebouwde MR-integratie de voorkeur wanneer de editie dit ondersteunt. Community Build analyseert geen open MR's. Onze centrale Python-helpers voor scannerreacties zijn bewust maatwerk: zij gebruiken de officiële API's en koppelen resultaten aan de juiste commit. Dependency-Check reageert tijdens de MR-pipeline; Sonar pas na een analyse van de merge op main. We onderhouden en testen deze helpers zelf; ze vervangen geen Sonar MR-analyse.
 
 Dependency-Check ondersteunt zelf JUnit-uitvoer. De keuze om dependencybevindingen onder GitLabs **Tests** te tonen is onze praktische afspraak voor CE, geen formele securitystandaard. De volledige scanrapporten blijven jobartifacts. Zie [rapportage en beperkingen](scanners.md#waar-vind-je-de-resultaten).
 
