@@ -88,3 +88,6 @@ include:
       dotenv: '.ci-output/$CI_JOB_NAME/outputs.env'
       junit:
         - '$[[ inputs.working-directory ]]/**/target/surefire-reports/TEST-*.xml'
+      coverage_report:
+        coverage_format: jacoco
+        path: '$[[ inputs.working-directory ]]/**/target/site/jacoco/jacoco.xml'

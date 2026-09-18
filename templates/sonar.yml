@@ -99,6 +99,9 @@ include:
       emit TASK_FILE ".ci-output/$CI_JOB_NAME/report-task.txt"
     - !reference [.ci-module, script]
   after_script:
+    # Reporting is best effort; the scanner and quality gate determine job success.
+    - |
+      python3 /opt/ci/sonar_report.py || printf '%s\n' 'Sonar summary could not be published; see the reporting error above.' >&2
     - !reference [.ci-module, after_script]
   artifacts:
     when: 'always'
@@ -107,3 +110,4 @@ include:
       - '.ci-output/$CI_JOB_NAME/'
     reports:
       dotenv: '.ci-output/$CI_JOB_NAME/outputs.env'
+      annotations: '.ci-output/$CI_JOB_NAME/annotations.json'

@@ -3,7 +3,7 @@ import base64
 import re
 from urllib.request import Request
 
-from common import HTTP, INFRA, announce, docker_architecture, load_json, local_url, run, save_json
+from common import HTTP, INFRA, ROOT, announce, docker_architecture, load_json, local_url, run, save_json
 
 MAVEN = 'maven:3.9.12-eclipse-temurin-25@sha256:4f82a03a7d6679281952d628131299b1be88d7030a49c6a2b7d2ba2642e44e3e'
 NODE = 'node:24-bookworm-slim@sha256:2fe369e969550cde8e867afc3fe370b260140cab4a23d467074295b42163d553'
@@ -69,7 +69,11 @@ def build_and_publish():
         args = [*docker, 'build', '--platform', platform, '--tag', source]
         for name, value in arguments.items():
             args += ['--build-arg', f'{name}={value}']
-        run([*args, INFRA / directory])
+        if key == 'sonar':
+            # The root .dockerignore allows only the Dockerfile and report script.
+            run([*args, '--file', INFRA / directory / 'Dockerfile', ROOT])
+        else:
+            run([*args, INFRA / directory])
         publish(key, source, suffix)
     save_json(INFRA / 'gitlab-runner/validation-image.json', {'image': references['validation']})
     return references

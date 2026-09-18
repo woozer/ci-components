@@ -1,6 +1,6 @@
 # Lokale GitLab Runner
 
-De lokale runner-manager bedient de private projecten `root/hello-world`, `root/ci-components` en `root/ci-samples` via afzonderlijke runnerregistraties. Jobs met `local-docker` gebruiken maximaal twee CPU's en 2 GiB geheugen en draaien niet privileged. De gedeelde manager voert één job tegelijk uit. De manager gebruikt de Docker-socket om jobcontainers te maken; jobs krijgen die socket niet.
+De lokale runner-manager bedient de projecten `root/hello-world`, `root/ci-components`, `root/ci-pipelines` en `root/ci-samples` via afzonderlijke runnerregistraties. Jobs met `local-docker` gebruiken maximaal twee CPU's en 2 GiB geheugen en draaien niet privileged. De gedeelde manager voert met `concurrent = 2` maximaal twee jobs tegelijk uit, verdeeld over alle zes registraties. De installer bewaart deze instelling. GitLabs afhankelijkheden en resourcegroepen kunnen jobs alsnog laten wachten. De manager gebruikt de Docker-socket om jobcontainers te maken; jobs krijgen die socket niet.
 
 Start of stop de runner vanuit `ci`:
 

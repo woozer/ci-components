@@ -2,6 +2,7 @@
 """Configure this lab's SonarQube and a project-scoped GitLab analysis token."""
 import argparse
 import base64
+from datetime import date, timedelta
 import json
 import os
 from pathlib import Path
@@ -68,6 +69,43 @@ def prepare():
     print('Pinned local Artifactory images and generated private database credentials.')
 
 
+def configure_reporting(gitlab, project):
+    account_path = PRIVATE / (PROJECT + '-report-account.json')
+    if not account_path.exists():
+        save(account_path, json.dumps({'login': 'gitlab-report-' + PROJECT,
+                                      'password': secrets.token_urlsafe(24) + 'Aa1!'}))
+    account = json.loads(account_path.read_text())
+    login = account['login']
+    if not any(user['login'] == login for user in api('/api/users/search', values={'q': login})['users']):
+        api('/api/users/create', 'POST', {'login': login, 'name': PROJECT + ' CI reporting',
+                                         'password': account['password'], 'local': 'true'})
+    api('/api/permissions/add_user', 'POST', {'login': login, 'projectKey': PROJECT, 'permission': 'user'})
+    sonar_path = PRIVATE / (PROJECT + '-report-token')
+    if not sonar_path.exists():
+        token = api('/api/user_tokens/generate', 'POST', {'name': PROJECT + '-report', 'type': 'USER_TOKEN'},
+                    login=login, password=account['password'])['token']
+        save(sonar_path, token + '\n')
+    gitlab_path = PRIVATE / (PROJECT + '-gitlab-report-token.json')
+    if not gitlab_path.exists():
+        token = gitlab.api(f'/projects/{project}/access_tokens', 'POST', {
+            'name': 'Sonar commit reports', 'scopes': ['api'], 'access_level': 20,
+            'expires_at': (date.today() + timedelta(days=365)).isoformat()})
+        save(gitlab_path, json.dumps(token))
+    gitlab.variable('SONAR_REPORT_TOKEN', sonar_path.read_text().strip(), project=project, protected=True, masked=True)
+    gitlab.variable('GITLAB_REPORT_TOKEN', json.loads(gitlab_path.read_text())['token'],
+                    project=project, protected=True, masked=True)
+    mr_path = PRIVATE / (PROJECT + '-gitlab-mr-report-token.json')
+    if not mr_path.exists():
+        token = gitlab.api(f'/projects/{project}/access_tokens', 'POST', {
+            'name': 'MR scan reports', 'scopes': ['api'], 'access_level': 20,
+            'expires_at': (date.today() + timedelta(days=365)).isoformat()})
+        save(mr_path, json.dumps(token))
+    # This demo accepts trusted same-project branches; forks are not report targets.
+    gitlab.variable('GITLAB_MR_REPORT_TOKEN', json.loads(mr_path.read_text())['token'],
+                    project=project, protected=False, masked=True)
+    gitlab.variable('GITLAB_REPORT_API_URL', 'http://host.docker.internal:8929/api/v4', project=project)
+
+
 def configure():
     secret = credentials()
     if not api('/api/authentication/validate').get('valid'):
@@ -96,7 +134,8 @@ def configure():
     gitlab.variable('SONAR_HOST_URL', 'http://sonarqube:9000', project=project)
     gitlab.variable('SONAR_PROJECT_KEY', PROJECT, project=project)
     gitlab.variable('SONAR_TOKEN', token_path.read_text().strip(), project=project, protected=True, masked=True)
-    print('SonarQube project configured; protected project analysis token stored in local GitLab.')
+    configure_reporting(gitlab, project)
+    print('SonarQube project configured; protected analysis and reporting tokens stored in local GitLab.')
 
 
 if __name__ == '__main__':

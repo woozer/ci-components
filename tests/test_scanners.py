@@ -5,7 +5,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from test_contracts import Harness
+from test_contracts import Harness, ROOT
 
 
 class ScannerTests(unittest.TestCase):
@@ -18,11 +18,16 @@ class ScannerTests(unittest.TestCase):
         h = Harness(self.root, 'sonar', inputs=inputs, env={
             'SONAR_HOST_URL': 'https://sonar.example.com', 'SONAR_TOKEN': 'test-only',
             'SONAR_PROJECT_KEY': 'example'})
+        h.env.pop('SONAR_REPORT_TOKEN', None)
+        h.env.pop('GITLAB_REPORT_TOKEN', None)
+        h.job['after_script'] = [command.replace('/opt/ci/sonar_report.py',
+                                 str(ROOT / 'scripts/sonar_report.py')) for command in h.job['after_script']]
         h.write('bin/mvn', '''#!/bin/sh
 printf '%s\n' "$@" > "$CI_PROJECT_DIR/maven-args"
 printf 'scan\n' >> "$CI_PROJECT_DIR/events"
 if [ "${FAKE_METADATA:-yes}" = yes ]; then
   printf 'ceTaskId=exact-task\n' > "$CI_MODULE_OUTPUT_DIR/report-task.txt"
+  printf 'dashboardUrl=%s\n' "${FAKE_DASHBOARD_URL-https://sonar.example.com/dashboard?id=example}" >> "$CI_MODULE_OUTPUT_DIR/report-task.txt"
 fi
 exit "${FAKE_MAVEN_EXIT:-0}"
 ''')
@@ -41,6 +46,10 @@ exit "${FAKE_MAVEN_EXIT:-0}"
         self.assertEqual(['scan', 'post', 'cleanup'], h.events())
         self.assertEqual('passed', h.outputs()['SONAR_STATUS'])
         self.assertIn('ceTaskId=exact-task', (self.root / h.outputs()['SONAR_TASK_FILE']).read_text())
+        self.assertEqual(0, h.cleanup.returncode, h.cleanup.stderr)
+        self.assertEqual({'sonar': [{'external_link': {
+            'label': 'Open SonarQube', 'url': 'https://sonar.example.com/dashboard?id=example'}}]},
+            json.loads((h.output_file.parent / 'annotations.json').read_text()))
 
     def test_sonar_scanner_or_gate_failure_blocks_post_hook_and_outputs(self):
         h = self.sonar(**{'maven-executable': 'mvn'})
@@ -49,20 +58,55 @@ exit "${FAKE_MAVEN_EXIT:-0}"
         self.assertEqual(['scan', 'cleanup'], h.events())
         self.assertTrue((h.output_file.parent / 'report-task.txt').exists())
         self.assertFalse(h.output_file.exists())
+        self.assertEqual(0, h.cleanup.returncode, h.cleanup.stderr)
+        self.assertTrue(json.loads((h.output_file.parent / 'annotations.json').read_text())['sonar'])
 
     def test_sonar_missing_metadata_is_not_success(self):
         h = self.sonar(**{'maven-executable': 'mvn'})
         h.env['FAKE_METADATA'] = 'no'
         self.assertNotEqual(0, h.run().returncode)
         self.assertFalse(h.output_file.exists())
+        self.assertEqual(0, h.cleanup.returncode, h.cleanup.stderr)
+        self.assertFalse((h.output_file.parent / 'annotations.json').exists())
+
+    def test_sonar_dashboard_link_preserves_url_and_works_with_custom_job_and_workdir(self):
+        h = self.sonar(**{'maven-executable': 'mvn', 'job-name': 'backend-sonar',
+                         'working-directory': 'backend'})
+        (self.root / 'backend').mkdir()
+        url = 'https://sonar.example.com/dashboard?id=team:app&branch=main&extra="quoted"\\path'
+        h.env['FAKE_DASHBOARD_URL'] = url
+        result = h.run()
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertEqual(0, h.cleanup.returncode, h.cleanup.stderr)
+        report = json.loads((h.output_file.parent / 'annotations.json').read_text())
+        self.assertEqual(url, report['sonar'][0]['external_link']['url'])
+
+    def test_sonar_metadata_without_dashboard_url_does_not_invent_a_link(self):
+        for url in ('', 'javascript:alert(1)', 'https://sonar.example.com/invalid\tpath'):
+            with self.subTest(url=url):
+                h = self.sonar(**{'maven-executable': 'mvn'})
+                h.env['FAKE_DASHBOARD_URL'] = url
+                result = h.run()
+                self.assertEqual(0, result.returncode, result.stderr)
+                self.assertEqual(0, h.cleanup.returncode, h.cleanup.stderr)
+                self.assertEqual({'sonar': []},
+                                 json.loads((h.output_file.parent / 'annotations.json').read_text()))
 
     def dependency_check(self):
-        h = Harness(self.root, 'dependency-check', inputs={'maven-executable': 'mvn'})
+        h = Harness(self.root, 'dependency-check', inputs={'maven-executable': 'mvn'}, env={
+            'CI_PIPELINE_URL': 'https://gitlab.example/project/-/pipelines/99',
+            'CI_JOB_URL': 'https://gitlab.example/project/-/jobs/42'})
         h.env.pop('NVD_API_KEY', None)
+        h.env.pop('GITLAB_MR_REPORT_TOKEN', None)
+        h.job['after_script'] = [command.replace('/opt/ci/dependency_report.py',
+                                 str(ROOT / 'scripts/dependency_report.py')) for command in h.job['after_script']]
         h.write('bin/mvn', '''#!/bin/sh
 printf '%s\n' "$@" > "$CI_PROJECT_DIR/maven-args"
 if [ "${FAKE_REPORT:-yes}" = yes ]; then
-  printf '{}' > "$CI_MODULE_OUTPUT_DIR/dependency-check-report.json"
+  printf '{"scanInfo":{},"dependencies":[]}' > "$CI_MODULE_OUTPUT_DIR/dependency-check-report.json"
+  if [ "${FAKE_JUNIT:-yes}" = yes ]; then
+    printf '<testsuites/>\n' > "$CI_MODULE_OUTPUT_DIR/dependency-check-junit.xml"
+  fi
 fi
 exit "${FAKE_MAVEN_EXIT:-0}"
 ''')
@@ -78,10 +122,12 @@ exit "${FAKE_MAVEN_EXIT:-0}"
         self.assertIn('-DdataDirectory=' + str(self.root / '.cache/dependency-check'), args)
         self.assertIn('-DfailOnError=true', args)
         self.assertIn('-DfailBuildOnCVSS=7', args)
+        self.assertIn('-DjunitFailOnCVSS=7', args)
         self.assertIn('-DossIndexAnalyzerEnabled=false', args)
-        self.assertIn('-Dformats=HTML,JSON', args)
+        self.assertIn('-Dformats=HTML,JSON,JUNIT', args)
         self.assertFalse(any('ApiKey' in arg for arg in args))
         self.assertEqual('passed', h.outputs()['DEPENDENCY_CHECK_STATUS'])
+        self.assertIn('**Geslaagd**', (h.output_file.parent / 'summary.md').read_text())
 
     def test_dependency_check_feed_or_scan_error_blocks_success(self):
         h = self.dependency_check()
@@ -93,6 +139,12 @@ exit "${FAKE_MAVEN_EXIT:-0}"
     def test_dependency_check_requires_a_report(self):
         h = self.dependency_check()
         h.env['FAKE_REPORT'] = 'no'
+        self.assertNotEqual(0, h.run().returncode)
+        self.assertFalse(h.output_file.exists())
+
+    def test_dependency_check_requires_junit_for_the_promised_gitlab_report(self):
+        h = self.dependency_check()
+        h.env['FAKE_JUNIT'] = 'no'
         self.assertNotEqual(0, h.run().returncode)
         self.assertFalse(h.output_file.exists())
 
