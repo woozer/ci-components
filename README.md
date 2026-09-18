@@ -29,7 +29,7 @@ De [installer](installation.md) vult vier gelijknamige projecten in de lokale Gi
 ## Zelf een pipeline samenstellen
 
 1. Kies een module uit de [modulehandleiding](docs/modules.md).
-2. Neem het minimale voorbeeld over, kies een uitgebrachte bibliotheekversie zoals `1.0.0` en vul de verplichte inputs in. Optionele standaardwaarden kun je weglaten.
+2. Neem het minimale voorbeeld over, kies een uitgebrachte bibliotheekversie zoals `2.0.0` en vul de verplichte inputs in. Optionele standaardwaarden kun je weglaten.
 3. Verbind jobs met GitLabs `needs` en artifacts/dotenv. Begin met een [uitvoerbaar voorbeeld](examples/samples/README.md).
 
 | Klein beginnen | Een volgende stap toevoegen | Modules herhalen |
@@ -50,7 +50,7 @@ Gebruik [java-service uit ci-pipelines](https://github.com/woozer/ci-pipelines) 
 
 ```yaml
 include:
-  - component: $CI_SERVER_FQDN/root/ci-pipelines/java-service@1.0.0
+  - component: $CI_SERVER_FQDN/root/ci-pipelines/java-service@1.1.0
     inputs:
       maven-project: hello-app
 ```
