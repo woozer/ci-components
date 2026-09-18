@@ -122,7 +122,7 @@ git submodule update --init --recursive
 
 Voer dit commando ook uit na een update van de componentbibliotheek. De installer controleert of alle drie submodules beschikbaar zijn op de vastgelegde commit. Gebruik voor installatie de actuele `main`; de benodigde tags staan in `infra/seed/manifest.json`.
 
-Neem bij het overzetten naar een externe remote ook de componenttags `1.0.0` en `1.2.0` en de tag `1.0.0` van **ci-pipelines** mee. De applicatie gebruikt de pipelineversie; de pipeline zet haar moduleversies zelf vast. `check` controleert of de tags lokaal beschikbaar zijn. Nieuwe GitLab-projecten worden alleen gevuld als hun repository leeg is; bestaande branchgeschiedenis wordt niet vervangen.
+Neem bij het overzetten naar een externe remote ook de componenttags `1.0.0`, `1.2.0` en `2.0.0` en de tags `1.0.0` en `1.1.0` van **ci-pipelines** mee. De huidige applicatie gebruikt pipelineversie `1.1.0`, die componentversie `2.0.0` vastzet. `check` controleert of de tags lokaal beschikbaar zijn. Nieuwe GitLab-projecten worden alleen gevuld als hun repository leeg is; bestaande branchgeschiedenis wordt niet vervangen.
 
 ## Opnieuw installeren of verhuizen
 
@@ -142,7 +142,7 @@ Wil je de huidige gebruikers, merge requests, artifacts en scanresultaten behoud
 
 ## Lokale adressen
 
-De installer registreert `ci-components` en `ci-pipelines` als afzonderlijke catalogusprojecten. Op een lege installatie ontbreken nog de GitLab-releases, ook als de broncodetags al zijn overgezet. Open bij **ci-components → Build → Pipelines → New pipeline** de tag `1.2.0` en start de pipeline. Na de contracttests, alle samples en **publish-catalog** verschijnt deze versie in de [lokale CI/CD Catalog](http://localhost:8929/explore/catalog). Voer daarna bij **ci-pipelines** hetzelfde uit voor de tag `1.0.0`; die pipeline valideert de standaardpipeline in **ci-samples** en publiceert `java-service`. Doe dit alleen als die catalogusreleases nog niet bestaan; bestaande versies blijven behouden. Zie [cataloguspublicatie](docs/component-versions.md#publicatie-in-de-cicd-catalog).
+De installer registreert `ci-components` en `ci-pipelines` als afzonderlijke catalogusprojecten. Op een lege installatie ontbreken nog de GitLab-releases, ook als de broncodetags al zijn overgezet. Open bij **ci-components → Build → Pipelines → New pipeline** de tag `2.0.0` en start de pipeline. Na de contracttests, alle samples en **publish-catalog** verschijnt deze versie in de [lokale CI/CD Catalog](http://localhost:8929/explore/catalog). Voer daarna bij **ci-pipelines** hetzelfde uit voor de tag `1.1.0`; die pipeline valideert de standaardpipeline in **ci-samples** en publiceert `java-service`. Doe dit alleen als die catalogusreleases nog niet bestaan; bestaande versies blijven behouden. Zie [cataloguspublicatie](docs/component-versions.md#publicatie-in-de-cicd-catalog).
 
 | Dienst | Adres |
 |---|---|

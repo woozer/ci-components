@@ -41,6 +41,6 @@ Versie `2.0.0` verwijdert de oude pipelinebestanden uit deze bibliotheek na de v
 
 ## Scheiding tussen bouwblokken en standaardpipeline
 
-`ci-components@1.2.0` bevat de vaste bouwblokken waarop `ci-pipelines/java-service@1.0.0` steunt. Een nieuwe pipelineversie vereist geen nieuwe moduleversie. Een module-upgrade wordt pas onderdeel van de standaardpipeline nadat de combinatie is getest en als nieuwe pipelineversie is uitgebracht. Deze tweedeling is onze beheerkeuze; GitLab ondersteunt [meerdere componenten per project met gezamenlijke versies](https://docs.gitlab.com/ci/components/#component-project).
+`ci-components@2.0.0` bevat de vaste bouwblokken waarop `ci-pipelines/java-service@1.1.0` steunt. Deze combinatie levert de test- en scanrapportage van de huidige demo. Een nieuwe pipelineversie vereist geen nieuwe moduleversie. Een module-upgrade wordt pas onderdeel van de standaardpipeline nadat de combinatie is getest en als nieuwe pipelineversie is uitgebracht. Deze tweedeling is onze beheerkeuze; GitLab ondersteunt [meerdere componenten per project met gezamenlijke versies](https://docs.gitlab.com/ci/components/#component-project).
 
 Vanaf `2.0.0` staat de standaardpipeline niet meer als eigen bestand onder `pipelines/java-service.yml`. Bestaande tags, waaronder `1.0.0` en `1.2.0`, blijven intact en leveren de oude include nog. Migreer naar `include:component` uit `root/ci-pipelines/java-service` en kies een gepubliceerde pipelineversie. Verwijder daarbij `library-ref` en neem het formulier uit **ci-pipelines** op dezelfde pipelineversie op.
