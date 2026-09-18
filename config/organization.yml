@@ -18,7 +18,7 @@ variables:
   CUCUMBER_TEST_IMAGE: $JAVA_CI_IMAGE
   CUCUMBER_UI_IMAGE: $BROWSER_CI_IMAGE
   SONAR_IMAGE: $SONAR_CI_IMAGE
-  DEPENDENCY_CHECK_IMAGE: $JAVA_CI_IMAGE
+  DEPENDENCY_CHECK_IMAGE: $SONAR_CI_IMAGE
   # Maintainer-provided daily NVD mirror: no external account or API key.
   NVD_DATAFEED_URL: 'https://dependency-check.github.io/DependencyCheck_Builder/nvd_cache/nvdcve-{0}.json.gz'
   MAVEN_PUBLISH_IMAGE: $JAVA_CI_IMAGE

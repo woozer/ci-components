@@ -4,7 +4,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'infra/setup'))
@@ -16,6 +16,40 @@ sonar_bootstrap = load_module('sonar_setup_test', ROOT / 'infra/sonarqube/bootst
 
 
 class InstallerTests(unittest.TestCase):
+    def test_sonar_reporting_uses_read_permission_and_reuses_scoped_tokens(self):
+        with tempfile.TemporaryDirectory() as directory:
+            private = Path(directory)
+            gitlab = Mock()
+            gitlab.api.return_value = {'token': 'gitlab-fixture-token', 'id': 5, 'access_level': 20}
+
+            def sonar_api(path, method='GET', values=None, **kwargs):
+                if path == '/api/users/search':
+                    return {'users': [{'login': 'gitlab-report-hello-world'}]}
+                if path == '/api/user_tokens/generate':
+                    return {'token': 'sonar-fixture-token'}
+                return {}
+
+            with patch.object(sonar_bootstrap, 'PRIVATE', private), \
+                 patch.object(sonar_bootstrap, 'api', side_effect=sonar_api) as api:
+                sonar_bootstrap.configure_reporting(gitlab, 7)
+                api.assert_any_call('/api/permissions/add_user', 'POST', {
+                    'login': 'gitlab-report-hello-world', 'projectKey': 'hello-world', 'permission': 'user'})
+                self.assertEqual(['api'], gitlab.api.call_args.args[2]['scopes'])
+                self.assertEqual(20, gitlab.api.call_args.args[2]['access_level'])
+                original = {p.name: p.read_text() for p in private.iterdir()}
+                gitlab.reset_mock()
+                api.reset_mock()
+                sonar_bootstrap.configure_reporting(gitlab, 7)
+                gitlab.api.assert_not_called()
+                self.assertFalse(any(c.args[0] == '/api/user_tokens/generate' for c in api.call_args_list))
+                self.assertEqual(original, {p.name: p.read_text() for p in private.iterdir()})
+                for path in private.iterdir():
+                    self.assertEqual(0o600, path.stat().st_mode & 0o777)
+                for call in gitlab.variable.call_args_list:
+                    if call.args[0].endswith('_TOKEN'):
+                        self.assertEqual(call.args[0] != 'GITLAB_MR_REPORT_TOKEN', call.kwargs['protected'])
+                        self.assertTrue(call.kwargs['masked'])
+
     def test_sonar_passwords_always_meet_policy_and_survive_reinstall(self):
         with tempfile.TemporaryDirectory() as directory, \
              patch.object(sonar_bootstrap, 'PRIVATE', Path(directory)), \

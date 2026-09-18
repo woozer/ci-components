@@ -147,6 +147,8 @@ Bouwt een Maven-project of reactor en voert de unittests uit.
 
 **Bestanden:** `<workdir>/**/target/`. Surefire-rapporten uit `<workdir>/**/target/surefire-reports/TEST-*.xml` zijn ook als JUnit-rapporten gedeclareerd. De POM bepaalt welke JARs, andere packages en coveragebestanden ontstaan.
 
+**Zichtbaar in GitLab:** de JUnit-resultaten verschijnen onder **Tests** bij de pipeline en in de testsamenvatting van een MR. Bestaande JaCoCo-rapporten uit `<workdir>/**/target/site/jacoco/jacoco.xml` worden via `artifacts:reports:coverage_report` ingelezen. Daarmee toont GitLab in de MR-diff welke gewijzigde regels door tests worden afgedekt. Gebruik bij meerdere Maven-modules afzonderlijke rapporten; GitLab ondersteunt hiervoor geen geaggregeerd JaCoCo-reactorrapport. Dit stelt geen minimale testdekking in en toont op zichzelf geen coveragepercentage. Zonder JaCoCo-rapport blijft de build bruikbaar, maar ontbreekt de coverageweergave. Zie [GitLabs JaCoCo-weergave](https://docs.gitlab.com/ci/testing/code_coverage/jacoco/).
+
 **Vervolgjob:** haal de buildjob op via `needs` met artifacts voor classes, packages of coverage, bijvoorbeeld voor Sonar. Gebruik het bij de applicatie afgesproken pad binnen `target/`.
 
 ## maven-publish
@@ -323,17 +325,21 @@ Analyseert het Maven-project met SonarScanner for Maven en wacht op de quality g
 
 [Voorbeeld](../examples/modules/sonar.yml) · [Inputdefinitie en implementatie](../templates/sonar.yml)
 
-**Vooraf:** Een JDK, Maven, Git en bij JS/TS-analyse ook de benodigde Node-runtime. Stel `SONAR_HOST_URL`, `SONAR_PROJECT_KEY` en een beperkt `SONAR_TOKEN` in. Haal coverage van build- en testjobs via `needs` op en configureer de rapportpaden. Voor gecombineerde Java/UI-analyse moeten ook de frontendbronnen en LCOV in de Sonar-configuratie staan. Een zelfstandige frontendscanner is niet in deze module geïmplementeerd.
+**Vooraf:** Een JDK, Maven, Git en bij JS/TS-analyse ook de benodigde Node-runtime. Voor rapportage bevat de image ook Python 3 en [de rapportagehelper](../scripts/sonar_report.py) op `/opt/ci/sonar_report.py`; de lokale installer verzorgt dit. Stel `SONAR_HOST_URL`, `SONAR_PROJECT_KEY` en een beperkt `SONAR_TOKEN` in. Haal coverage van build- en testjobs via `needs` op en configureer de rapportpaden. Voor gecombineerde Java/UI-analyse moeten ook de frontendbronnen en LCOV in de Sonar-configuratie staan. Een zelfstandige frontendscanner is niet in deze module geïmplementeerd.
 
 Houd `gate-timeout` binnen `job-timeout`. De lokale Community Build draait in onze standaardpipeline alleen op protected `main` en tijdens releases; zie [scannerinrichting](scanners.md).
 
-**Werking en controles:** De module vereist een geslaagde analyse met `sonar.qualitygate.wait=true` en een niet-leeg taakbestand. De Sonar-opdracht bepaalt of de gate slaagt; de module parseert het taakbestand niet zelf.
+**Werking en controles:** De module vereist een geslaagde analyse met `sonar.qualitygate.wait=true` en een niet-leeg taakbestand. De Sonar-opdracht bepaalt of de gate slaagt. De rapportagehelper leest de gate en meetwaarden via de Sonar-API en controleert of de voltooide analyse bij deze scantaak, dit project en exact deze commit hoort. Als inmiddels een nieuwere analyse beschikbaar is, wordt geen samenvatting gepubliceerd. Een rapportagefout verandert de jobstatus niet.
 
 | Output | Betekenis |
 |---|---|
 | `SONAR_TASK_FILE` | Bestand `<output-dir>/report-task.txt` met metadata van de scantaak |
 
-**Bestanden en opslag:** `report-task.txt` is een jobartifact. De analyse en quality-gatestatus staan in SonarQube; dit bestand is geen volledige export van de bevindingen.
+**Bestanden en opslag:** `report-task.txt` is een jobartifact. `annotations.json` wordt in `after_script` aangemaakt als het taakbestand beschikbaar is. Via `artifacts:reports:annotations` verschijnt **Open SonarQube** op de jobpagina zodra het taakbestand een HTTP(S)-dashboard-URL bevat. Dit gebeurt ook bij een afgekeurde quality gate; zonder dashboard-URL verschijnt geen link. De gedeelde cleanup-hook blijft beschikbaar. De analyse en quality-gatestatus staan in SonarQube; deze artifacts zijn geen volledige export van de bevindingen. Zie [GitLab-joblinks](https://docs.gitlab.com/ci/yaml/artifacts_reports/#artifactsreportsannotations).
+
+**Zichtbaar in GitLab:** de jobstatus geeft aan of de analyse en quality gate geslaagd zijn; de link opent het dashboard. Met `SONAR_REPORT_TOKEN` schrijft de helper bovendien `summary.md` met de gate, projectmeetwaarden en commit. Dit token heeft alleen leesrechten nodig op het Sonar-project. Met ook `GITLAB_REPORT_TOKEN` plaatst de helper dezelfde samenvatting als discussie bij de geanalyseerde commit. Gebruik een project access token met de rol Reporter en scope `api`. Standaard gebruikt de helper `CI_API_V4_URL`; `GITLAB_REPORT_API_URL` kan een intern bereikbaar adres opgeven. Bewaar beide tokens als gemaskeerde, beschermde variabelen. De installer regelt dit lokaal.
+
+Een retry werkt de eigen reactie voor dezelfde job en pipeline bij; reacties van anderen blijven behouden. Een nieuwe pipeline krijgt een eigen resultaat. Na een analyse van `main` plaatst de helper de samenvatting ook in de bijbehorende **gemergede MR**, als de geanalyseerde commit exact overeenkomt met de merge-, squash- of eindcommit. Community Build ondersteunt geen branch- of MR-analyse: dit resultaat is pas na het mergen beschikbaar. Gebruik bij een geschikte Sonar-editie bij voorkeur de ingebouwde MR-integratie; zie [rapportagekeuzes](scanners.md#waar-vind-je-de-resultaten).
 
 **Vervolgjob:** gebruik `needs` met artifacts als taakmetadata nodig is. Voor alleen de verplichte quality gate gebruik je de geslaagde job als afhankelijkheid met `artifacts: false`.
 
@@ -347,15 +353,23 @@ Controleert Maven-dependencies met OWASP Dependency-Check en blokkeert op de ing
 
 **Vooraf:** Een JDK die bij de gekozen plugin past, Maven en toegang tot de NVD-feed. De module gebruikt standaard een openbare JSON-feed zonder API-key; `nvd-datafeed-url` kan een interne mirror aanwijzen. Configureer een cache voor `.cache/dependency-check/` om de database te hergebruiken. De eerste uitvoering kan langer duren. De npm-lockfile wordt niet door deze module gecontroleerd.
 
+Voor MR-reacties bevat de image ook Python 3, `/opt/ci/dependency_report.py` en de gedeelde helper `report_api.py`. Onze demo gebruikt hiervoor dezelfde Maven-scanimage als Sonar. Met de gemaskeerde variabele `GITLAB_MR_REPORT_TOKEN` kan de helper een reactie plaatsen; gebruik een project access token met Reporter en scope `api`. Het token moet voor de MR-branch beschikbaar zijn. De lokale installer maakt een afzonderlijk, niet-beschermd rapportagetoken voor vertrouwde branches binnen hetzelfde project. Stel dit in een organisatie bewust in volgens het beleid voor branchcode en credentials; forks zijn geen doel voor deze rapportage.
+
 De optionele OSS Index-controle staat uit. De lokale mirror, uitzonderingen en beperkingen staan bij [scannerinrichting](scanners.md#dependency-check-zonder-api-key).
 
-**Werking en controles:** De module vereist een geslaagde scan met de ingestelde `fail-cvss`-grens en `failOnError=true`. Daarna controleert de module of het JSON-rapport niet leeg is. Zij controleert het HTML-bestand en de JSON-structuur niet afzonderlijk.
+**Werking en controles:** De module vereist een geslaagde scan met de ingestelde `fail-cvss`-grens en `failOnError=true`. Daarna controleert de module of het JSON- en JUnit-rapport niet leeg zijn. Zij controleert het HTML-bestand en de rapportstructuur niet afzonderlijk. De JUnit-bevindingen gebruiken dezelfde CVSS-grens als de scanjob.
 
 | Output | Betekenis |
 |---|---|
 | `DEPENDENCY_CHECK_REPORT_DIR` | Map `<output-dir>` met de scanrapporten |
 
-**Bestanden:** `<output-dir>/dependency-check-report.json` en `<output-dir>/dependency-check-report.html`. Dit zijn gewone jobartifacts, geen CycloneDX-SBOM of GitLab dependency-scanningrapport.
+**Bestanden:** `<output-dir>/dependency-check-report.json`, `<output-dir>/dependency-check-report.html` en `<output-dir>/dependency-check-junit.xml`. Dit zijn jobartifacts, geen CycloneDX-SBOM of GitLab dependency-scanningrapport.
+
+**Zichtbaar in GitLab:** het native JUnit-rapport verschijnt via `artifacts:reports:junit` onder **Tests** bij de pipeline en in de testsamenvatting van de MR, met aanklikbare foutdetails. Dit zijn dependencycontroles, geen applicatie-unittests. OWASP ondersteunt dit uitvoerformaat; presentatie onder Tests is onze praktische keuze voor GitLab CE. De ingebouwde dependency-scanningweergave vereist GitLab Ultimate.
+
+Daarnaast voegt `artifacts:expose_as` de MR-link **Dependency-Check report** toe naar de volledige artifactmap. Buiten een MR blijven de bestanden bij de job beschikbaar, ook als de scan mislukt. Het pad wordt bij het samenstellen van de configuratie uit `job-name` ingevuld. Of HTML in de browser opent of wordt gedownload, hangt af van de GitLab Pages-inrichting. Zie [GitLabs testrapporten](https://docs.gitlab.com/ci/testing/unit_test_reports/), [rapportlinks](https://docs.gitlab.com/ci/yaml/#artifactsexpose_as) en [OWASPs JUnit-instellingen](https://dependency-check.github.io/DependencyCheck/dependency-check-maven/aggregate-mojo.html).
+
+De helper schrijft in `after_script` ook `summary.md` met de jobstatus, aantallen, maximaal twintig unieke bevindingen en links. In een MR-pipeline plaatst hij die samenvatting als reactie, ook bij een mislukte scan met een beschikbaar rapport. Hij controleert of de MR nog openstaat en dezelfde commit bevat. Retries werken alleen de eigen reactie voor die job en pipeline bij. Ontbrekende credentials of een rapportagefout veranderen de scanstatus niet. Deze reactie is onze eigen integratie via de GitLab Notes API.
 
 **Vervolgjob:** haal deze job op via `needs` met artifacts om de rapporten te verwerken. Gebruik `artifacts: false` als alleen de scan moet slagen.
 
